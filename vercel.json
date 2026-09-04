@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/mid-week",
+      "schedule": "0 15 * * 3"
+    },
+    {
+      "path": "/api/cron/weekend",
+      "schedule": "0 9 * * 5"
+    },
+    {
+      "path": "/api/cron/trigger-ai",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
