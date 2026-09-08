@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import AudienceAccordion from "@/components/AudienceAccordion";
 
 export default function LandingPage() {
   return (
@@ -70,6 +71,19 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* Target Audience Accordion Section */}
+      <section className="py-24 px-6">
+        <div className="max-w-4xl mx-auto text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-zinc-100">
+            Who is this for?
+          </h2>
+          <p className="text-xl text-zinc-400">
+            Whether you&apos;re single, dating, or married, Between Us adapts to exactly what you need.
+          </p>
+        </div>
+        <AudienceAccordion />
       </section>
 
       {/* Web-Only Framing Section */}
