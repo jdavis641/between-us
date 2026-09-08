@@ -7,6 +7,7 @@ import { boundaryMatrix } from '../lib/boundaryData'
 export default function OnboardingFlow() {
   const [step, setStep] = useState(1)
   const [authMessage, setAuthMessage] = useState('')
+  const [isEmailSent, setIsEmailSent] = useState(false)
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -76,7 +77,7 @@ export default function OnboardingFlow() {
     if (error) {
       setAuthMessage(error.message)
     } else {
-      setAuthMessage('Check your email! Click the secure link to return and continue.')
+      setIsEmailSent(true)
     }
   }
 
@@ -88,22 +89,38 @@ export default function OnboardingFlow() {
   if (loading) return <div className="min-h-screen bg-gray-900 text-white p-8">Loading secure connection...</div>
 
   // STEP 1: AUTHENTICATION
-  if (step === 1) return (
-    <div className="flex flex-col space-y-4 min-h-screen bg-gray-900 text-white p-8">
-      <h2 className="text-2xl font-bold">Step 1: Secure Sign In / Sign Up</h2>
-      <p className="text-sm text-gray-400">Enter your email to receive a secure, passwordless magic link.</p>
-      <input 
-        type="email" 
-        placeholder="Enter email address" 
-        className="p-3 text-black rounded"
-        onChange={(e) => setFormData({...formData, email: e.target.value})} 
-      />
-      <button onClick={handleSendMagicLink} className="bg-blue-600 p-3 rounded font-bold mt-4 hover:bg-blue-500">
-        Send Magic Link
-      </button>
-      {authMessage && <p className="text-yellow-500 font-bold mt-4">{authMessage}</p>}
-    </div>
-  )
+  if (step === 1) {
+    if (isEmailSent) {
+      return (
+        <div className="flex flex-col space-y-4 min-h-screen bg-gray-900 text-white p-8 items-center justify-center text-center">
+          <div className="w-16 h-16 bg-green-900/50 text-green-500 rounded-full flex items-center justify-center text-3xl mb-4">
+            ✓
+          </div>
+          <h2 className="text-2xl font-bold">Check your email</h2>
+          <p className="text-gray-300 max-w-md">
+            A secure magic link has been sent. Please check your registered email (including spam folders) to log in or complete your setup.
+          </p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex flex-col space-y-4 min-h-screen bg-gray-900 text-white p-8">
+        <h2 className="text-2xl font-bold">Step 1: Secure Sign In / Sign Up</h2>
+        <p className="text-sm text-gray-400">Enter your email to receive a secure, passwordless magic link.</p>
+        <input 
+          type="email" 
+          placeholder="Enter email address" 
+          className="p-3 text-black rounded"
+          onChange={(e) => setFormData({...formData, email: e.target.value})} 
+        />
+        <button onClick={handleSendMagicLink} className="bg-blue-600 p-3 rounded font-bold mt-4 hover:bg-blue-500">
+          Send Magic Link
+        </button>
+        {authMessage && <p className="text-yellow-500 font-bold mt-4">{authMessage}</p>}
+      </div>
+    )
+  }
 
   // STEP 2: PAYMENT GATE
   if (step === 2) return (
