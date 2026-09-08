@@ -58,7 +58,7 @@ export default function ExperienceReader({ params }: { params: { id: string } })
           <h1 className="text-3xl md:text-5xl font-bold leading-tight">{experience.title}</h1>
         </header>
 
-        {/* Pre-Experience Tasks (Only renders if it's a weekend roleplay with tasks) */}
+        {/* Pre-Experience Tasks */}
         {experience.pre_experience_tasks && (
           <section className="bg-gray-800 p-6 rounded-xl border border-gray-700">
             <h2 className="text-xl font-bold text-gray-100 mb-4 flex items-center">
@@ -77,7 +77,6 @@ export default function ExperienceReader({ params }: { params: { id: string } })
 
         {/* Main Content Body */}
         <section className="prose prose-invert prose-lg max-w-none text-gray-300 leading-relaxed space-y-6">
-          {/* Splits the text by newlines to render proper paragraph spacing */}
           {experience.body.split('\n').map((paragraph: string, index: number) => (
             paragraph.trim() ? <p key={index}>{paragraph}</p> : <br key={index} />
           ))}
