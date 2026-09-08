@@ -111,7 +111,7 @@ export default function OnboardingFlow() {
         <input 
           type="email" 
           placeholder="Enter email address" 
-          className="p-3 text-black rounded"
+          className="w-full p-3 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
           onChange={(e) => setFormData({...formData, email: e.target.value})} 
         />
         <button onClick={handleSendMagicLink} className="bg-blue-600 p-3 rounded font-bold mt-4 hover:bg-blue-500">
