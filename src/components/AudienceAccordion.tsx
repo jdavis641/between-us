@@ -16,7 +16,7 @@ const audiences = [
   {
     title: 'Married Couples',
     icon: '💍',
-    content: 'A lack of open, judgment-free communication is a leading cause of relationship disconnect. Maintain a spicy marriage by linking your profiles to safely share evolving boundaries and desires. By computing the safe intersection of your mutual interests, you can effortlessly understand your partner\'s intimate triggers and preferences without the anxiety of rejection or awkwardness.'
+    content: "A lack of open, judgment-free communication is a leading cause of relationship disconnect. Maintain a spicy marriage by linking your profiles to safely share evolving boundaries and desires. By discovering the safe intersection of your mutual interests, you can effortlessly understand your partner's intimate triggers and preferences without the anxiety of rejection or awkwardness."
   }
 ]
 
