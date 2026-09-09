@@ -32,5 +32,5 @@ export async function GET(request: Request) {
   }
 
   // Fallback redirect
-  return NextResponse.redirect(`${requestUrl.origin}${next}`)
+  return NextResponse.redirect(`${requestUrl.origin}/onboarding?error=auth-failed`)
 }
