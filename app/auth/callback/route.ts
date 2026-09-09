@@ -25,8 +25,8 @@ export async function GET(request: Request) {
         .single()
         
       if (profile?.is_active) {
-        // Route active/paid users directly to the next path
-        return NextResponse.redirect(`${requestUrl.origin}${next}`)
+        // Route active/paid users directly to the dashboard
+        return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
       } else {
         // Intercept unpaid or new users and strictly redirect them to Stripe checkout
         const stripePaymentLink = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}`
