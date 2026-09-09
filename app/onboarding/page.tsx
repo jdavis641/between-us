@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { boundaryMatrix } from '../lib/boundaryData'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default function OnboardingFlow() {
   const [step, setStep] = useState(1)
   const [authMessage, setAuthMessage] = useState('')
@@ -18,11 +23,6 @@ export default function OnboardingFlow() {
     nickname: '',
     pronouns: ''
   })
-  
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   // 1. Core Logic: Evaluate User State on Load
   useEffect(() => {

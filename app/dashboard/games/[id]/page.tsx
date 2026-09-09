@@ -4,14 +4,14 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import InteractionBar from '../../../components/InteractionBar'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default function GameDetail({ params }: { params: { id: string } }) {
   const [game, setGame] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   useEffect(() => {
     async function fetchGame() {
