@@ -10,7 +10,11 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     
     // Exchange the auth code for a session
-    const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (error) {
+      return NextResponse.redirect(`${requestUrl.origin}/onboarding?error=auth-exchange-failed`)
+    }
     
     if (session) {
       // Evaluate user's is_active profile status
