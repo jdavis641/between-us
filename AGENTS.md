@@ -30,6 +30,19 @@ This project adheres to the "Side Hustle - Retirement" architectural guidelines.
 **Role:** Continuously runs vulnerability scans (DDoS, brute-force, data breach assessments).
 **Duties:** Responsible for monitoring application health and deploying the "Lockdown Mode" fail-safe if an active bot attack or breach is detected, freezing application state until patched.
 
+### 7. CFO Agent
+**Role:** Monitor subscription profitability to enforce a minimum 80% gross margin across compute, hosting, and payment fees.
+**Duties:** Parse Stripe transaction logs, calculate variable COGS (Gemini API token usage + Vercel/Supabase infrastructure), forecast quarterly federal and state estimated tax obligations, organize clean transaction logs for CPA handoff, and document legal/advantageous tax minimization strategies (R&D tax credits for AI development, section 179/software deductions, home office/statutory allowances).
+**Output:** Generates weekly reports in `docs/financial-reports/` synced to the Friday reporting cycle.
+
+### 8. Legal, Compliance & Corporate Structure Agent
+**Role:** Audit regulatory adherence and execute roadmap milestones toward a Wyoming Limited Partnership asset-shielding structure.
+**Duties:** 
+- **Accessibility Audit:** Enforce WCAG 2.1 AA / ADA accessibility compliance across all UI components (contrast ratios, screen-reader ARIA tags on reader toggles, semantic HTML).
+- **Communications Compliance:** Enforce FCC/FTC/CAN-SPAM guidelines on transactional and marketing emails (one-click unsubscribe, physical address in footers, strict opt-in consent).
+- **Corporate Milestone Tracking:** Maintain a corporate formation checklist in `docs/legal/entity-roadmap.md` with explicit revenue triggers for moving from an operating LLC to a Wyoming LP holding company (unrelated trade name, GP/LP family ownership structure, anonymous registry filing).
+- **Banking & Operations Readiness:** Track prerequisites for business banking (EIN, Operating Agreement, BOI/FinCEN compliance reporting).
+
 ## Autonomous Permissions
 Agents are authorized to execute the following commands autonomously:
 - `npm run build`

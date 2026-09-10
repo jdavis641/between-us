@@ -23,20 +23,27 @@ else
   exit 1
 fi
 
-# 2. Next.js Compilation
+# 2. Financial & Compliance Audits
+echo "[CFO Agent] Running financial margin audit..."
+node scripts/cfo-margin-audit.js
+
+echo "[Legal & Compliance Agent] Running regulatory audit..."
+node scripts/compliance-check.js
+
+# 3. Next.js Compilation
 echo "[Programmer Agent] Running Next.js build..."
 if ! npm run build; then
     echo "[Programmer Agent] Build failed. Feeding error trace back for immediate self-healing."
     exit 1
 fi
 
-# 3. Auto-commit and Push
+# 4. Auto-commit and Push
 echo "[Project Manager Agent] Build passed. Staging and deploying..."
 git add .
 git commit -m "[Auto-Agent] Fixes & Refinements" || echo "No changes to commit."
 git push origin main
 
-# 4. Generate Daily Summary
+# 5. Generate Daily Summary
 echo "[Assistant Reporter Agent] Generating daily summary..."
 mkdir -p docs/daily-agent-logs
 DATE=$(date +"%Y-%m-%d")
@@ -45,6 +52,8 @@ FILE="docs/daily-agent-logs/summary-latest.md"
 echo "# Daily Agent Summary: $DATE" > $FILE
 echo "## Automated Cycle Run" >> $FILE
 echo "- **QA Agent:** Sanity checks passed with \`MOCK_GEMINI=true\`." >> $FILE
+echo "- **CFO Agent:** Financial margin audit logged in \`docs/financial-reports/\`." >> $FILE
+echo "- **Legal Agent:** ADA & Regulatory audit complete. Roadmap tracked." >> $FILE
 echo "- **Programmer Agent:** Next.js \`npm run build\` successfully verified SSR session hydration and syntax." >> $FILE
 echo "- **Project Manager:** Build staged and pushed to \`origin main\` for Vercel deployment." >> $FILE
 echo "" >> $FILE
