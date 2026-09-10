@@ -11,6 +11,10 @@ if ! node scripts/security-sentry.js; then
     exit 1
 fi
 
+# 0.5 Trigger CMO Marketing Engine
+echo "[CMO Agent] Running marketing engine and performance tracking..."
+node scripts/cmo-engine.js
+
 # 1. Trigger QA Agent sanity checks (mocking API)
 export MOCK_GEMINI=true
 echo "[QA Agent] Running sanity checks with MOCK_GEMINI=true..."
@@ -51,6 +55,8 @@ FILE="docs/daily-agent-logs/summary-latest.md"
 
 echo "# Daily Agent Summary: $DATE" > $FILE
 echo "## Automated Cycle Run" >> $FILE
+echo "- **Cybersecurity Sentry:** Vulnerability sweep passed. Lockdown clear." >> $FILE
+echo "- **CMO Agent:** Marketing repository evaluated. Canva bulk-create CSVs generated." >> $FILE
 echo "- **QA Agent:** Sanity checks passed with \`MOCK_GEMINI=true\`." >> $FILE
 echo "- **CFO Agent:** Financial margin audit logged in \`docs/financial-reports/\`." >> $FILE
 echo "- **Legal Agent:** ADA & Regulatory audit complete. Roadmap tracked." >> $FILE

@@ -1,0 +1,49 @@
+{
+  "hooks": [
+    {
+      "id": "cmo-001",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "You ever feel like date night has just become... Netflix and falling asleep?",
+      "caption": "Reset the tension. Spark the connection. Try the Between Us AI Game Master tonight. #MarriageAdvice #DateNight",
+      "utm_campaign": "married-masc-001",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-002",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "Do you wish your partner would take the lead in the bedroom, but without crossing any boundaries?",
+      "caption": "Communicate your fantasies without feeling awkward. Between Us gives them the blueprint. #RelationshipGoals #Intimacy",
+      "utm_campaign": "couples-fem-002",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-003",
+      "target_demographic": "Singles",
+      "perspective": "Neutral",
+      "hook_text": "Stop wasting time on bad dates. What if you knew exactly what they wanted before the first drink?",
+      "caption": "Break the ice instantly. Discover shared boundaries with Between Us before you even meet. #DatingApp #Singles",
+      "utm_campaign": "singles-neu-003",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-004",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "I love my husband, but I miss the suspense we had when we first started dating.",
+      "caption": "Bring back the butterflies. Let our AI Game Master plan your next unforgettable weekend. #MarriageStory #CoupleMagic",
+      "utm_campaign": "married-fem-004",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-005",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "Want to surprise her this weekend, but have no idea where to start?",
+      "caption": "Between Us builds a personalized roleplay script based on both your secret desires. Be the hero tonight. #DateIdeas #Relationships",
+      "utm_campaign": "couples-masc-005",
+      "performance_score": 0
+    }
+  ]
+}
