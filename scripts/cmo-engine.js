@@ -12,7 +12,7 @@ const hasFlag = fs.existsSync(flagPath);
 const OPSEC_CLEARED = hasEnvVar && hasFlag;
 
 if (!OPSEC_CLEARED) {
-    console.log('[CMO Agent - OPSEC WARNING] OPSEC check failed. External API scheduling and webhooks are strictly DISABLED.');
+    console.log('[BLOCKED] OPSEC check failed: Marketing paused. Please complete the manual steps in docs/PRE_CMO_DEPLOYMENT_CHECKLIST.md (PO Box, VoIP, Stripe Public Profile updates) and create the OPSEC_CLEARED.flag to proceed.');
     console.log('[CMO Agent] Operating in local staging mode only. Generating CSVs for manual Canva Bulk Create.');
 } else {
     console.log('[CMO Agent] OPSEC CLEARED. External scheduling authorized.');
