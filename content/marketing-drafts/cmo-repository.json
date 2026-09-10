@@ -2,47 +2,542 @@
   "hooks": [
     {
       "id": "cmo-001",
-      "target_demographic": "Married",
-      "perspective": "Masculine",
-      "hook_text": "You ever feel like date night has just become... Netflix and falling asleep?",
-      "caption": "Reset the tension. Spark the connection. Try the Between Us AI Game Master tonight. #MarriageAdvice #DateNight",
-      "utm_campaign": "married-masc-001",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "I stopped leaving bad hookups to chance.  I just send the Guest Pass now.",
+      "caption": "Filter out the disappointment before you even meet.  Generate your temporary Guest Pass at the link in bio.",
+      "utm_campaign": "singles-feminine-001",
       "performance_score": 0
     },
     {
       "id": "cmo-002",
-      "target_demographic": "Couples",
+      "target_demographic": "Singles",
       "perspective": "Feminine",
-      "hook_text": "Do you wish your partner would take the lead in the bedroom, but without crossing any boundaries?",
-      "caption": "Communicate your fantasies without feeling awkward. Between Us gives them the blueprint. #RelationshipGoals #Intimacy",
-      "utm_campaign": "couples-fem-002",
+      "hook_text": "POV: You safely shared your boundaries before the first date, and he actually listened.",
+      "caption": "The smartest way to establish what you are definitely into and what is strictly off-limits.  🔗 in bio.",
+      "utm_campaign": "singles-feminine-002",
       "performance_score": 0
     },
     {
       "id": "cmo-003",
       "target_demographic": "Singles",
-      "perspective": "Neutral",
-      "hook_text": "Stop wasting time on bad dates. What if you knew exactly what they wanted before the first drink?",
-      "caption": "Break the ice instantly. Discover shared boundaries with Between Us before you even meet. #DatingApp #Singles",
-      "utm_campaign": "singles-neu-003",
+      "perspective": "Feminine",
+      "hook_text": "Why guess what he wants when an AI can safely compute your mutual overlap?",
+      "caption": "A judgment-free zone for singles to test the waters.  Link in bio to set your boundaries.",
+      "utm_campaign": "singles-feminine-003",
       "performance_score": 0
     },
     {
       "id": "cmo-004",
-      "target_demographic": "Married",
+      "target_demographic": "Singles",
       "perspective": "Feminine",
-      "hook_text": "I love my husband, but I miss the suspense we had when we first started dating.",
-      "caption": "Bring back the butterflies. Let our AI Game Master plan your next unforgettable weekend. #MarriageStory #CoupleMagic",
-      "utm_campaign": "married-fem-004",
+      "hook_text": "The power of sending a self-destructing intimacy link before he comes over.  Take control of the tension.",
+      "caption": "Only your mutual curiosities survive the filter.  Link in bio.",
+      "utm_campaign": "singles-feminine-004",
       "performance_score": 0
     },
     {
       "id": "cmo-005",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "I let an AI write my solo romantasy story this week to build up to my date.",
+      "caption": "Main character energy, programmed just for you.  Start your solo journey at the link in bio.",
+      "utm_campaign": "singles-feminine-005",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-006",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "Skip the awkward \"what are you into? \" text.",
+      "caption": "Send this instead.  The Guest Pass securely aligns your desires without exposing your hard limits.  🔗 in bio.",
+      "utm_campaign": "singles-feminine-006",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-007",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "When you find a guy who isn't intimidated by your \"Intense & Uninhibited\" tier.",
+      "caption": "Find your match without compromising your boundaries.  Set your tolerance tier at the link in bio.",
+      "utm_campaign": "singles-feminine-007",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-008",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "How I safely vet new partners using a blind-pairing AI.",
+      "caption": "Total anonymity until you decide otherwise.  Create your burner profile at the link in bio.",
+      "utm_campaign": "singles-feminine-008",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-009",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "The ultimate hack for women who hate repetitive dating app conversations.",
+      "caption": "Move past the small talk and into real tension.  Generate a Guest Pass today.",
+      "utm_campaign": "singles-feminine-009",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-010",
+      "target_demographic": "Singles",
+      "perspective": "Feminine",
+      "hook_text": "He opened my Guest Pass, and the AI told us exactly what to do tonight.  No more trial and error.",
+      "caption": "Just pure, customized connection.  Link in bio.",
+      "utm_campaign": "singles-feminine-010",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-011",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "She sent me a Guest Pass link before our date.  The tension is already insane.",
+      "caption": "The ultimate green flag.  Safely share your boundaries before the weekend.  🔗 in bio.",
+      "utm_campaign": "singles-masculine-011",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-012",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "How to ensure your next hookup is mutually beneficial and zero pressure.",
+      "caption": "Let the AI filter the awkwardness out of your first encounter.  Link in bio.",
+      "utm_campaign": "singles-masculine-012",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-013",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "The smartest move you can make before inviting her over tonight.",
+      "caption": "Send the link, align your curiosities, and skip the guessing game.  🔗 in bio.",
+      "utm_campaign": "singles-masculine-013",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-014",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "POV: You both swiped \"Curious\" on the same taboo boundary.",
+      "caption": "Discover what she really wants without the risk of rejection.  Link in bio.",
+      "utm_campaign": "singles-masculine-014",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-015",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "Stop asking \"what do you want to do? \" and start playing the AI card game.",
+      "caption": "Dynamic prompts that adapt to your mutual boundaries in real-time.  Link in bio.",
+      "utm_campaign": "singles-masculine-015",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-016",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "We used the Guest Pass for a casual night, and the AI delivered a flawless script.",
+      "caption": "Never worry about crossing a line again.  Generate a safe intersection today.",
+      "utm_campaign": "singles-masculine-016",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-017",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "The easiest way to initiate a physical escalation without making it weird.",
+      "caption": "Let the AI dictate the pace with a customized drinking game.  Link in bio.",
+      "utm_campaign": "singles-masculine-017",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-018",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "When the AI reveals she is into the exact same power dynamics you are.",
+      "caption": "Align your desires instantly and securely.  Start your free trial at the link in bio.",
+      "utm_campaign": "singles-masculine-018",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-019",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "How to stand out in the modern dating scene: send her a secure boundary link.",
+      "caption": "Show her you respect her limits while exploring your shared curiosities.  🔗 in bio.",
+      "utm_campaign": "singles-masculine-019",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-020",
+      "target_demographic": "Singles",
+      "perspective": "Masculine",
+      "hook_text": "The web-only app that Apple didn't want you to have for your dating life.",
+      "caption": "Uncensored, secure, and completely anonymous.  Access the PWA at the link in bio.",
+      "utm_campaign": "singles-masculine-020",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-021",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "He thinks he is in charge tonight, but my secret AI task says otherwise.",
+      "caption": "Dual-perspective roleplay means you both get a secret mission.  Link in bio to generate yours.",
+      "utm_campaign": "couples-feminine-021",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-022",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "We let an AI write our fantasy roleplay this week, and here's what happened...",
+      "caption": "Living in a customized romantasy novel changes the entire dynamic.  🔗 in bio.",
+      "utm_campaign": "couples-feminine-022",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-023",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "The slow-burn romance trope, but programmed for your actual relationship.",
+      "caption": "Why read a romantasy novel when you can live in one?  Try the Between Us PWA today.",
+      "utm_campaign": "couples-feminine-023",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-024",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "When his mid-week text is just a snippet from our shared AI storyline.",
+      "caption": "Build the tension on Tuesday for an explosive Friday night.  Link in bio.",
+      "utm_campaign": "couples-feminine-024",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-025",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "I told the AI I wanted a \"Boss/Employee\" dynamic.  It delivered a 3-day script.",
+      "caption": "Step out of your daily routine and into a new persona.  Generate your scenario today.",
+      "utm_campaign": "couples-feminine-025",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-026",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "The 3-minute movie night game that changes everything.  Link in bio.",
+      "caption": "Stop fighting over what to watch and start playing.  🔗 in bio.",
+      "utm_campaign": "couples-feminine-026",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-027",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "Two distinct roleplay scripts.  One for me.  One for him.",
+      "caption": "No spoilers.  You won't know what he is supposed to do until it happens.  Link in bio.",
+      "utm_campaign": "couples-feminine-027",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-028",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "When the app tells you not to touch each other until chapter 3.",
+      "caption": "Forced restraint makes the final act unforgettable.  Link in bio to try the literature engine.",
+      "utm_campaign": "couples-feminine-028",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-029",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "We synced our profiles, and the AI discovered a kink we were both too shy to share.",
+      "caption": "The blind-pairing onboarding quiz removes all the awkwardness.  🔗 in bio.",
+      "utm_campaign": "couples-feminine-029",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-030",
+      "target_demographic": "Couples",
+      "perspective": "Feminine",
+      "hook_text": "POV: You unlock the Intense & Uninhibited tier for the first time.",
+      "caption": "Ready for the 3-fire emoji experience?  Link in bio to upgrade your tier.",
+      "utm_campaign": "couples-feminine-030",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-031",
       "target_demographic": "Couples",
       "perspective": "Masculine",
-      "hook_text": "Want to surprise her this weekend, but have no idea where to start?",
-      "caption": "Between Us builds a personalized roleplay script based on both your secret desires. Be the hero tonight. #DateIdeas #Relationships",
-      "utm_campaign": "couples-masc-005",
+      "hook_text": "I let the AI dictate our weekend, and the anticipation drove her crazy.",
+      "caption": "Stop scheduling intimacy and start building a 4-day slow burn.  Try it tonight.",
+      "utm_campaign": "couples-masculine-031",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-032",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "The easiest way to initiate intimacy without the awkward pressure.",
+      "caption": "Just send the Between Us invite link and let the AI break the ice.  🔗 in bio.",
+      "utm_campaign": "couples-masculine-032",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-033",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "We stopped fighting over what movie to watch and started playing the movie night game.",
+      "caption": "Add a custom drinking or physical rule to your favorite film.  Link in bio.",
+      "utm_campaign": "couples-masculine-033",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-034",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "When she gets her secret pre-experience task for the day...",
+      "caption": "Watching her try to complete it subtly is the best part.  🔗 in bio.",
+      "utm_campaign": "couples-masculine-034",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-035",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "I told an AI my exact boundaries, and it built the perfect date night mission.",
+      "caption": "Completely customized and strictly safe.  Link in bio to generate your first mission.",
+      "utm_campaign": "couples-masculine-035",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-036",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "POV: Your weekend mission starts in a crowded bar and ends at home.",
+      "caption": "Date night games that script the entire evening.  🔗 in bio.",
+      "utm_campaign": "couples-masculine-036",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-037",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "Stop using generic truth or dare.  This AI learns what you actually like.",
+      "caption": "No repetitive cards.  Every game is generated on the fly.  Link in bio.",
+      "utm_campaign": "couples-masculine-037",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-038",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "When you bypass the app store to get the uncensored couples app.  Apple and Google restrict true intimacy.",
+      "caption": "We built a Progressive Web App instead.  🔗 in bio.",
+      "utm_campaign": "couples-masculine-038",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-039",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "Reconnecting doesn't have to be heavy.  Sometimes it’s just a drinking game.",
+      "caption": "A game engine that actively learns what you like.  🔗 in bio.",
+      "utm_campaign": "couples-masculine-039",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-040",
+      "target_demographic": "Couples",
+      "perspective": "Masculine",
+      "hook_text": "POV: You’re playing a drinking game that actually escalates properly.",
+      "caption": "AI actively scales the tension based on your selected fire emojis.  Try it tonight.",
+      "utm_campaign": "couples-masculine-040",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-041",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "The app that saved our marriage from the dreaded roommate phase.  Disrupt the pattern.",
+      "caption": "Reignite the spark.  Link in bio to start your free trial.",
+      "utm_campaign": "married-feminine-041",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-042",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "We've been married for 5 years, and this app made us feel like we're dating again.",
+      "caption": "Rediscover your partner with dynamic AI prompts.  🔗 in bio.",
+      "utm_campaign": "married-feminine-042",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-043",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "How to get out of the \"roommate phase\" in 30 days.",
+      "caption": "Stop scheduling intimacy and start building anticipation.  Link in bio.",
+      "utm_campaign": "married-feminine-043",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-044",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "When \"how was your day? \" turns into \"did you read your mid-week chapter yet?",
+      "caption": "\"Upgrade your daily communication.  Link in bio to sync accounts.",
+      "utm_campaign": "married-feminine-044",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-045",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "A 5-minute quiz that completely reignited our bedroom.",
+      "caption": "The easiest way to share what you're definitely into, and what's strictly off-limits.",
+      "utm_campaign": "married-feminine-045",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-046",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "After 10 years, I thought I knew all his boundaries.  The AI proved me wrong.",
+      "caption": "Evolve together.  Retake the boundary quiz and see what changed.  🔗 in bio.",
+      "utm_campaign": "married-feminine-046",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-047",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "True intimacy is built on Wednesday, not just Friday night.",
+      "caption": "Receive your first serialized chapter today.  Link in bio.",
+      "utm_campaign": "married-feminine-047",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-048",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "My husband and I used an AI intimacy app, and it completely changed our weekend.",
+      "caption": "It strictly filters our boundaries but pushes our curiosities.  Link in bio to try it.",
+      "utm_campaign": "married-feminine-048",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-049",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "Finally, a couple's app that doesn't feel like a high school slumber party.",
+      "caption": "Sleek, dark-mode, and entirely customized for adults.  Link in bio.",
+      "utm_campaign": "married-feminine-049",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-050",
+      "target_demographic": "Married",
+      "perspective": "Feminine",
+      "hook_text": "Reading my husband's dual-perspective storyline is my new favorite addiction.",
+      "caption": "Experiencing his inner monologue changes everything.  Link in bio.",
+      "utm_campaign": "married-feminine-050",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-051",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "If your marriage feels like a routine, you need to disrupt the pattern.",
+      "caption": "Let the Gemini Pro AI dictate your weekend.  Link in bio to start.",
+      "utm_campaign": "married-masculine-051",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-052",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "A couple's app that focuses on the mind before the physical.",
+      "caption": "Because the brain is the most important organ for intimacy.  Try it today.",
+      "utm_campaign": "married-masculine-052",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-053",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "We gave this AI our \"Off-Limits\" list, and it created a safe scenario we both loved.",
+      "caption": "The ultimate tool for exploring curiosities without crossing boundaries.  Link in bio.",
+      "utm_campaign": "married-masculine-053",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-054",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "The difference between a rushed night and a 4-day slow burn.",
+      "caption": "Let the AI pace your week.  Link in bio to start the anticipation engine.",
+      "utm_campaign": "married-masculine-054",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-055",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "POV: No more repetitive couples games.  Every session is brand new.",
+      "caption": "The memory engine strictly filters out old prompts.  Play something new at the link in bio.",
+      "utm_campaign": "married-masculine-055",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-056",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "Long-term relationship tip: Stop scheduling intimacy and start building anticipation.",
+      "caption": "Use serialized AI literature to build a 4-day slow burn.  Try it tonight.",
+      "utm_campaign": "married-masculine-056",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-057",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "Date nights were getting boring until we found this PWA.  No app store downloads.",
+      "caption": "Just open the browser and let the AI take over.  Link in bio.",
+      "utm_campaign": "married-masculine-057",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-058",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "When the spark feels gone, it just means you need a new script.",
+      "caption": "You don't need a new partner, you just need new scenarios.  🔗 in bio to generate one.",
+      "utm_campaign": "married-masculine-058",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-059",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "We let the AI dictate our sensory play tonight, and I am speechless.",
+      "caption": "From mild conversation to uninhibited dares.  Choose your intensity at the link in bio.",
+      "utm_campaign": "married-masculine-059",
+      "performance_score": 0
+    },
+    {
+      "id": "cmo-060",
+      "target_demographic": "Married",
+      "perspective": "Masculine",
+      "hook_text": "Building tension is a skill.  This app does it for you on complete autopilot.",
+      "caption": "Set your tolerance tier and let the cron jobs do the heavy lifting.  Link in bio.",
+      "utm_campaign": "married-masculine-060",
       "performance_score": 0
     }
   ]
