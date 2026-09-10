@@ -4,6 +4,13 @@ set -e
 
 echo "Starting Autonomous Cycle..."
 
+# 0. Trigger Cybersecurity Sentry scan
+echo "[Cybersecurity Sentry Agent] Running vulnerability sweep..."
+if ! node scripts/security-sentry.js; then
+    echo "[Cybersecurity Sentry Agent] ABORTING CYCLE: System lockdown engaged."
+    exit 1
+fi
+
 # 1. Trigger QA Agent sanity checks (mocking API)
 export MOCK_GEMINI=true
 echo "[QA Agent] Running sanity checks with MOCK_GEMINI=true..."

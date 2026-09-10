@@ -26,6 +26,10 @@ This project adheres to the "Side Hustle - Retirement" architectural guidelines.
 ### 5. Assistant Reporter Agent
 **Role:** Generates timestamped markdown reports in `docs/daily-agent-logs/` documenting actions, bug fixes, UI improvements, and technical rationale.
 
+### 6. Cybersecurity Sentry Agent
+**Role:** Continuously runs vulnerability scans (DDoS, brute-force, data breach assessments).
+**Duties:** Responsible for monitoring application health and deploying the "Lockdown Mode" fail-safe if an active bot attack or breach is detected, freezing application state until patched.
+
 ## Autonomous Permissions
 Agents are authorized to execute the following commands autonomously:
 - `npm run build`
