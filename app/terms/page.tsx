@@ -38,6 +38,20 @@ export default function TermsOfService() {
             The Service is provided "as is". We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties, including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
           </p>
         </section>
+
+        <section className="mt-8 border-t border-zinc-900 pt-8">
+          <h2 className="text-2xl font-semibold text-zinc-100 mb-4">5. Contact Us</h2>
+          <p className="leading-relaxed mb-4">
+            If you have any questions about these Terms, please contact us at:
+          </p>
+          <div className="bg-zinc-900/50 p-6 rounded-lg text-sm text-zinc-400">
+            <p className="text-zinc-200 font-medium mb-2">Between Us</p>
+            <p>1043 S. Roselle Rd, #1048</p>
+            <p>Schaumburg, IL 60193</p>
+            <p className="mt-2">Support Line: 224-223-8077</p>
+            <p>Email: <a href="mailto:support@betweenusapp.io" className="text-red-400 hover:text-red-300">support@betweenusapp.io</a></p>
+          </div>
+        </section>
       </div>
     </main>
   );

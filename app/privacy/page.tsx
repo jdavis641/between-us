@@ -41,6 +41,20 @@ export default function PrivacyPolicy() {
             We use secure, trusted third-party processors (such as Stripe for payments and secure email providers for magic links) solely to operate our service. These processors are strictly bound by their own privacy policies and do not have the right to use your data beyond what is necessary to assist us.
           </p>
         </section>
+
+        <section className="mt-8 border-t border-zinc-900 pt-8">
+          <h2 className="text-2xl font-semibold text-zinc-100 mb-4">5. Contact Us</h2>
+          <p className="leading-relaxed mb-4">
+            If you have any questions about this Privacy Policy, please contact us at:
+          </p>
+          <div className="bg-zinc-900/50 p-6 rounded-lg text-sm text-zinc-400">
+            <p className="text-zinc-200 font-medium mb-2">Between Us</p>
+            <p>1043 S. Roselle Rd, #1048</p>
+            <p>Schaumburg, IL 60193</p>
+            <p className="mt-2">Support Line: 224-223-8077</p>
+            <p>Email: <a href="mailto:support@betweenusapp.io" className="text-red-400 hover:text-red-300">support@betweenusapp.io</a></p>
+          </div>
+        </section>
       </div>
     </main>
   );
