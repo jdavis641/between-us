@@ -25,12 +25,15 @@ export async function GET(request: Request) {
         .single()
         
       if (profile?.is_active) {
-        // Route active/paid users directly to the dashboard
+        // If they haven't finished the survey (e.g. no nickname), send them there
+        if (!profile.nickname) {
+          return NextResponse.redirect(`${requestUrl.origin}/onboarding/survey`)
+        }
+        // Otherwise route active/paid users directly to the dashboard
         return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
       } else {
-        // Intercept unpaid or new users and strictly redirect them to Stripe checkout
-        const stripePaymentLink = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}`
-        return NextResponse.redirect(stripePaymentLink)
+        // Drop unpaid or new users into the setup flow precisely where they left off
+        return NextResponse.redirect(`${requestUrl.origin}${next}`)
       }
     }
   }

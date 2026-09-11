@@ -8,15 +8,13 @@ export default function LandingPage() {
       {/* Navigation / Header */}
       <nav className="w-full p-6 flex justify-between items-center max-w-5xl mx-auto border-b border-zinc-900/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center text-xl shadow-[0_0_15px_rgba(244,63,94,0.15)]">
-            🔥
-          </div>
+          <Image src="/brand-logo.webp" alt="Between Us Logo" width={32} height={32} priority className="rounded-md shadow-[0_0_15px_rgba(244,63,94,0.15)]" />
           <span className="font-semibold text-lg tracking-widest uppercase text-zinc-100">
             Between Us
           </span>
         </div>
         <Link 
-          href="/onboarding" 
+          href="/signin" 
           className="text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors"
         >
           Sign In
@@ -34,7 +32,7 @@ export default function LandingPage() {
         </p>
 
         <Link 
-          href="/onboarding" 
+          href="/signup" 
           className="group relative inline-flex items-center justify-center px-8 py-4 font-medium text-white transition-all duration-300 bg-zinc-100 text-zinc-950 border border-transparent rounded-full hover:bg-white hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.1)]"
         >
           $0.99 7-day trial (required for age verification)
@@ -88,7 +86,7 @@ export default function LandingPage() {
       <section className="py-24 px-6 text-center bg-zinc-900/30 border-t border-zinc-900/50 flex flex-col items-center">
         <h2 className="text-3xl font-serif font-medium mb-8 text-zinc-100">Ready to explore?</h2>
         <Link 
-          href="/onboarding" 
+          href="/signup" 
           className="inline-flex items-center justify-center px-8 py-4 font-medium transition-all duration-300 bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-full hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zinc-600 focus:ring-offset-zinc-950"
         >
           $0.99 7-day trial (required for age verification)

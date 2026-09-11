@@ -6,6 +6,8 @@ import { createClient } from "@/utils/supabase/client";
 export default function PassHub() {
   const [loading, setLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [duration, setDuration] = useState<number>(24);
+  const [preferences, setPreferences] = useState("");
   
   // Mock active passes
   const [activePasses, setActivePasses] = useState([
@@ -25,7 +27,7 @@ export default function PassHub() {
       const res = await fetch("/api/invite/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupId: mockGroupId, inviteType: "single" })
+        body: JSON.stringify({ groupId: mockGroupId, inviteType: "single", durationHours: duration, preferences })
       });
       const data = await res.json();
       if (data.token) {
@@ -51,27 +53,57 @@ export default function PassHub() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Pass Generation Section */}
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col h-full">
           <h2 className="text-xl font-semibold mb-4">Generate Pass</h2>
           <p className="text-sm text-zinc-400 mb-6">
             Create a single-use "Guest Pass" to securely invite a new partner. The AI will compute a safe intersection of mutual boundaries without ever exposing your "Off-Limits" topics.
           </p>
           
+          <div className="space-y-4 mb-6 flex-1">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Public Facing Preferences & Instructions</label>
+              <textarea 
+                value={preferences}
+                onChange={(e) => setPreferences(e.target.value)}
+                placeholder="E.g., I'm looking for a relaxed evening, please complete your quiz honestly before we meet..."
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-red-900/50 resize-none h-24"
+              ></textarea>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Pass Duration</label>
+              <div className="flex items-center gap-2 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+                <button 
+                  onClick={() => setDuration(12)}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${duration === 12 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  12 Hours
+                </button>
+                <button 
+                  onClick={() => setDuration(24)}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${duration === 24 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  24 Hours
+                </button>
+              </div>
+            </div>
+          </div>
+          
           <button 
             onClick={handleGenerateGuestPass}
             disabled={loading}
-            className="w-full py-3 bg-red-900 text-white hover:bg-red-800 rounded-lg font-medium transition-colors disabled:opacity-50 mb-4"
+            className="w-full py-3 bg-zinc-100 text-zinc-950 hover:bg-white rounded-lg font-medium transition-colors disabled:opacity-50 mt-auto"
           >
             {loading ? "Generating..." : "Generate Guest Pass"}
           </button>
 
           {inviteToken && (
-            <div className="mt-4 p-4 bg-zinc-950 border border-red-900/50 rounded-lg animate-in fade-in">
-              <p className="text-xs text-red-400 uppercase tracking-wider mb-2 font-semibold">Single-Use Link Ready</p>
-              <code className="text-sm text-zinc-300 break-all select-all block mb-2">
+            <div className="mt-4 p-4 bg-zinc-950 border border-zinc-800 rounded-lg animate-in fade-in">
+              <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2 font-semibold">Single-Use Link Ready</p>
+              <code className="text-sm text-zinc-200 break-all select-all block mb-2">
                 {typeof window !== 'undefined' ? location.origin : ''}/join?token={inviteToken}
               </code>
-              <p className="text-xs text-zinc-500 italic">This link expires in 24 hours or immediately upon use.</p>
+              <p className="text-xs text-zinc-500 italic">This link expires in {duration} hours or immediately upon use.</p>
             </div>
           )}
         </section>

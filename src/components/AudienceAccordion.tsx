@@ -6,7 +6,7 @@ const audiences = [
   {
     title: 'Singles',
     icon: '🔥',
-    content: 'Skip the trial-and-error of casual dating. Generate a temporary, easily modifiable "Guest Pass" before a hookup to safely compute an intersection of mutual boundaries. This guarantees a mutually beneficial first experience without ever exposing your rejected or "Off-Limits" topics. Grant limited-time access to your current desires, preferred activities, and a "how-to" guide for satisfying your needs, virtually eliminating disappointing encounters.'
+    content: 'Skip the trial-and-error of casual dating. Generate a temporary, easily modifiable "Guest Pass" before a hookup to safely connect and discover an intersection of mutual boundaries. This guarantees a mutually beneficial first experience without ever exposing your rejected or "Off-Limits" topics. Grant limited-time access to your current desires, preferred activities, and a "how-to" guide for satisfying your needs, virtually eliminating disappointing encounters.'
   },
   {
     title: 'Couples',
