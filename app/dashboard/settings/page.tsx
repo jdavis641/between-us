@@ -28,11 +28,25 @@ export default function SettingsPage() {
     fetchProfile()
   }, [])
 
-  const handleManageBilling = () => {
-    // In a real app, this would route to an API endpoint that creates a Stripe billing portal session
-    // For now, we simulate the redirect to the Stripe Customer Portal
-    alert("Redirecting to secure Stripe Customer Portal...")
-    window.location.href = "https://billing.stripe.com/p/login/test" // Example portal link
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
+  const handleManageBilling = async () => {
+    try {
+      setIsRedirecting(true)
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("Could not generate billing portal link: " + (data.error || "Unknown error"))
+        setIsRedirecting(false)
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Failed to load billing portal.")
+      setIsRedirecting(false)
+    }
   }
 
   if (loading) {
@@ -73,9 +87,10 @@ export default function SettingsPage() {
             
             <button 
               onClick={handleManageBilling}
-              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm"
+              disabled={isRedirecting}
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm disabled:opacity-50"
             >
-              Unsubscribe / Manage Billing
+              {isRedirecting ? 'Redirecting...' : 'Unsubscribe / Manage Billing'}
             </button>
           </div>
 
