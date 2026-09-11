@@ -1,5 +1,6 @@
 'use client'
 import { useState, Suspense, useEffect } from 'react'
+import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
 import { useSearchParams, useRouter } from 'next/navigation'
 
@@ -71,8 +72,8 @@ function SignInContent() {
         )}
         
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
-            🔥
+          <div className="flex items-center justify-center mx-auto mb-4">
+            <Image src="/brand-logo.webp" alt="Between Us Logo" width={32} height={32} priority className="rounded-md shadow-[0_0_15px_rgba(244,63,94,0.15)]" />
           </div>
           <h2 className="text-3xl font-serif font-medium text-zinc-100">Sign In</h2>
           <p className="text-zinc-400 mt-2 font-light">Enter your email to receive a secure login link.</p>

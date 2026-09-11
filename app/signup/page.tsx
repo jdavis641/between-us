@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 
 export default function SignUpFlow() {
   const [formData, setFormData] = useState({
@@ -17,9 +18,15 @@ export default function SignUpFlow() {
   // STEP 1: EMAIL
   if (step === 1) {
     return (
-      <div className="flex flex-col space-y-4 min-h-screen bg-zinc-950 text-white p-8">
-        <h2 className="text-2xl font-bold font-serif">Create Your Account</h2>
-        <p className="text-sm text-zinc-400">Enter a secure email address. We recommend a burner email for full anonymity.</p>
+      <div className="flex flex-col min-h-screen bg-zinc-950 text-white p-8 font-sans items-center justify-center">
+        <div className="max-w-md w-full space-y-6">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mx-auto mb-4">
+              <Image src="/brand-logo.webp" alt="Between Us Logo" width={32} height={32} priority className="rounded-md shadow-[0_0_15px_rgba(244,63,94,0.15)]" />
+            </div>
+            <h2 className="text-3xl font-bold font-serif text-zinc-100">Create Your Account</h2>
+            <p className="text-zinc-400 mt-2 font-light">Enter a secure email address. We recommend a burner email for full anonymity.</p>
+          </div>
         <input 
           type="email" 
           placeholder="Email address" 
@@ -29,10 +36,11 @@ export default function SignUpFlow() {
         />
         <button 
           onClick={() => { if(formData.email) setStep(2) }} 
-          className="bg-zinc-100 text-zinc-950 p-3 rounded-lg font-bold mt-4 hover:bg-white transition-colors"
+          className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium mt-4 hover:bg-white transition-colors"
         >
           Next
         </button>
+        </div>
       </div>
     )
   }
@@ -40,19 +48,27 @@ export default function SignUpFlow() {
   // STEP 2: TOLERANCE & PAYMENT
   if (step === 2) {
     return (
-      <div className="flex flex-col space-y-4 min-h-screen bg-zinc-950 text-white p-8">
-        <h2 className="text-2xl font-bold font-serif mb-2">Choose Your Base Path</h2>
-        <p className="text-zinc-400 text-sm mb-4">You can adjust these settings later.</p>
-        
-        <button onClick={() => setFormData({...formData, tolerance: 'Sensory'})} className={`border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Sensory' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
-          Sensory and Romantic 🔥
-        </button>
-        <button onClick={() => setFormData({...formData, tolerance: 'Playful'})} className={`border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Playful' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
-          Playful and Adventurous 🔥🔥
-        </button>
-        <button onClick={() => setFormData({...formData, tolerance: 'Intense'})} className={`border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Intense' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
-          Intense and Uninhibited 🔥🔥🔥
-        </button>
+      <div className="flex flex-col min-h-screen bg-zinc-950 text-white p-8 font-sans items-center justify-center">
+        <div className="max-w-md w-full space-y-6">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mx-auto mb-4">
+              <Image src="/brand-logo.webp" alt="Between Us Logo" width={32} height={32} priority className="rounded-md shadow-[0_0_15px_rgba(244,63,94,0.15)]" />
+            </div>
+            <h2 className="text-3xl font-bold font-serif text-zinc-100">Choose Your Base Path</h2>
+            <p className="text-zinc-400 mt-2 font-light">You can adjust these settings later.</p>
+          </div>
+          
+          <div className="space-y-4">
+            <button onClick={() => setFormData({...formData, tolerance: 'Sensory'})} className={`w-full border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Sensory' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
+              Sensory and Romantic 🔥
+            </button>
+            <button onClick={() => setFormData({...formData, tolerance: 'Playful'})} className={`w-full border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Playful' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
+              Playful and Adventurous 🔥🔥
+            </button>
+            <button onClick={() => setFormData({...formData, tolerance: 'Intense'})} className={`w-full border p-4 rounded-xl text-left transition-colors ${formData.tolerance === 'Intense' ? 'bg-zinc-800 border-zinc-500' : 'border-zinc-800 hover:bg-zinc-900'}`}>
+              Intense and Uninhibited 🔥🔥🔥
+            </button>
+          </div>
 
         {formData.tolerance && (
           <div className="mt-8 pt-8 border-t border-zinc-800 animate-in fade-in">
@@ -68,6 +84,7 @@ export default function SignUpFlow() {
             </button>
           </div>
         )}
+        </div>
       </div>
     )
   }

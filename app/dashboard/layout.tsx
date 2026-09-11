@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import TolerancePromptManager from "../components/TolerancePromptManager";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -82,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 overflow-x-hidden flex flex-col relative w-full">
         {children}
       </div>
-
+      <TolerancePromptManager />
     </div>
   );
 }
