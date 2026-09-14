@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-function OnboardingContent() {
+function SignInContent() {
   const searchParams = useSearchParams()
   const paymentSuccess = searchParams.get('message') === 'payment_success'
   
@@ -142,10 +142,10 @@ function OnboardingContent() {
   )
 }
 
-export default function OnboardingFlow() {
+export default function SignInFlow() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-zinc-950 text-white p-8 flex items-center justify-center">Loading...</div>}>
-      <OnboardingContent />
+      <SignInContent />
     </Suspense>
   )
 }

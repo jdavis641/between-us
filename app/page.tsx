@@ -14,8 +14,8 @@ export default function LandingPage() {
           </span>
         </div>
         <Link 
-          href="/signin" 
-          className="text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors"
+          href="/login" 
+          className="border border-zinc-800 text-zinc-300 px-6 py-3 rounded-lg font-medium hover:bg-zinc-900 transition-colors"
         >
           Sign In
         </Link>

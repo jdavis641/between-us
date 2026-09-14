@@ -32,7 +32,7 @@ export default function OnboardingSurvey() {
           .single()
         setProfile(data)
       } else {
-        router.push('/signin')
+        router.push('/login')
       }
     }
     fetchSession()

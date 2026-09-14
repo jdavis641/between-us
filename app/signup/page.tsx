@@ -78,7 +78,7 @@ export default function SignUpFlow() {
             </button>
             <button onClick={() => {
               // Dev bypass: Pretend payment authorized and redirect to sign in
-              window.location.href = "/signin?message=payment_success"
+              window.location.href = "/login?message=payment_success"
             }} className="text-xs text-zinc-500 underline mt-4 block text-center w-full">
               (Dev Only: Bypass Payment to Sign In)
             </button>

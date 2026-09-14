@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (error) {
-      return NextResponse.redirect(`${requestUrl.origin}/signin?error=auth-exchange-failed`)
+      return NextResponse.redirect(`${requestUrl.origin}/login?error=auth-exchange-failed`)
     }
     
     if (session) {
@@ -37,5 +37,5 @@ export async function GET(request: Request) {
   }
 
   // Fallback redirect
-  return NextResponse.redirect(`${requestUrl.origin}/signin?error=auth-failed`)
+  return NextResponse.redirect(`${requestUrl.origin}/login?error=auth-failed`)
 }
