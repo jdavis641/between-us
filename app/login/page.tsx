@@ -52,6 +52,9 @@ function SignInContent() {
       setAuthMessage('Invalid code: ' + error.message)
       setLoading(false)
     } else if (data?.user) {
+      // Ensure session is fully hydrated in browser context before routing
+      await supabase.auth.getSession()
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('is_active')

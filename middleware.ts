@@ -7,7 +7,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/api/webhooks/stripe') ||
     request.nextUrl.pathname.startsWith('/auth/callback') ||
     request.nextUrl.pathname.startsWith('/api/auth/confirm') ||
-    request.nextUrl.pathname.startsWith('/onboarding')
+    request.nextUrl.pathname.startsWith('/onboarding') ||
+    request.nextUrl.pathname.startsWith('/login')
   ) {
     return NextResponse.next();
   }
