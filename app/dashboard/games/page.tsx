@@ -48,45 +48,47 @@ export default async function GamesHub() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12 pb-32">
-      <h1 className="text-3xl md:text-5xl font-bold mb-4">Intimacy Games</h1>
-      <p className="text-gray-400 mb-12 text-lg max-w-2xl">
-        Select a category to spark a new connection tonight. Hand-picked games designed specifically for your shared boundaries.
-      </p>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 pb-32 font-sans selection:bg-rose-500/30">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-4xl md:text-5xl font-serif font-medium mb-4 text-zinc-100">Intimacy Games</h1>
+        <p className="text-zinc-400 mb-12 text-lg max-w-2xl font-light leading-relaxed">
+          Select a category to spark a new connection tonight. Hand-picked games designed specifically for your shared boundaries.
+        </p>
 
-      <div className="space-y-16">
-        {sections.map((section, idx) => (
-          <section key={idx}>
-            <h2 className="text-2xl font-bold mb-6 text-gray-200 border-b border-gray-800 pb-3">
-              {section.title}
-            </h2>
-            {section.data.length === 0 ? (
-              <p className="text-gray-500 italic bg-gray-800/50 p-6 rounded-xl border border-gray-800 border-dashed text-center">
-                No games found in this category yet.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {section.data.map((game: Game) => (
-                  <Link href={`/dashboard/games/${game.id}`} key={game.id} className="block h-full">
-                    <div className="bg-gray-800 border border-gray-700 p-6 rounded-xl hover:border-blue-500 transition-colors cursor-pointer group h-full flex flex-col shadow-lg hover:shadow-blue-900/20">
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-xl font-bold group-hover:text-blue-400 transition-colors">
-                          {game.title}
-                        </h3>
+        <div className="space-y-16">
+          {sections.map((section, idx) => (
+            <section key={idx}>
+              <h2 className="text-2xl font-serif font-medium mb-6 text-zinc-200 border-b border-zinc-800 pb-4">
+                {section.title}
+              </h2>
+              {section.data.length === 0 ? (
+                <p className="text-zinc-500 italic bg-zinc-900/50 p-8 rounded-xl border border-zinc-800 border-dashed text-center">
+                  No games found in this category yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {section.data.map((game: Game) => (
+                    <Link href={`/dashboard/games/${game.id}`} key={game.id} className="block h-full group">
+                      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl hover:border-red-900/50 transition-all duration-300 cursor-pointer h-full flex flex-col shadow-lg hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] hover:-translate-y-1">
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">
+                            {game.title}
+                          </h3>
+                        </div>
+                        <p className="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed font-light">
+                          {game.description}
+                        </p>
+                        <div className="flex items-center text-xs font-bold text-red-500 bg-red-950/30 border border-red-900/30 w-fit px-3 py-1.5 rounded-md uppercase tracking-wider">
+                          {getIntensityBadge(game.intensity)}
+                        </div>
                       </div>
-                      <p className="text-gray-400 text-sm mb-6 flex-grow leading-relaxed">
-                        {game.description}
-                      </p>
-                      <div className="flex items-center text-sm font-bold text-yellow-500 bg-yellow-900/20 w-fit px-3 py-1.5 rounded-md">
-                        {getIntensityBadge(game.intensity)}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-        ))}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   )
