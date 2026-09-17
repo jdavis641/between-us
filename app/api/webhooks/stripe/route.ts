@@ -45,7 +45,17 @@ export async function POST(req: Request) {
       }
 
       if (targetUserId) {
-        // Activate connection groups
+        // a) Update profiles table to activate the user
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .update({ is_active: true })
+          .eq('id', targetUserId);
+          
+        if (profileError) {
+          console.error('[Stripe Webhook] Error updating profile:', profileError);
+        }
+
+        // b) Activate connection groups
         const { data: memberships } = await supabaseAdmin
           .from('group_members')
           .select('group_id')
@@ -82,6 +92,11 @@ export async function POST(req: Request) {
         if (!authError) {
           const user = users.find(u => u.email === customerEmail);
           if (user) {
+             await supabaseAdmin
+               .from('profiles')
+               .update({ is_active: false })
+               .eq('id', user.id);
+
              const { data: memberships } = await supabaseAdmin
                .from('group_members')
                .select('group_id')
