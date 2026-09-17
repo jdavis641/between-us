@@ -23,11 +23,14 @@ export async function GET(request: Request) {
     if (session) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_active')
+        .select('is_active, nickname')
         .eq('id', session.user.id)
         .single()
 
       if (profile?.is_active) {
+        if (!profile.nickname) {
+          return NextResponse.redirect(`${origin}/onboarding/survey`)
+        }
         return NextResponse.redirect(`${origin}/dashboard`)
       } else {
         const stripePaymentLink = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}`

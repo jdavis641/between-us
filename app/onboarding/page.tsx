@@ -57,12 +57,16 @@ function OnboardingContent() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_active')
+        .select('is_active, nickname')
         .eq('id', data.user.id)
         .single()
 
       if (profile?.is_active) {
-        router.push('/dashboard')
+        if (!profile.nickname) {
+          router.push('/onboarding/survey')
+        } else {
+          router.push('/dashboard')
+        }
       } else {
         window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}`
       }
