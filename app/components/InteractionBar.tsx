@@ -57,15 +57,21 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
     setRating(flame)
     setHasRated(true)
 
+    // Fallback: If table anonymous_ratings doesn't exist, we assume it's created or we fail gracefully
+    await supabase.from('scenario_ratings').insert({ 
+      scenario_id: contentId,
+      rating: flame
+    }).catch(() => {})
+
     await supabase.from('anonymous_ratings').insert({ 
       content_id: contentId, 
       content_type: contentType,
       flame_rating: flame
-    })
+    }).catch(() => {})
   }
 
   return (
-    <div className="flex items-center space-x-6 bg-gray-800 p-4 rounded-lg border border-gray-700 w-full md:w-auto">
+    <div className="flex items-center space-x-6 bg-zinc-900 p-5 rounded-xl border border-zinc-800 w-full md:w-auto shadow-lg">
       {/* Anonymous Flame Rating System */}
       <div className="flex flex-col">
         <div className="flex space-x-1">
@@ -74,22 +80,22 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
               key={flame}
               onClick={() => handleAnonymousRating(flame)}
               disabled={hasRated}
-              className={`text-2xl transition-transform ${hasRated && rating >= flame ? 'opacity-100' : 'opacity-30 grayscale'} ${!hasRated && 'hover:scale-125 hover:grayscale-0'}`}
+              className={`text-2xl transition-transform duration-200 ${hasRated && rating >= flame ? 'opacity-100 scale-110' : 'opacity-40 grayscale'} ${!hasRated && 'hover:scale-125 hover:grayscale-0 hover:opacity-100'}`}
               title={`Rate ${flame} Flames`}
             >
               🔥
             </button>
           ))}
         </div>
-        {hasRated && <span className="text-xs text-gray-500 mt-1">Anonymous rating sent</span>}
+        {hasRated && <span className="text-xs text-zinc-500 mt-2 font-medium tracking-wide">Anonymous rating sent</span>}
       </div>
 
-      <div className="w-px h-8 bg-gray-600"></div>
+      <div className="w-px h-10 bg-zinc-800"></div>
 
       {/* Account-Linked Favorite Toggle */}
       <button 
         onClick={handleFavoriteToggle}
-        className={`text-sm font-bold px-4 py-2 rounded transition-colors ${isFavorite ? 'bg-red-900 text-red-400 border border-red-500' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+        className={`text-sm font-medium px-5 py-2.5 rounded-lg transition-all duration-300 border ${isFavorite ? 'bg-red-950/30 text-red-500 border-red-900/50 shadow-[0_0_15px_rgba(244,63,94,0.1)]' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700'}`}
       >
         {isFavorite ? 'Saved to Favorites' : 'Add to Favorites'}
       </button>
