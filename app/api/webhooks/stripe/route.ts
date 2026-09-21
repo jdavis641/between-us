@@ -45,11 +45,10 @@ export async function POST(req: Request) {
       }
 
       if (targetUserId) {
-        // a) Update profiles table to activate the user
+        // a) Upsert profiles table to activate the user and guarantee the row exists
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
-          .update({ is_active: true })
-          .eq('id', targetUserId);
+          .upsert({ id: targetUserId, is_active: true });
           
         if (profileError) {
           console.error('[Stripe Webhook] Error updating profile:', profileError);

@@ -23,6 +23,8 @@ function SignInContent() {
   const [isEmailSent, setIsEmailSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resendMessage, setResendMessage] = useState('')
 
   const router = useRouter()
   
@@ -62,12 +64,12 @@ function SignInContent() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_active, nickname')
+        .select('is_active, anonymous_alias')
         .eq('id', data.user.id)
         .single()
 
       if (profile?.is_active) {
-        if (!profile.nickname) {
+        if (!profile.anonymous_alias) {
           router.push('/onboarding/survey')
         } else {
           router.push('/dashboard')
@@ -80,6 +82,28 @@ function SignInContent() {
       setLoading(false)
     }
   }
+
+  const handleResendCode = async () => {
+    if (!email || resendCooldown > 0) return
+    setResendMessage('')
+    setResendCooldown(60)
+    
+    const { error } = await supabase.auth.signInWithOtp({ email })
+    
+    if (error) {
+      setResendMessage('Failed to resend: ' + error.message)
+      setResendCooldown(0)
+    } else {
+      setResendMessage('New code sent!')
+    }
+  }
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
 
   useEffect(() => {
     if (otp.length === 6) {
@@ -145,6 +169,20 @@ function SignInContent() {
               >
                 Verify Code
               </button>
+              <div className="text-center pt-2">
+                {resendCooldown > 0 ? (
+                  <p className="text-zinc-500 text-sm">Resend code in {resendCooldown}s</p>
+                ) : (
+                  <button 
+                    onClick={handleResendCode}
+                    disabled={loading}
+                    className="text-zinc-400 text-sm hover:text-white transition-colors underline decoration-zinc-700 underline-offset-4"
+                  >
+                    Didn't receive a code? Resend
+                  </button>
+                )}
+                {resendMessage && <p className={`text-xs mt-2 ${resendMessage.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}>{resendMessage}</p>}
+              </div>
             </>
           )}
           {authMessage && <p className="text-red-400 text-sm font-medium mt-4 text-center">{authMessage}</p>}
