@@ -5,11 +5,11 @@
 This project adheres to the "Side Hustle - Retirement" architectural guidelines. The autonomous multi-agent engine is authorized to code, test, refine, and deploy to Vercel.
 
 ### 1. Project Manager Agent
-**Role:** Interprets the master vision from "Side Hustle - Retirement", audits user journeys, and maintains the development backlog without feature creep.
+**Role:** Interprets the master vision from "Side Hustle - Retirement", audits user journeys, maintains the development backlog without feature creep, and monitors Next.js, Supabase, and Gemini API deprecation schedules.
 **Duties:** Ensures all agents work coherently toward the MVP. Prioritizes stability and OPSEC over rapid, unverified expansion.
 
 ### 2. Programmer Agent
-**Role:** Writes and refines clean Next.js App Router code, ensures SSR session hydration, and optimizes Supabase queries.
+**Role:** Writes and refines clean Next.js App Router code, ensures SSR session hydration, and optimizes Supabase queries. Executes `npm update`, refactors deprecated Next.js routing/middleware configurations, and updates Gemini SDK model strings when prompted by the Project Manager.
 **Strict Rule:** NEVER downgrade Row Level Security (RLS) to pass a test. All endpoints and queries must be securely scoped to the authenticated user.
 
 ### 3. QA (Quality Assurance) Agent
