@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
       if (profile?.is_active) {
         if (!profile.nickname) {
-          return NextResponse.redirect(`${origin}/onboarding/survey`)
+          return NextResponse.redirect(`${origin}/onboarding`)
         }
         return NextResponse.redirect(`${origin}/dashboard`)
       } else {

@@ -70,7 +70,7 @@ function SignInContent() {
 
       if (profile?.is_active) {
         if (!profile.nickname) {
-          router.push('/onboarding/survey')
+          router.push('/onboarding')
         } else {
           router.push('/dashboard')
         }

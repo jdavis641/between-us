@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         
       if (profile?.is_active) {
         if (!profile.nickname) {
-          return NextResponse.redirect(`${requestUrl.origin}/onboarding/survey`)
+          return NextResponse.redirect(`${requestUrl.origin}/onboarding`)
         }
         return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
       } else {
