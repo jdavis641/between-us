@@ -64,12 +64,12 @@ function SignInContent() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_active, anonymous_alias')
+        .select('is_active, nickname')
         .eq('id', data.user.id)
         .single()
 
       if (profile?.is_active) {
-        if (!profile.anonymous_alias) {
+        if (!profile.nickname) {
           router.push('/onboarding/survey')
         } else {
           router.push('/dashboard')
