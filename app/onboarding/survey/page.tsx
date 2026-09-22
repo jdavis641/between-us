@@ -20,6 +20,10 @@ export default function OnboardingSurvey() {
     pronouns: '',
     tolerance: 'Playful'
   })
+  
+  const [nicknameError, setNicknameError] = useState('')
+  const [nicknameSuggestions, setNicknameSuggestions] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     async function fetchSession() {
@@ -41,6 +45,47 @@ export default function OnboardingSurvey() {
 
   // STEP 1: IDENTITY
   if (step === 1) {
+    const handleSubmit = async () => {
+      if (!formData.nickname) {
+        setNicknameError('Nickname is required')
+        return
+      }
+      
+      setNicknameError('')
+      setNicknameSuggestions([])
+      setIsSubmitting(true)
+      
+      try {
+        const response = await fetch('/api/check-nickname', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname: formData.nickname })
+        })
+        
+        const data = await response.json()
+        
+        if (!data.available) {
+          setNicknameError('This nickname is already taken.')
+          setNicknameSuggestions(data.suggestions || [])
+          setIsSubmitting(false)
+          return
+        }
+        
+        if (session) {
+          await supabase.from('profiles').update({
+            nickname: formData.nickname,
+            pronouns: formData.pronouns,
+          }).eq('id', session.user.id)
+        }
+        
+        setStep(2)
+      } catch (err) {
+        setNicknameError('An error occurred checking availability.')
+      } finally {
+        setIsSubmitting(false)
+      }
+    }
+
     return (
       <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 items-center justify-center font-sans">
         <div className="max-w-md w-full space-y-8">
@@ -50,30 +95,55 @@ export default function OnboardingSurvey() {
           </div>
           
           <div className="space-y-4">
-            <input 
-              type="text" 
-              placeholder="Unique Nickname" 
-              className="w-full p-4 bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl focus:outline-none focus:border-red-900/50" 
-              onChange={(e) => setFormData({...formData, nickname: e.target.value})} 
-            />
+            <div>
+              <input 
+                type="text" 
+                placeholder="Unique Nickname" 
+                className="w-full p-4 bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl focus:outline-none focus:border-red-900/50" 
+                value={formData.nickname}
+                onChange={(e) => {
+                  setFormData({...formData, nickname: e.target.value})
+                  setNicknameError('')
+                  setNicknameSuggestions([])
+                }} 
+              />
+              {nicknameError && (
+                <div className="mt-2 text-sm text-red-400">
+                  <p>{nicknameError}</p>
+                  {nicknameSuggestions.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-zinc-400">Available alternatives: </span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {nicknameSuggestions.map(sug => (
+                          <button
+                            key={sug}
+                            onClick={() => setFormData({...formData, nickname: sug})}
+                            className="bg-zinc-800 px-3 py-1 rounded text-zinc-300 hover:bg-zinc-700 transition-colors"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <input 
               type="text" 
               placeholder="Pronouns (e.g., they/them, she/her)" 
               className="w-full p-4 bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl focus:outline-none focus:border-red-900/50" 
+              value={formData.pronouns}
               onChange={(e) => setFormData({...formData, pronouns: e.target.value})} 
             />
           </div>
           
-          <button onClick={async () => {
-            if (session) {
-              await supabase.from('profiles').update({
-                nickname: formData.nickname,
-                pronouns: formData.pronouns,
-              }).eq('id', session.user.id)
-            }
-            setStep(2)
-          }} className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium hover:bg-white transition-colors">
-            Next: Boundary Quiz
+          <button 
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium hover:bg-white transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? 'Checking...' : 'Next: Boundary Quiz'}
           </button>
         </div>
       </div>
