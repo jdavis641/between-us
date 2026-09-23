@@ -33,8 +33,7 @@ export async function GET(request: Request) {
         }
         return NextResponse.redirect(`${origin}/dashboard`)
       } else {
-        const stripePaymentLink = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}`
-        return NextResponse.redirect(stripePaymentLink)
+        return NextResponse.redirect(`${origin}/onboarding`)
       }
     }
   }

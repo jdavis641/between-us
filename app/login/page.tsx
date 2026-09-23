@@ -75,7 +75,7 @@ function SignInContent() {
           router.push('/dashboard')
         }
       } else {
-        window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}`
+        router.push('/onboarding')
       }
     } else {
       setAuthMessage('Verification failed, no user returned.')

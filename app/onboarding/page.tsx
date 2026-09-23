@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { boundaryMatrix } from '../lib/boundaryData'
 
 const supabase = createClient(
@@ -9,11 +9,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function OnboardingSurvey() {
-  const [step, setStep] = useState(1)
+function OnboardingContent() {
+  const [step, setStep] = useState<number | null>(null) // null = loading
   const [session, setSession] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('session_id')
   
   const [formData, setFormData] = useState({
     nickname: '',
@@ -36,12 +38,45 @@ export default function OnboardingSurvey() {
           .eq('id', currentSession.user.id)
           .single()
         setProfile(data)
+
+        if (sessionId) {
+          // Returning from Stripe success
+          setStep(1)
+        } else if (data?.is_active) {
+          // Already paid
+          setStep(1)
+        } else {
+          // Not paid, render payment step
+          setStep(0)
+        }
       } else {
         router.push('/login')
       }
     }
     fetchSession()
-  }, [router])
+  }, [router, sessionId])
+
+  if (step === null) {
+    return <div className="min-h-screen bg-zinc-950 text-zinc-500 flex items-center justify-center font-sans">Loading...</div>
+  }
+
+  // STEP 0: PAYMENT
+  if (step === 0) {
+    return (
+      <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 items-center justify-center font-sans">
+        <div className="max-w-md w-full space-y-8 bg-zinc-900/50 p-8 rounded-2xl border border-zinc-800 text-center">
+          <h2 className="text-3xl font-serif font-medium text-zinc-100">Activate Account</h2>
+          <p className="text-zinc-400 mt-2 font-light">Complete your payment to access the platform and set up your profile.</p>
+          <a
+            href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}`}
+            className="block w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors mt-6 shadow-lg shadow-red-900/20"
+          >
+            Pay with Stripe
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   // STEP 1: IDENTITY
   if (step === 1) {
@@ -271,4 +306,12 @@ export default function OnboardingSurvey() {
       </div>
     )
   }
+}
+
+export default function OnboardingSurvey() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading...</div>}>
+      <OnboardingContent />
+    </Suspense>
+  )
 }
