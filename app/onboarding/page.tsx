@@ -80,7 +80,9 @@ function OnboardingContent() {
 
   // STEP 1: IDENTITY
   if (step === 1) {
-    const handleSubmit = async () => {
+    const handleSubmit = async (e?: React.FormEvent) => {
+      if (e) e.preventDefault()
+      
       if (!formData.nickname) {
         setNicknameError('Nickname is required')
         return
@@ -123,7 +125,7 @@ function OnboardingContent() {
 
     return (
       <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 items-center justify-center font-sans">
-        <div className="max-w-md w-full space-y-8">
+        <form onSubmit={handleSubmit} className="max-w-md w-full space-y-8">
           <div>
             <h2 className="text-3xl font-serif font-medium text-zinc-100">Who are you here?</h2>
             <p className="text-zinc-400 mt-2 font-light">Set your anonymous identity for the platform.</p>
@@ -151,6 +153,7 @@ function OnboardingContent() {
                       <div className="flex flex-wrap gap-2 mt-1">
                         {nicknameSuggestions.map(sug => (
                           <button
+                            type="button"
                             key={sug}
                             onClick={() => setFormData({...formData, nickname: sug})}
                             className="bg-zinc-800 px-3 py-1 rounded text-zinc-300 hover:bg-zinc-700 transition-colors"
@@ -174,13 +177,13 @@ function OnboardingContent() {
           </div>
           
           <button 
-            onClick={handleSubmit}
+            type="submit"
             disabled={isSubmitting}
             className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium hover:bg-white transition-colors disabled:opacity-50"
           >
             {isSubmitting ? 'Checking...' : 'Next: Boundary Quiz'}
           </button>
-        </div>
+        </form>
       </div>
     )
   }

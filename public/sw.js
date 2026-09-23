@@ -1,4 +1,4 @@
-const CACHE_NAME = 'between-us-v2';
+const CACHE_NAME = 'between-us-v3';
 const urlsToCache = [
   '/',
   '/manifest.json'
@@ -25,8 +25,8 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Bypass cache for navigation requests to ensure latest routes are loaded
-  if (event.request.mode === 'navigate') {
+  // Bypass cache for navigation requests and auth routes to ensure latest states are loaded
+  if (event.request.mode === 'navigate' || event.request.url.includes('/api/auth') || event.request.url.includes('/auth/')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
