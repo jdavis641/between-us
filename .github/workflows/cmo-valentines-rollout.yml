@@ -1,0 +1,37 @@
+name: CMO Valentine's Day 2027 Campaign Rollout
+
+on:
+  schedule:
+    # Run exactly one month out on 1/14/27 at 12:00 UTC
+    - cron: '0 12 14 1 *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  marketing-rollout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Architect Valentine's Campaign
+        env:
+          GEMINI_MARKETING_API_KEY: ${{ secrets.GEMINI_MARKETING_API_KEY }}
+        run: |
+          npm install -g ts-node typescript @types/node
+          ts-node scripts/cmo-marketing-engine.ts valentines
+
+      - name: Commit and Push Campaign Drafts
+        run: |
+          git config --global user.name "CMO Agent"
+          git config --global user.email "cmo-agent@between-us.app"
+          git add marketing/campaigns/
+          git commit -m "chore: Architect Valentine's Day 2027 auto-posting blitz" || echo "No changes to commit"
+          git push

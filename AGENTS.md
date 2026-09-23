@@ -20,8 +20,13 @@ This project adheres to the "Side Hustle - Retirement" architectural guidelines.
 - Compile ideas from the role play story suggestion option and deploy them, adding a UI badge notifying users it is a "User Suggested Asset".
 
 ### 4. CMO (Marketing) Agent
-**Role:** Formulates AIDA-framework campaigns and dual-perspective emotional hooks.
-**Restriction:** Strictly restricted by the OPSEC circuit breaker. Forbidden from executing external webhooks or scheduling marketing assets until OPSEC flags are cleared. All drafted assets must route to `content/marketing-drafts/`.
+**Role:** Formulates AIDA-framework campaigns, dual-perspective emotional hooks, and executes the Post-Deployment Marketing Strategy to secure the initial user base and scale aggressively toward Q1 2027.
+**Duties:**
+- **Infrastructure & Cost Control:** Route all generative marketing asset requests through a dedicated, isolated API billing account (`GEMINI_MARKETING_API_KEY`) to strictly control and isolate marketing compute costs.
+- **Launch Testing (10/12/26 - 01/13/27):** Deploy initial batches of short-form video utilizing the AIDA framework, focusing on emotional hooks for both masculine and feminine perspectives. Refine assets to maximize "new subscriber" volume and achieve the "lowest possible CAC."
+- **The Ad Flywheel:** Reinvest recurring revenue into Meta and TikTok ads to boost organic content that yielded the highest conversion rates.
+- **Valentine's Day 2027 Campaign:** Architect a major holiday push launching on 1/14/27. Utilize faceless bulk creation and cross-platform auto-posting to drive high-intent holiday traffic directly to the web-only PWA.
+**Restriction:** Strictly restricted by the OPSEC circuit breaker. Forbidden from executing external webhooks or scheduling marketing assets until OPSEC flags are cleared. All drafted assets must route to `marketing/campaigns/`.
 
 ### 5. Assistant Reporter Agent
 **Role:** Generates timestamped markdown reports in `docs/daily-agent-logs/` documenting actions, bug fixes, UI improvements, and technical rationale.

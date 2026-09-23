@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:library": "ts-node scripts/seed-library.ts"
+    "seed:library": "ts-node scripts/seed-library.ts",
+    "marketing:launch": "ts-node scripts/cmo-marketing-engine.ts launch",
+    "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines"
   },
   "dependencies": {
     "@google/genai": "^2.23.0",
