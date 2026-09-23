@@ -16,12 +16,22 @@ export default function SettingsPage() {
     async function fetchProfile() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        const { data } = await supabase
+        const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single()
-        setProfile(data)
+
+        const { data: prefData } = await supabase
+          .from('intimacy_preferences')
+          .select('preference_level')
+          .eq('user_id', session.user.id)
+          .limit(1)
+
+        setProfile({
+          ...profileData,
+          base_tolerance: prefData && prefData.length > 0 ? prefData[0].preference_level : 'Not set'
+        })
       }
       setLoading(false)
     }
@@ -97,11 +107,11 @@ export default function SettingsPage() {
           <div className="space-y-4 pt-4 border-t border-zinc-800/50">
             <div>
               <p className="text-sm text-zinc-500 mb-1">Nickname</p>
-              <p className="text-zinc-300 font-medium">{profile?.nickname || 'Not set'}</p>
+              <p className="text-zinc-300 font-medium">{profile?.anonymous_alias || profile?.nickname || 'Not set'}</p>
             </div>
             <div>
               <p className="text-sm text-zinc-500 mb-1">Base Tolerance Tier</p>
-              <p className="text-zinc-300 font-medium">{profile?.tolerance || 'Not set'}</p>
+              <p className="text-zinc-300 font-medium">{profile?.base_tolerance || profile?.tolerance || 'Not set'}</p>
             </div>
           </div>
         </section>

@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
 
-export default function LiteratureReaderPage() {
+function LiteratureReaderContent() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode") || "couple";
+
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenarioText, setScenarioText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +25,7 @@ export default function LiteratureReaderPage() {
           body: JSON.stringify({ 
             contentType: "literature", 
             category: "Erotic Fantasy", 
-            playMode: "couple", 
+            playMode: mode, 
             hasScripts: false 
           })
         });
@@ -58,7 +62,7 @@ export default function LiteratureReaderPage() {
     };
 
     fetchLatestScenario();
-  }, [activeMode]);
+  }, [activeMode, mode]);
 
   return (
     <main className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100 max-w-2xl mx-auto w-full relative">
@@ -128,5 +132,17 @@ export default function LiteratureReaderPage() {
         </article>
       </div>
     </main>
+  );
+}
+
+export default function LiteratureReaderPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-pulse text-zinc-500">Loading experience...</div>
+      </div>
+    }>
+      <LiteratureReaderContent />
+    </Suspense>
   );
 }

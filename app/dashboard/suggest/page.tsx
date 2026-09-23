@@ -22,7 +22,7 @@ export default function SuggestionBox() {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error: insertError } = await supabase
-        .from('user_suggestions')
+        .from('scenario_suggestions')
         .insert({
           user_id: user?.id,
           suggestion_text: suggestion.trim()

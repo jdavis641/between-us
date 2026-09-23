@@ -31,10 +31,10 @@ export default async function GamesHub() {
   const dateNightGames = games?.filter((g: Game) => g.category === 'date_night' || g.category === 'Date Night Games') || []
 
   const sections = [
-    { title: 'Card Games', data: cardGames },
-    { title: 'Movie Night Games', data: movieNightGames },
-    { title: 'Drinking Games', data: drinkingGames },
-    { title: 'Date Night Games', data: dateNightGames }
+    { title: 'Card Games', id: 'card', data: cardGames },
+    { title: 'Movie Night Games', id: 'movie', data: movieNightGames },
+    { title: 'Drinking Games', id: 'drinking', data: drinkingGames },
+    { title: 'Date Night Games', id: 'date', data: dateNightGames }
   ]
 
   const getIntensityBadge = (intensity: string) => {
@@ -57,7 +57,7 @@ export default async function GamesHub() {
 
         <div className="space-y-16">
           {sections.map((section, idx) => (
-            <section key={idx}>
+            <section key={idx} id={section.id}>
               <h2 className="text-2xl font-serif font-medium mb-6 text-zinc-200 border-b border-zinc-800 pb-4">
                 {section.title}
               </h2>

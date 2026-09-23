@@ -62,7 +62,7 @@ export default function DashboardHome() {
             </Link>
           ) : (
             <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
-              <p className="text-gray-400 text-sm">Your AI Game Master is preparing your next scenario.</p>
+              <p className="text-gray-400 text-sm">Your game master is preparing your next scenario.</p>
             </div>
           )}
         </section>
@@ -98,6 +98,32 @@ export default function DashboardHome() {
               </div>
             </Link>
 
+          </div>
+        </section>
+
+        {/* Account Actions */}
+        <section>
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Account Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Link href="/dashboard/pass">
+              <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-pink-500 transition-all cursor-pointer group flex items-center space-x-4">
+                <span className="text-3xl">🎟️</span>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Guest Pass</h3>
+                  <p className="text-gray-400 text-sm">Generate a temporary hookup pass.</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/dashboard/settings">
+              <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-blue-500 transition-all cursor-pointer group flex items-center space-x-4">
+                <span className="text-3xl">🤝</span>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Invite Partner</h3>
+                  <p className="text-gray-400 text-sm">Connect by querying a username (anonymous alias).</p>
+                </div>
+              </div>
+            </Link>
           </div>
         </section>
       </div>

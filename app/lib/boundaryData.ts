@@ -18,10 +18,14 @@ export const boundaryMatrix = {
     { id: 'sybians', label: 'Sybians & Sex Machines', category: 'Toys' },
     { id: 'anal_pegging', label: 'Anal Sex & Pegging', category: 'Butt Stuff' },
     { id: 'group_play', label: 'Group Play (Threesomes/Orgies)', category: 'Groupings' },
+    { id: 'breath_play', label: 'Breath Play (Choking)', category: 'Restrictive' },
+    { id: 'impact_play', label: 'Heavy Impact Play (Whips/Paddles)', category: 'Pain' },
   ],
   Extreme: [
     { id: 'non_con', label: 'Non-Con / Rapeplay', category: 'Taboo Scenarios' },
     { id: 'blood_play', label: 'Blood Play', category: 'Fluids' },
     { id: 'public_use', label: 'Real Public Use', category: 'Extreme Acts' },
+    { id: 'watersports', label: 'Watersports (Golden Showers)', category: 'Fluids' },
+    { id: 'cuckolding', label: 'Cuckolding / Hotwifing', category: 'Taboo Scenarios' },
   ]
 }
