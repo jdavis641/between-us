@@ -80,8 +80,8 @@ function OnboardingContent() {
 
   // STEP 1: IDENTITY
   if (step === 1) {
-    const handleSubmit = async (e?: React.FormEvent) => {
-      if (e) e.preventDefault()
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault()
       
       if (!formData.nickname) {
         setNicknameError('Nickname is required')
