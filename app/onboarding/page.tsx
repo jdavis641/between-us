@@ -26,6 +26,12 @@ function OnboardingContent() {
   const [nicknameError, setNicknameError] = useState('')
   const [nicknameSuggestions, setNicknameSuggestions] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [boundaries, setBoundaries] = useState<Record<string, string>>({})
+  const [quizPage, setQuizPage] = useState(1)
+
+  const handleBoundarySelect = (id: string, value: string) => {
+    setBoundaries(prev => ({...prev, [id]: value}))
+  }
 
   useEffect(() => {
     async function fetchSession() {
@@ -188,18 +194,10 @@ function OnboardingContent() {
     )
   }
 
-  const [boundaries, setBoundaries] = useState<Record<string, string>>({})
-
-  const handleBoundarySelect = (id: string, value: string) => {
-    setBoundaries(prev => ({...prev, [id]: value}))
-  }
-
-  const [quizPage, setQuizPage] = useState(1)
-
-  const handleSubmitBoundaries = async () => {
-    // In a real app, save boundaries to supabase here
-    router.push('/dashboard')
-  }
+    const handleSubmitBoundaries = async () => {
+      // In a real app, save boundaries to supabase here
+      router.push('/dashboard')
+    }
 
   // STEP 2: BOUNDARY QUIZ (The Kink Selection)
   if (step === 2) {
