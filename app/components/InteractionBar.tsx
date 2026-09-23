@@ -7,6 +7,7 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
   const [isFavorite, setIsFavorite] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [hasRated, setHasRated] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!, 
@@ -70,6 +71,28 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
     }).catch(() => {})
   }
 
+  const handleShare = async () => {
+    const url = window.location.href
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Between Us - Shared Experience',
+          url: url
+        })
+      } catch (err) {
+        console.error('Error sharing', err)
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Failed to copy', err)
+      }
+    }
+  }
+
   return (
     <div className="flex items-center space-x-6 bg-zinc-900 p-5 rounded-xl border border-zinc-800 w-full md:w-auto shadow-lg">
       {/* Anonymous Flame Rating System */}
@@ -91,6 +114,22 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
       </div>
 
       <div className="w-px h-10 bg-zinc-800"></div>
+
+      {/* Share Link */}
+      <button 
+        onClick={handleShare}
+        className="text-sm font-medium px-4 py-2.5 rounded-lg transition-all duration-300 border bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700 flex items-center space-x-2"
+        title="Share this experience"
+      >
+        <span>{copied ? 'Copied!' : 'Share'}</span>
+        {!copied && (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        )}
+      </button>
 
       {/* Account-Linked Favorite Toggle */}
       <button 
