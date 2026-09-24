@@ -1,40 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
-export default function PassHub() {
+export default function GuestPassHub() {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
+  const [preferences, setPreferences] = useState<{category_tag: string, preference_level: string}[]>([]);
+  const [kinkSummary, setKinkSummary] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [instructions, setInstructions] = useState("");
+  const [contactMethod, setContactMethod] = useState<'email'|'sms'>('email');
+  const [contactInfo, setContactInfo] = useState("");
+  const [inviteSent, setInviteSent] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [duration, setDuration] = useState<number>(24);
-  const [preferences, setPreferences] = useState("");
   
-  // Mock active passes
   const [activePasses, setActivePasses] = useState([
-    { id: 1, type: "Guest Pass", status: "Active", expires: "2026-09-04 12:00 PM" },
-    { id: 2, type: "Couple Pass", status: "Used", expires: "2026-09-01 08:00 AM" }
+    { id: 1, type: "Guest Pass", status: "Active", expires: "2026-10-15 12:00 PM" }
   ]);
 
   const supabase = createClient();
 
-  const handleGenerateGuestPass = async () => {
+  useEffect(() => {
+    async function fetchPrefs() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase.from('intimacy_preferences')
+          .select('category_tag, preference_level, kinks_override')
+          .eq('user_id', session.user.id);
+          
+        if (data) {
+          const tags = data.filter(d => d.category_tag !== 'Base' && d.preference_level !== 'Off-Limits' && d.category_tag);
+          setPreferences(tags);
+          const override = data.find(d => d.kinks_override)?.kinks_override;
+          if (override) setKinkSummary(override);
+        }
+      }
+    }
+    fetchPrefs();
+  }, []);
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
+
+  const handleSendInvite = async () => {
     setLoading(true);
     try {
-      // Get the user's current group_id from auth metadata or state.
-      // We'll mock the UUID here for the UI demonstration
-      const mockGroupId = "123e4567-e89b-12d3-a456-426614174000"; 
-      
       const res = await fetch("/api/invite/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupId: mockGroupId, inviteType: "single", durationHours: duration, preferences })
+        body: JSON.stringify({
+          selectedBoundaries: selectedTags,
+          kinkSummary,
+          instructions,
+          contactMethod,
+          contactInfo
+        })
       });
       const data = await res.json();
-      if (data.token) {
+      if (data.success || data.token) {
         setInviteToken(data.token);
+        setInviteSent(true);
+      } else {
+        alert("Error sending invite: " + (data.error || "Unknown"));
       }
     } catch (e) {
-      console.error("Failed to generate pass", e);
+      console.error("Failed to dispatch pass", e);
     }
     setLoading(false);
   };
@@ -44,90 +76,166 @@ export default function PassHub() {
   };
 
   return (
-    <main className="p-6 md:p-10 w-full max-w-4xl mx-auto">
-      <header className="mb-10">
-        <h1 className="text-3xl font-bold mb-2">Between Us Pass</h1>
-        <p className="text-zinc-400">Manage your connection groups, temporary guest passes, and shared intimacy boundaries.</p>
+    <main className="p-6 md:p-10 w-full max-w-4xl mx-auto text-zinc-100 min-h-screen">
+      <header className="mb-10 border-b border-zinc-800 pb-6">
+        <h1 className="text-3xl font-bold mb-2">Between Us Guest Pass</h1>
+        <p className="text-zinc-400">Securely invite a partner and selectively share your desires.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Pass Generation Section */}
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col h-full">
-          <h2 className="text-xl font-semibold mb-4">Generate Pass</h2>
-          <p className="text-sm text-zinc-400 mb-6">
-            Create a single-use "Guest Pass" to securely invite a new partner. The AI will compute a safe intersection of mutual boundaries without ever exposing your "Off-Limits" topics.
-          </p>
+      {!inviteSent ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8">
           
-          <div className="space-y-4 mb-6 flex-1">
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Public Facing Preferences & Instructions</label>
-              <textarea 
-                value={preferences}
-                onChange={(e) => setPreferences(e.target.value)}
-                placeholder="E.g., I'm looking for a relaxed evening, please complete your quiz honestly before we meet..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-red-900/50 resize-none h-24"
-              ></textarea>
+          {/* Step 1 */}
+          {step === 1 && (
+            <div className="animate-in fade-in">
+              <h2 className="text-xl font-semibold mb-4">Choose the public facing desires to share with a guest</h2>
+              <p className="text-sm text-zinc-400 mb-6">Select which of your saved boundaries they can see.</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                {preferences.length > 0 ? preferences.map((pref, i) => (
+                  <button
+                    key={i}
+                    onClick={() => toggleTag(pref.category_tag)}
+                    className={`p-3 rounded-lg border text-sm text-left transition-colors ${
+                      selectedTags.includes(pref.category_tag) 
+                        ? 'bg-zinc-800 border-red-500 text-white' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-600'
+                    }`}
+                  >
+                    {pref.category_tag}
+                  </button>
+                )) : (
+                  <p className="text-zinc-500 text-sm col-span-3">No boundaries found. Take the quiz first.</p>
+                )}
+              </div>
+
+              {kinkSummary && (
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-2">Custom Kinks (Read-Only Summary)</h3>
+                  <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-300 whitespace-pre-wrap">
+                    {kinkSummary}
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={() => setStep(2)}
+                className="w-full py-3 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors"
+              >
+                Instruct
+              </button>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Pass Duration</label>
-              <div className="flex items-center gap-2 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+          )}
+
+          {/* Step 2 */}
+          {step === 2 && (
+            <div className="animate-in fade-in slide-in-from-right-4">
+              <h2 className="text-xl font-semibold mb-4">Add Guest Instructions</h2>
+              <p className="text-sm text-zinc-400 mb-6">Set the tone for your upcoming experience.</p>
+              
+              <textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="Enter instructions or 'cheat codes' for a memorable experience"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-zinc-200 focus:border-red-500 focus:outline-none transition-colors min-h-[160px] resize-y mb-6"
+              />
+
+              <div className="flex gap-4">
                 <button 
-                  onClick={() => setDuration(12)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${duration === 12 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  onClick={() => setStep(1)}
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-medium transition-colors"
                 >
-                  12 Hours
+                  Back
                 </button>
                 <button 
-                  onClick={() => setDuration(24)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${duration === 24 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  onClick={() => setStep(3)}
+                  className="flex-1 py-3 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors"
                 >
-                  24 Hours
+                  Submit
                 </button>
               </div>
             </div>
-          </div>
-          
-          <button 
-            onClick={handleGenerateGuestPass}
-            disabled={loading}
-            className="w-full py-3 bg-zinc-100 text-zinc-950 hover:bg-white rounded-lg font-medium transition-colors disabled:opacity-50 mt-auto"
-          >
-            {loading ? "Generating..." : "Generate Guest Pass"}
-          </button>
+          )}
 
-          {inviteToken && (
-            <div className="mt-4 p-4 bg-zinc-950 border border-zinc-800 rounded-lg animate-in fade-in">
-              <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2 font-semibold">Single-Use Link Ready</p>
-              <code className="text-sm text-zinc-200 break-all select-all block mb-2">
-                {typeof window !== 'undefined' ? location.origin : ''}/join?token={inviteToken}
-              </code>
-              <p className="text-xs text-zinc-500 italic">This link expires in {duration} hours or immediately upon use.</p>
+          {/* Step 3 */}
+          {step === 3 && (
+            <div className="animate-in fade-in slide-in-from-right-4">
+              <h2 className="text-xl font-semibold mb-4">Dispatch Invite</h2>
+              <p className="text-sm text-zinc-400 mb-6">Send a secure link to your guest. They will be required to create an account.</p>
+              
+              <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 mb-6">
+                <button 
+                  onClick={() => setContactMethod('email')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${contactMethod === 'email' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  Email
+                </button>
+                <button 
+                  onClick={() => setContactMethod('sms')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${contactMethod === 'sms' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  SMS
+                </button>
+              </div>
+
+              <div className="mb-8">
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  {contactMethod === 'email' ? 'Email Address' : 'Mobile Number'}
+                </label>
+                <input
+                  type={contactMethod === 'email' ? 'email' : 'tel'}
+                  value={contactInfo}
+                  onChange={(e) => setContactInfo(e.target.value)}
+                  placeholder={contactMethod === 'email' ? 'partner@example.com' : '+1 (555) 000-0000'}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setStep(2)}
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-medium transition-colors"
+                >
+                  Back
+                </button>
+                <button 
+                  onClick={handleSendInvite}
+                  disabled={loading || !contactInfo}
+                  className="flex-1 py-3 bg-white text-zinc-950 hover:bg-zinc-200 rounded-lg font-bold transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Sending...' : 'Send Invite'}
+                </button>
+              </div>
             </div>
           )}
-        </section>
-
-        {/* Public Preference Quiz Section */}
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Public Preferences</h2>
-          <p className="text-sm text-zinc-400 mb-6">
-            Your boundaries are strictly protected. When a partner uses your Between Us Pass, they complete their own blind quiz. The engine only reveals the "Definitely" and "Curious" themes you both share.
-          </p>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-lg border border-zinc-800">
-              <span className="text-sm font-medium">Your Masked Identity</span>
-              <span className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-300">Protected</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-lg border border-zinc-800">
-              <span className="text-sm font-medium">Shared Curiosity Engine</span>
-              <span className="text-xs bg-green-900/50 text-green-400 border border-green-900/50 px-2 py-1 rounded">Active</span>
-            </div>
+        </div>
+      ) : (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center animate-in zoom-in-95">
+          <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-        </section>
+          <h2 className="text-2xl font-bold mb-2">Invite Sent!</h2>
+          <p className="text-zinc-400 mb-6">Your guest has been sent their secure link.</p>
+          
+          {inviteToken && (
+            <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 inline-block max-w-full text-left">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-semibold">Fallback Link</p>
+              <code className="text-sm text-zinc-300 break-all select-all">
+                {typeof window !== 'undefined' ? location.origin : ''}/signup?pass={inviteToken}
+              </code>
+            </div>
+          )}
 
-      </div>
+          <div>
+            <button 
+              onClick={() => { setInviteSent(false); setStep(1); setContactInfo(""); setSelectedTags([]); setInstructions(""); }}
+              className="text-zinc-400 hover:text-white underline text-sm transition-colors"
+            >
+              Generate another pass
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Active Passes Management Table */}
       <section className="mt-10 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 overflow-hidden">
@@ -169,11 +277,6 @@ export default function PassHub() {
                   </td>
                 </tr>
               ))}
-              {activePasses.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">No active passes found.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

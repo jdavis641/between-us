@@ -17,6 +17,7 @@ export default function DashboardHome() {
   const [kinkText, setKinkText] = useState('')
   const [savingKink, setSavingKink] = useState(false)
   const [kinkSaved, setKinkSaved] = useState(false)
+  const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
     async function fetchActiveContent() {
@@ -45,6 +46,19 @@ export default function DashboardHome() {
           
         if (prefData?.kinks_override) {
           setKinkText(prefData.kinks_override)
+        }
+        
+        // Check if user is a guest
+        const { data: member } = await supabase
+          .from('group_members')
+          .select('connection_groups(group_type)')
+          .eq('user_id', session.user.id)
+          .limit(1)
+          .single()
+          
+        // @ts-ignore - nested structure
+        if (member?.connection_groups?.group_type === 'guest_pass') {
+          setIsGuest(true)
         }
       }
       setLoading(false)
@@ -146,8 +160,12 @@ export default function DashboardHome() {
               <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-pink-500 transition-all cursor-pointer group flex items-center space-x-4">
                 <span className="text-3xl">🎟️</span>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Guest Pass</h3>
-                  <p className="text-gray-400 text-sm">Generate a temporary hookup pass.</p>
+                  <h3 className={`text-lg font-bold ${isGuest ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                    {isGuest ? 'View Shared Pass Payload' : 'Between Us Guest Pass'}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    {isGuest ? 'Click to see your partner\'s boundaries and instructions.' : 'Generate a temporary hookup pass.'}
+                  </p>
                 </div>
               </div>
             </Link>
