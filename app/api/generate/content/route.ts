@@ -30,7 +30,14 @@ export async function POST(req: Request) {
       .select('category_tag, preference_level, kinks_override')
       .eq('user_id', user.id);
 
-    const kinksOverride = preferences?.find(p => p.kinks_override)?.kinks_override;
+    const kinksOverrideRaw = preferences?.find(p => p.kinks_override)?.kinks_override;
+    let kinksOverride = kinksOverrideRaw;
+    if (kinksOverrideRaw) {
+      try {
+        const parsed = JSON.parse(kinksOverrideRaw);
+        if (Array.isArray(parsed)) kinksOverride = parsed.map((k: any) => k.text).join('\n\n');
+      } catch (e) {}
+    }
 
     const offLimits = preferences?.filter(p => p.preference_level === 'Off-Limits').map(p => p.category_tag) || [];
     const definitely = preferences?.filter(p => p.preference_level === 'Definitely').map(p => p.category_tag) || [];

@@ -12,6 +12,7 @@ export default function GuestPassHub() {
   const [instructions, setInstructions] = useState("");
   const [contactMethod, setContactMethod] = useState<'email'|'sms'>('email');
   const [contactInfo, setContactInfo] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   
@@ -33,7 +34,18 @@ export default function GuestPassHub() {
           const tags = data.filter(d => d.category_tag !== 'Base' && d.preference_level !== 'Off-Limits' && d.category_tag);
           setPreferences(tags);
           const override = data.find(d => d.kinks_override)?.kinks_override;
-          if (override) setKinkSummary(override);
+          if (override) {
+            try {
+              const parsed = JSON.parse(override);
+              if (Array.isArray(parsed)) {
+                setKinkSummary(parsed.map((k: any) => k.text).join('\n\n'));
+              } else {
+                setKinkSummary(override);
+              }
+            } catch(e) {
+              setKinkSummary(override);
+            }
+          }
         }
       }
     }
@@ -151,7 +163,7 @@ export default function GuestPassHub() {
                   onClick={() => setStep(3)}
                   className="flex-1 py-3 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors"
                 >
-                  Submit
+                  submit
                 </button>
               </div>
             </div>
@@ -178,7 +190,7 @@ export default function GuestPassHub() {
                 </button>
               </div>
 
-              <div className="mb-8">
+              <div className="mb-6">
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
                   {contactMethod === 'email' ? 'Email Address' : 'Mobile Number'}
                 </label>
@@ -191,6 +203,21 @@ export default function GuestPassHub() {
                 />
               </div>
 
+              {contactInfo.trim() !== '' && (
+                <div className="mb-8 p-4 bg-zinc-950/50 border border-zinc-800 rounded-lg flex items-start gap-3">
+                  <input 
+                    type="checkbox" 
+                    id="liability-consent"
+                    checked={consentChecked}
+                    onChange={(e) => setConsentChecked(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
+                  />
+                  <label htmlFor="liability-consent" className="text-sm text-zinc-400">
+                    I understand that I am sharing my public facing information with {contactInfo}.
+                  </label>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button 
                   onClick={() => setStep(2)}
@@ -200,7 +227,7 @@ export default function GuestPassHub() {
                 </button>
                 <button 
                   onClick={handleSendInvite}
-                  disabled={loading || !contactInfo}
+                  disabled={loading || !contactInfo || !consentChecked}
                   className="flex-1 py-3 bg-white text-zinc-950 hover:bg-zinc-200 rounded-lg font-bold transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Sending...' : 'Send Invite'}
@@ -228,7 +255,7 @@ export default function GuestPassHub() {
 
           <div>
             <button 
-              onClick={() => { setInviteSent(false); setStep(1); setContactInfo(""); setSelectedTags([]); setInstructions(""); }}
+              onClick={() => { setInviteSent(false); setStep(1); setContactInfo(""); setSelectedTags([]); setInstructions(""); setConsentChecked(false); }}
               className="text-zinc-400 hover:text-white underline text-sm transition-colors"
             >
               Generate another pass
