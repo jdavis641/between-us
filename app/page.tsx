@@ -28,7 +28,7 @@ export default function LandingPage() {
         </h1>
         
         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mb-12 leading-relaxed font-light">
-          An evolving intimacy communication tool designed to enhance relationship connections. It learns your preferences, adapts to your boundaries, and ensures you never run out of ways to spark tension.
+          An evolving intimacy communication tool designed to enhance relationship connections. It learns your preferences, adapts to your boundaries, and ensures you never run out of ways to spark passion.
         </p>
 
         <Link 
