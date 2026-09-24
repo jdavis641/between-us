@@ -19,6 +19,25 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function generateWithRetry(prompt: string, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        }
+      });
+      return response;
+    } catch (error: any) {
+      console.error(`Attempt ${attempt} failed:`, error.message);
+      if (attempt === retries) throw error;
+      await delay(5000); // Wait 5s before retrying
+    }
+  }
+}
+
 async function generateIntimacyGames() {
   console.log('--- Starting Intimacy Games Generation ---');
   
@@ -43,15 +62,9 @@ async function generateIntimacyGames() {
       `;
 
       try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-          }
-        });
+        const response = await generateWithRetry(prompt);
         
-        let rawResponse = response.text || '[]';
+        let rawResponse = response?.text || '[]';
         const games = JSON.parse(rawResponse);
         
         for (const game of games) {
@@ -107,15 +120,9 @@ async function generateEroticLiterature() {
         `;
 
         try {
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.6-flash',
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-            }
-          });
+          const response = await generateWithRetry(prompt);
           
-          let rawResponse = response.text || '{}';
+          let rawResponse = response?.text || '{}';
           const story = JSON.parse(rawResponse);
           
           const { error } = await supabase.from('generated_content').insert({

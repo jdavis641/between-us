@@ -7,8 +7,9 @@ export default function GuestPassHub() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState<{category_tag: string, preference_level: string}[]>([]);
-  const [kinkSummary, setKinkSummary] = useState("");
+  const [customKinks, setCustomKinks] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedKinks, setSelectedKinks] = useState<string[]>([]);
   const [instructions, setInstructions] = useState("");
   const [contactMethod, setContactMethod] = useState<'email'|'sms'>('email');
   const [contactInfo, setContactInfo] = useState("");
@@ -31,19 +32,24 @@ export default function GuestPassHub() {
           .eq('user_id', session.user.id);
           
         if (data) {
-          const tags = data.filter(d => d.category_tag !== 'Base' && d.preference_level !== 'Off-Limits' && d.category_tag);
+          const tags = data.filter(d => 
+            d.category_tag !== 'Base' && 
+            (d.preference_level === 'Definitely' || d.preference_level === 'Curious') && 
+            d.category_tag
+          );
           setPreferences(tags);
+          
           const override = data.find(d => d.kinks_override)?.kinks_override;
           if (override) {
             try {
               const parsed = JSON.parse(override);
               if (Array.isArray(parsed)) {
-                setKinkSummary(parsed.map((k: any) => k.text).join('\n\n'));
+                setCustomKinks(parsed.map((k: any) => k.text || String(k)));
               } else {
-                setKinkSummary(override);
+                setCustomKinks(override.split('\n').filter((k: string) => k.trim() !== ''));
               }
             } catch(e) {
-              setKinkSummary(override);
+              setCustomKinks(override.split('\n').filter((k: string) => k.trim() !== ''));
             }
           }
         }
@@ -56,6 +62,10 @@ export default function GuestPassHub() {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   };
 
+  const toggleKink = (kink: string) => {
+    setSelectedKinks(prev => prev.includes(kink) ? prev.filter(k => k !== kink) : [...prev, kink]);
+  };
+
   const handleSendInvite = async () => {
     setLoading(true);
     try {
@@ -64,7 +74,7 @@ export default function GuestPassHub() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           selectedBoundaries: selectedTags,
-          kinkSummary,
+          kinkSummary: selectedKinks.join('\n\n'),
           instructions,
           contactMethod,
           contactInfo
@@ -103,29 +113,41 @@ export default function GuestPassHub() {
               <h2 className="text-xl font-semibold mb-4">choose the public facing desires to share with a guest</h2>
               <p className="text-sm text-zinc-400 mb-6">Select which of your saved boundaries they can see.</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                {preferences.length > 0 ? preferences.map((pref, i) => (
-                  <button
-                    key={i}
-                    onClick={() => toggleTag(pref.category_tag)}
-                    className={`p-3 rounded-lg border text-sm text-left transition-colors ${
-                      selectedTags.includes(pref.category_tag) 
-                        ? 'bg-zinc-800 border-red-500 text-white' 
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-600'
-                    }`}
-                  >
-                    {pref.category_tag}
-                  </button>
-                )) : (
-                  <p className="text-zinc-500 text-sm col-span-3">No boundaries found. Take the quiz first.</p>
-                )}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-3">Boundaries</h3>
+                <div className="space-y-3">
+                  {preferences.length > 0 ? preferences.map((pref, i) => (
+                    <label key={i} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800/50 cursor-pointer transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedTags.includes(pref.category_tag)}
+                        onChange={() => toggleTag(pref.category_tag)}
+                        className="w-5 h-5 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
+                      />
+                      <span className="text-sm text-zinc-300 flex-1">{pref.category_tag}</span>
+                      <span className="text-xs text-zinc-500 uppercase tracking-wider">{pref.preference_level}</span>
+                    </label>
+                  )) : (
+                    <p className="text-zinc-500 text-sm">No boundaries found. Take the quiz first.</p>
+                  )}
+                </div>
               </div>
 
-              {kinkSummary && (
+              {customKinks.length > 0 && (
                 <div className="mb-8">
-                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-2">Custom Kinks (Read-Only Summary)</h3>
-                  <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-300 whitespace-pre-wrap">
-                    {kinkSummary}
+                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-3">Custom Kinks</h3>
+                  <div className="space-y-3">
+                    {customKinks.map((kink, i) => (
+                      <label key={i} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800/50 cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedKinks.includes(kink)}
+                          onChange={() => toggleKink(kink)}
+                          className="w-5 h-5 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
+                        />
+                        <span className="text-sm text-zinc-300 flex-1 whitespace-pre-wrap">{kink}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
