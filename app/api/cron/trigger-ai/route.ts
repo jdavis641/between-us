@@ -10,6 +10,10 @@ export async function GET(request: Request) {
 
   // Logic to fetch all active users and trigger the content generation API route
   // Runs twice a week to build anticipation for the weekend encounter
+  // NOTE: Kinks Override and detailed Gemini prompt prioritization logic is actively implemented directly in:
+  // - app/api/generate/content/route.ts
+  // - app/api/cron/mid-week/route.ts
+  // - app/api/cron/weekend/route.ts
 
   return NextResponse.json({ success: true, message: 'AI generation cycle executed.' })
 }

@@ -27,8 +27,10 @@ export async function POST(req: Request) {
     // Fetch Preferences
     const { data: preferences } = await supabase
       .from('intimacy_preferences')
-      .select('category_tag, preference_level')
+      .select('category_tag, preference_level, kinks_override')
       .eq('user_id', user.id);
+
+    const kinksOverride = preferences?.find(p => p.kinks_override)?.kinks_override;
 
     const offLimits = preferences?.filter(p => p.preference_level === 'Off-Limits').map(p => p.category_tag) || [];
     const definitely = preferences?.filter(p => p.preference_level === 'Definitely').map(p => p.category_tag) || [];
@@ -55,6 +57,7 @@ IMPORTANT BOUNDARIES:
 - DO NOT INCLUDE ANY OF THESE THEMES (Off-Limits): ${offLimits.join(", ") || "None specified"}.
 - Try to incorporate these themes if appropriate (Definitely): ${definitely.join(", ") || "None specified"}.
 
+${kinksOverride ? `CRITICAL KINK OVERRIDE (Must strictly supersede all other boundary choices and AI-generated user-rated content. You MUST focus the content tightly around these explicit user desires):\n${kinksOverride}\n` : ''}
 MEMORY CONTEXT:
 - To avoid repetition, DO NOT generate anything too similar to these recent activities: ${historyTitles.join(", ") || "None"}.
 `;

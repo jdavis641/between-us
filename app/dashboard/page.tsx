@@ -12,6 +12,12 @@ export default function DashboardHome() {
   const [activeStory, setActiveStory] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // Kink Override State
+  const [showKinkBox, setShowKinkBox] = useState(false)
+  const [kinkText, setKinkText] = useState('')
+  const [savingKink, setSavingKink] = useState(false)
+  const [kinkSaved, setKinkSaved] = useState(false)
+
   useEffect(() => {
     async function fetchActiveContent() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -27,11 +33,42 @@ export default function DashboardHome() {
           .single()
         
         if (data) setActiveStory(data)
+        
+        // Fetch existing kink override
+        const { data: prefData } = await supabase
+          .from('intimacy_preferences')
+          .select('kinks_override')
+          .eq('user_id', session.user.id)
+          .not('kinks_override', 'is', null)
+          .limit(1)
+          .single()
+          
+        if (prefData?.kinks_override) {
+          setKinkText(prefData.kinks_override)
+        }
       }
       setLoading(false)
     }
     fetchActiveContent()
   }, [supabase])
+
+  const handleSaveKink = async () => {
+    setSavingKink(true)
+    setKinkSaved(false)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      // Upsert the kinks override by updating records for this user or inserting if none
+      const { data: existingPrefs } = await supabase.from('intimacy_preferences').select('id').eq('user_id', session.user.id).limit(1)
+      if (existingPrefs && existingPrefs.length > 0) {
+        await supabase.from('intimacy_preferences').update({ kinks_override: kinkText }).eq('user_id', session.user.id)
+      } else {
+        await supabase.from('intimacy_preferences').insert({ user_id: session.user.id, category_tag: 'Base', preference_level: 'Standard', kinks_override: kinkText })
+      }
+      setKinkSaved(true)
+      setTimeout(() => setKinkSaved(false), 3000)
+    }
+    setSavingKink(false)
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12 pb-32">
@@ -125,6 +162,44 @@ export default function DashboardHome() {
               </div>
             </Link>
           </div>
+        </section>
+
+        {/* AI Kink Override */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Custom Boundaries</h2>
+            <button
+              onClick={() => setShowKinkBox(!showKinkBox)}
+              className="text-xs font-bold uppercase tracking-widest bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded text-zinc-300 transition-colors border border-zinc-700"
+            >
+              {showKinkBox ? 'Close' : 'Kink Override'}
+            </button>
+          </div>
+          
+          {showKinkBox && (
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 transition-all animate-in fade-in slide-in-from-top-2">
+              <label htmlFor="kinks" className="block text-sm font-medium text-zinc-300 mb-2">
+                Manual AI Instruction Override
+              </label>
+              <textarea
+                id="kinks"
+                value={kinkText}
+                onChange={(e) => setKinkText(e.target.value)}
+                placeholder="what kinks would you like included in your stories and games? (the more detail the better)"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-4 text-zinc-200 focus:border-red-500 focus:outline-none transition-colors min-h-[120px] resize-y mb-4"
+              />
+              <div className="flex items-center justify-end gap-4">
+                {kinkSaved && <span className="text-sm text-green-400">Settings updated!</span>}
+                <button
+                  onClick={handleSaveKink}
+                  disabled={savingKink}
+                  className="bg-red-900 hover:bg-red-800 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {savingKink ? 'Saving...' : 'Save Override'}
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

@@ -12,6 +12,13 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // Username Modification State
+  const [isEditingUsername, setIsEditingUsername] = useState(false)
+  const [newUsername, setNewUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [savingUsername, setSavingUsername] = useState(false)
+
   useEffect(() => {
     async function fetchProfile() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -37,6 +44,61 @@ export default function SettingsPage() {
     }
     fetchProfile()
   }, [])
+
+  // Debounced Username Availability Check
+  useEffect(() => {
+    const currentName = profile?.anonymous_alias || profile?.nickname
+    if (!newUsername || newUsername.trim() === '' || newUsername.trim() === currentName) {
+      setUsernameStatus('idle')
+      setSuggestions([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setUsernameStatus('checking')
+      try {
+        const res = await fetch('/api/check-nickname', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname: newUsername.trim() })
+        })
+        const data = await res.json()
+        if (data.available) {
+          setUsernameStatus('available')
+          setSuggestions([])
+        } else {
+          setUsernameStatus('taken')
+          setSuggestions(data.suggestions || [])
+        }
+      } catch (err) {
+        console.error(err)
+        setUsernameStatus('idle')
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [newUsername, profile])
+
+  const handleSaveUsername = async (usernameToSave: string) => {
+    if (!usernameToSave || usernameToSave.trim() === '') return
+    setSavingUsername(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ nickname: usernameToSave, anonymous_alias: usernameToSave })
+        .eq('id', session.user.id)
+      
+      if (!error) {
+        setProfile((prev: any) => ({ ...prev, nickname: usernameToSave, anonymous_alias: usernameToSave }))
+        setIsEditingUsername(false)
+        setNewUsername('')
+      } else {
+        alert("Error saving username: " + error.message)
+      }
+    }
+    setSavingUsername(false)
+  }
 
   const [isRedirecting, setIsRedirecting] = useState(false)
 
@@ -104,11 +166,87 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="space-y-4 pt-4 border-t border-zinc-800/50">
+          <div className="space-y-6 pt-4 border-t border-zinc-800/50">
             <div>
-              <p className="text-sm text-zinc-500 mb-1">Nickname</p>
-              <p className="text-zinc-300 font-medium">{profile?.anonymous_alias || profile?.nickname || 'Not set'}</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-zinc-500">Nickname / Anonymous Alias</p>
+                {!isEditingUsername && (
+                  <button 
+                    onClick={() => {
+                      setIsEditingUsername(true)
+                      setNewUsername(profile?.anonymous_alias || profile?.nickname || '')
+                    }}
+                    className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
+                  >
+                    Change Username
+                  </button>
+                )}
+              </div>
+              
+              {!isEditingUsername ? (
+                <p className="text-zinc-300 font-medium text-lg">{profile?.anonymous_alias || profile?.nickname || 'Not set'}</p>
+              ) : (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className={`flex-1 bg-zinc-950 border rounded-lg px-4 py-2 text-zinc-200 focus:outline-none transition-colors ${
+                        usernameStatus === 'taken' ? 'border-red-500/50 focus:border-red-500' :
+                        usernameStatus === 'available' ? 'border-green-500/50 focus:border-green-500' :
+                        'border-zinc-800 focus:border-blue-500'
+                      }`}
+                      placeholder="Enter new username"
+                    />
+                    <button
+                      onClick={() => handleSaveUsername(newUsername.trim())}
+                      disabled={savingUsername || usernameStatus !== 'available'}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      {savingUsername ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingUsername(false)
+                        setNewUsername('')
+                      }}
+                      className="text-zinc-400 hover:text-zinc-300 px-2 py-2"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  
+                  {/* Status Indicator */}
+                  <div className="text-sm">
+                    {usernameStatus === 'checking' && <span className="text-zinc-500">Checking availability...</span>}
+                    {usernameStatus === 'available' && <span className="text-green-400">Username is available!</span>}
+                    {usernameStatus === 'taken' && (
+                      <div className="text-red-400 space-y-2">
+                        <p>This username is already taken.</p>
+                        {suggestions.length > 0 && (
+                          <div>
+                            <p className="text-zinc-400 text-xs uppercase mb-1">Available Suggestions:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {suggestions.map((sug) => (
+                                <button
+                                  key={sug}
+                                  onClick={() => setNewUsername(sug)}
+                                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded border border-zinc-700 text-sm transition-colors"
+                                >
+                                  {sug}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+            
             <div>
               <p className="text-sm text-zinc-500 mb-1">Base Tolerance Tier</p>
               <p className="text-zinc-300 font-medium">{profile?.base_tolerance || profile?.tolerance || 'Not set'}</p>
