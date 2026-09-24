@@ -161,7 +161,7 @@ export default function DashboardHome() {
                 <span className="text-3xl">🎟️</span>
                 <div>
                   <h3 className={`text-lg font-bold ${isGuest ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-                    {isGuest ? 'View Shared Pass Payload' : 'Between Us Guest Pass'}
+                    {isGuest ? 'View Shared Between Us Pass' : 'Between Us Guest Pass'}
                   </h3>
                   <p className="text-gray-400 text-sm">
                     {isGuest ? 'Click to see your partner\'s boundaries and instructions.' : 'Generate a temporary hookup pass.'}
