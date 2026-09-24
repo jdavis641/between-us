@@ -45,7 +45,7 @@ export async function GET(request: Request) {
           const senderEmail = member?.profiles?.email
           
           if (senderEmail) {
-            const revokeLink = `${origin}/api/pass/revoke?token=${pass_token}`
+            const revokeLink = `${origin}/api/invite/revoke?token=${pass_token}`
             await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {

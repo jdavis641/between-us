@@ -88,7 +88,7 @@ export default function GuestPassHub() {
           {/* Step 1 */}
           {step === 1 && (
             <div className="animate-in fade-in">
-              <h2 className="text-xl font-semibold mb-4">Choose the public facing desires to share with a guest</h2>
+              <h2 className="text-xl font-semibold mb-4">choose the public facing desires to share with a guest</h2>
               <p className="text-sm text-zinc-400 mb-6">Select which of your saved boundaries they can see.</p>
               
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
@@ -122,7 +122,7 @@ export default function GuestPassHub() {
                 onClick={() => setStep(2)}
                 className="w-full py-3 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors"
               >
-                Instruct
+                instruct
               </button>
             </div>
           )}
@@ -136,7 +136,7 @@ export default function GuestPassHub() {
               <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Enter instructions or 'cheat codes' for a memorable experience"
+                placeholder="enter instructions or 'cheat codes' for a memorable experience"
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-zinc-200 focus:border-red-500 focus:outline-none transition-colors min-h-[160px] resize-y mb-6"
               />
 
