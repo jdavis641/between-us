@@ -18,9 +18,7 @@ export default function GuestPassHub() {
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   
-  const [activePasses, setActivePasses] = useState([
-    { id: 1, type: "Guest Pass", status: "Active", expires: "2026-10-15 12:00 PM" }
-  ]);
+  const [activePasses, setActivePasses] = useState<any[]>([]);
 
   const supabase = createClient();
 
@@ -54,6 +52,22 @@ export default function GuestPassHub() {
             }
           }
         }
+
+        const { data: invites } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('invite_type', 'guest_pass')
+          .order('created_at', { ascending: false });
+        if (invites) {
+          setActivePasses(invites.map(inv => ({
+            id: inv.id,
+            type: "Guest Pass",
+            status: new Date(inv.expires_at) > new Date() ? "Active" : "Expired",
+            expires_at: inv.expires_at
+          })));
+        } else {
+          setActivePasses([]);
+        }
       }
     }
     fetchPrefs();
@@ -70,7 +84,7 @@ export default function GuestPassHub() {
   const handleSendInvite = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/invite/generate", {
+      const res = await fetch("/api/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -330,7 +344,7 @@ export default function GuestPassHub() {
                     </span>
                   </td>
                   <td className="px-4 py-4 text-zinc-400">
-                    {new Date(pass.expires).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                    {new Date(pass.expires_at || pass.expires).toLocaleDateString('en-US')}
                   </td>
                   <td className="px-4 py-4 text-right">
                     {pass.status === "Active" && (

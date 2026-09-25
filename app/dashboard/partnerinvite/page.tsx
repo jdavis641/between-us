@@ -61,18 +61,39 @@ export default function InvitePartnerPage() {
     if (!searchValue.trim()) return
     setIsSearching(true)
     
-    // Mocking the search for now. In a real scenario, we'd query the 'profiles' table 
-    setTimeout(() => {
-      setFoundUser({ username: searchValue })
-      setIsSearching(false)
-    }, 600)
+    let query = supabase.from('profiles').select('id, username, anonymous_alias, nickname')
+    if (searchMethod === 'username') {
+      query = query.or(`anonymous_alias.eq.${searchValue},nickname.eq.${searchValue},username.eq.${searchValue}`)
+    } else if (searchMethod === 'email') {
+      query = query.eq('email', searchValue)
+    } else if (searchMethod === 'phone') {
+      query = query.eq('phone', searchValue)
+    }
+
+    const { data, error } = await query.limit(1).single()
+
+    if (data) {
+      setFoundUser({ id: data.id, username: data.anonymous_alias || data.nickname || data.username || searchValue })
+    } else {
+      setFoundUser(null)
+      alert("Partner not found.")
+    }
+    setIsSearching(false)
   }
 
-  const handleSendInvite = () => {
-    // Mock sending the invite
-    setTimeout(() => {
-      setInviteSent(true)
-    }, 500)
+  const handleSendInvite = async () => {
+    if (!foundUser) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    await supabase.from('invitations').insert({
+      invite_token: crypto.randomUUID(),
+      invite_type: 'partner',
+      preferences: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks }),
+      // we could add target_user_id: foundUser.id
+    })
+
+    setInviteSent(true)
   }
 
   const toggleTag = (tag: string) => {

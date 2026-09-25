@@ -124,7 +124,7 @@ function LiteratureReaderContent() {
             <div className="font-serif text-lg leading-relaxed space-y-6 whitespace-pre-wrap animate-in fade-in duration-700">
               {scenarioText}
               
-              {scenarioText !== "The engine is currently resting. Please try again later." && (
+              {scenarioText && scenarioText !== "The engine is currently resting. Please try again later." && (
                 <div className="mt-16 border-t border-zinc-900 pt-8">
                   <RatingWidget contentType="literature" contentId="weekly-scenario" />
                 </div>

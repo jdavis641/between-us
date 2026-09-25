@@ -65,12 +65,15 @@ export default function KinksManagementPage() {
       if (existing && existing.length > 0) {
         await supabase
           .from('intimacy_preferences')
-          .update({ kinks_override: payload })
-          .eq('user_id', session.user.id)
+          .upsert({ 
+            id: existing[0].id,
+            user_id: session.user.id,
+            kinks_override: payload 
+          })
       } else {
         await supabase
           .from('intimacy_preferences')
-          .insert({ 
+          .upsert({ 
             user_id: session.user.id, 
             category_tag: 'Base Tolerance', 
             preference_level: 'Sensory', 

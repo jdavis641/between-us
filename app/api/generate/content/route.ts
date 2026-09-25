@@ -4,7 +4,12 @@ import OpenAI from 'openai';
 
 export async function POST(req: Request) {
   try {
-    const { contentType, category, playMode, hasScripts } = await req.json();
+    const body = await req.json();
+    const contentType = body.contentType;
+    const category = body.category;
+    const hasScripts = body.hasScripts;
+    const validModes = ["solo", "couple", "group"];
+    const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
     // Auth Check
     const supabase = await createClient();
