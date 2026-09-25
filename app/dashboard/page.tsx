@@ -134,7 +134,7 @@ export default function DashboardHome() {
               </div>
             </Link>
 
-            <Link href="/dashboard/settings">
+            <Link href="/dashboard/partnerinvite">
               <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-blue-500 transition-all cursor-pointer group flex items-center space-x-4">
                 <span className="text-3xl">🤝</span>
                 <div>

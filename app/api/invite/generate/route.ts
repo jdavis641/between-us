@@ -8,7 +8,8 @@ export async function POST(req: Request) {
       kinkSummary, 
       instructions, 
       contactMethod, 
-      contactInfo 
+      contactInfo,
+      expirationHours
     } = await req.json();
 
     const supabase = createClient(
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     });
 
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setHours(expiresAt.getHours() + (expirationHours || 24));
 
     const { error } = await supabase.from("invitations").insert({
       invite_token: inviteToken,

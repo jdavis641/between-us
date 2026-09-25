@@ -57,10 +57,26 @@ export default function KinksManagementPage() {
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      await supabase
-        .from('intimacy_preferences')
-        .update({ kinks_override: JSON.stringify(newKinks) })
-        .eq('user_id', session.user.id)
+      // Fetch if user has any rows
+      const { data: existing } = await supabase.from('intimacy_preferences').select('id').eq('user_id', session.user.id).limit(1)
+      
+      const payload = JSON.stringify(newKinks)
+      
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('intimacy_preferences')
+          .update({ kinks_override: payload })
+          .eq('user_id', session.user.id)
+      } else {
+        await supabase
+          .from('intimacy_preferences')
+          .insert({ 
+            user_id: session.user.id, 
+            category_tag: 'Base Tolerance', 
+            preference_level: 'Sensory', 
+            kinks_override: payload 
+          })
+      }
       
       setKinks(newKinks)
     }

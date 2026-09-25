@@ -13,6 +13,7 @@ export default function GuestPassHub() {
   const [instructions, setInstructions] = useState("");
   const [contactMethod, setContactMethod] = useState<'email'|'sms'>('email');
   const [contactInfo, setContactInfo] = useState("");
+  const [expirationHours, setExpirationHours] = useState<24 | 48>(24);
   const [consentChecked, setConsentChecked] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -77,7 +78,8 @@ export default function GuestPassHub() {
           kinkSummary: selectedKinks.join('\n\n'),
           instructions,
           contactMethod,
-          contactInfo
+          contactInfo,
+          expirationHours
         })
       });
       const data = await res.json();
@@ -225,6 +227,20 @@ export default function GuestPassHub() {
                 />
               </div>
 
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-zinc-300 mb-2">Access Expiration</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="expiration" checked={expirationHours === 24} onChange={() => setExpirationHours(24)} className="text-red-500 bg-zinc-900 border-zinc-800" />
+                    <span className="text-sm text-zinc-300">24 Hours</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="expiration" checked={expirationHours === 48} onChange={() => setExpirationHours(48)} className="text-red-500 bg-zinc-900 border-zinc-800" />
+                    <span className="text-sm text-zinc-300">48 Hours</span>
+                  </label>
+                </div>
+              </div>
+
               {contactInfo.trim() !== '' && (
                 <div className="mb-8 p-4 bg-zinc-950/50 border border-zinc-800 rounded-lg flex items-start gap-3">
                   <input 
@@ -313,7 +329,9 @@ export default function GuestPassHub() {
                       {pass.status}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-zinc-400">{pass.expires}</td>
+                  <td className="px-4 py-4 text-zinc-400">
+                    {new Date(pass.expires).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                  </td>
                   <td className="px-4 py-4 text-right">
                     {pass.status === "Active" && (
                       <button 

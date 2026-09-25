@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { submitSuggestion } from "./actions";
 
 export default function SuggestionBox() {
   const [suggestion, setSuggestion] = useState("");
@@ -21,14 +22,7 @@ export default function SuggestionBox() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error: insertError } = await supabase
-        .from('scenario_suggestions')
-        .insert({
-          user_id: user?.id,
-          suggestion_text: suggestion.trim()
-        });
-
-      if (insertError) throw insertError;
+      await submitSuggestion(suggestion.trim(), user?.id);
 
       setSubmitted(true);
       setSuggestion("");

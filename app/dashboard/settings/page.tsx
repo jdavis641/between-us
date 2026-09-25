@@ -33,11 +33,12 @@ export default function SettingsPage() {
           .from('intimacy_preferences')
           .select('preference_level')
           .eq('user_id', session.user.id)
-          .limit(1)
+          .eq('category_tag', 'Base Tolerance')
+          .single()
 
         setProfile({
           ...profileData,
-          base_tolerance: prefData && prefData.length > 0 ? prefData[0].preference_level : 'Not set'
+          base_tolerance: prefData ? prefData.preference_level : 'Not set'
         })
       }
       setLoading(false)

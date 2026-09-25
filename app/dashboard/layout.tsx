@@ -31,10 +31,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div>
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-3">Intimacy Games</h3>
             <div className="space-y-1">
-              <Link href="/games#card" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Card Games</Link>
-              <Link href="/games#movie" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Movie Night</Link>
-              <Link href="/games#drinking" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Drinking Games</Link>
-              <Link href="/games#date" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Date Night</Link>
+              <Link href="/dashboard/games#card" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Card Games</Link>
+              <Link href="/dashboard/games#movie" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Movie Night</Link>
+              <Link href="/dashboard/games#drinking" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Drinking Games</Link>
+              <Link href="/dashboard/games#date" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Date Night</Link>
             </div>
           </div>
 
