@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import OpenAI from 'openai';
 
 export async function POST(req: Request) {
   try {
@@ -53,9 +53,11 @@ export async function POST(req: Request) {
     const { data: historyData } = await historyQuery.order('completed_at', { ascending: false }).limit(20);
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
-    // Initialize Gemini
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+    // Initialize OpenAI
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
 
     // Build Prompt
     let prompt = `You are an expert intimacy and relationship guide. Generate a highly personalized ${contentType} for ${playMode} play.
@@ -95,32 +97,13 @@ You must return a valid JSON object matching this schema exactly:
 Make the game prompts highly specific to the selected intimacy category. NEVER break the JSON structure.`;
     }
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
+    const result = await openai.chat.completions.create({
+      model: "cognitivecomputations/dolphin-mixtral-8x7b",
+      messages: [{ role: "system", content: "You are an expert intimacy and relationship guide." }, { role: "user", content: prompt }],
+      response_format: { type: "json_object" },
     });
 
-    const responseText = result.response.text();
+    const responseText = result.choices[0].message.content || "{}";
     const generatedContent = JSON.parse(responseText);
 
     // Record to Activity History using service role because normal users might not have insert rights if RLS is broken 
@@ -136,7 +119,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
 
     return NextResponse.json(generatedContent);
   } catch (error: any) {
-    console.error("Gemini Generation Error:", error);
+    console.error("OpenAI Generation Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

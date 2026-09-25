@@ -12,12 +12,12 @@
     "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines"
   },
   "dependencies": {
-    "@google/genai": "^2.23.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^18.0.0",
     "next": "16.3.4",
+    "openai": "^7.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "stripe": "^22.6.1",

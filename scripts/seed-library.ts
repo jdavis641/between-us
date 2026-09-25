@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -9,7 +9,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const openai = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const TIERS = ['Sensory', 'Playful', 'Intense', 'Extreme'];
 const GAME_CATEGORIES = ['Card Games', 'Movie Night Games', 'Drinking Games', 'Date Night Games'];
@@ -22,12 +25,10 @@ async function delay(ms: number) {
 async function generateWithRetry(prompt: string, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        }
+      const response = await openai.chat.completions.create({
+        model: 'cognitivecomputations/dolphin-mixtral-8x7b',
+        messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
+        response_format: { type: "json_object" },
       });
       return response;
     } catch (error: any) {
@@ -64,7 +65,7 @@ async function generateIntimacyGames() {
       try {
         const response = await generateWithRetry(prompt);
         
-        let rawResponse = response?.text || '[]';
+        let rawResponse = response?.choices?.[0]?.message?.content || '[]';
         const games = JSON.parse(rawResponse);
         
         for (const game of games) {
@@ -122,7 +123,7 @@ async function generateEroticLiterature() {
         try {
           const response = await generateWithRetry(prompt);
           
-          let rawResponse = response?.text || '{}';
+          let rawResponse = response?.choices?.[0]?.message?.content || '{}';
           const story = JSON.parse(rawResponse);
           
           const { error } = await supabase.from('generated_content').insert({
