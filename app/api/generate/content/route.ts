@@ -34,18 +34,22 @@ function buildSystemInstruction(preferences: any[], playMode: string) {
 
   let modeInstructions = '';
   if (playMode === 'solo') {
-    modeInstructions = 'This is a solo experience. Focus on self-exploration, individual perspective, and single-character narrative. Character count: 1.';
+    modeInstructions = 'Write a highly descriptive, first-person romantic fantasy focusing entirely on the reader\'s internal monologue and solo exploration.';
   } else if (playMode === 'group') {
-    modeInstructions = 'This is a group experience. Focus on dynamic interactions between multiple participants, shared perspectives, and group narrative. Character count: 3 or more.';
+    modeInstructions = 'Write an interconnected narrative featuring exactly 4 distinct character storylines navigating shifting alliances and group dynamics.';
   } else {
-    modeInstructions = 'This is a couple experience. Focus on dual perspectives, mutual intimacy, and partner interactions. Character count: 2.';
+    modeInstructions = 'Write a dual-perspective, parallel storyline focusing strictly on 2 main character storylines, revealing distinct inner desires and complementary pre-experience tasks.';
   }
 
   let sys = `You are an expert intimacy and relationship guide.\n\n`;
-  sys += `Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}\n`;
+  
+  sys += `Writing Style: Master the build-intensity dynamic. You must utilize a slow, tension-building pacing that relies heavily on anticipation, psychological buildup, and emotional friction before any physical escalation. Vocabulary: Use hyper-descriptive, visceral, and evocative vocabulary. Focus heavily on granular sensory details (touch, breath, temperature, micro-expressions). Strictly avoid clinical medicalized terminology, euphemisms, or generic romance tropes.\n\n`;
+  
   sys += `Play Mode / Perspective: ${modeInstructions}\n\n`;
+  sys += `Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}\n\n`;
   sys += `Mandatory Included Themes:\n- ${mandatoryThemes}\n\n`;
   sys += `Strictly Excluded Variables:\n- ${excludedVariables}\n\n`;
+  sys += `Boundary Enforcement: Items in the Strictly Excluded Variables array must never appear or be referenced under any circumstances, while the Primary Directive Override (if present) and Mandatory Included Themes must serve as the primary narrative focus.\n\n`;
 
   if (primaryDirective) {
     sys += `Primary Directive Override:\nPrioritize these text parameters above all other matrix selections:\n${primaryDirective}\n\n`;
