@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
+import { createClient } from "@/utils/supabase/client";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
 
@@ -15,13 +16,19 @@ function LiteratureReaderContent() {
   const [scenarioText, setScenarioText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const supabase = createClient();
+
   useEffect(() => {
     const fetchLatestScenario = async () => {
       setLoading(true);
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch("/api/generate/content", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+          },
           credentials: "include",
           body: JSON.stringify({ 
             contentType: "literature", 

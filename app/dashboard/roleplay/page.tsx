@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
+import { createClient } from "@/utils/supabase/client";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
 
@@ -24,15 +25,21 @@ function RolePlayContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const supabase = createClient();
+
   useEffect(() => {
     const fetchScenario = async () => {
       setLoading(true);
       setError(null);
       
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch("/api/generate/content", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+          },
           credentials: "include",
           body: JSON.stringify({ 
             contentType: "roleplay", 

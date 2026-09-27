@@ -69,11 +69,25 @@ export async function POST(req: Request) {
     
     // Auth Check
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const authHeader = req.headers.get('authorization');
+    
+    let user = null;
+    let authError = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const { data, error } = await supabase.auth.getUser(token);
+      user = data?.user;
+      authError = error;
+    } else {
+      const { data, error } = await supabase.auth.getUser();
+      user = data?.user;
+      authError = error;
+    }
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);
-      return NextResponse.json({ error: "Supabase Auth Failed: No valid session cookie found or token expired" }, { status: 401 });
+      return NextResponse.json({ error: "Supabase Auth Failed: No valid session cookie or explicit token found" }, { status: 401 });
     }
 
     // Determine Group ID

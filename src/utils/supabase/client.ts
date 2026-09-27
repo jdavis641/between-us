@@ -1,14 +1,25 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-let client: any = undefined;
+declare global {
+  interface Window {
+    supabase: any;
+  }
+}
 
 export function createClient() {
-  if (client) return client;
+  if (typeof window === 'undefined') {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
   
-  client = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  if (!window.supabase) {
+    window.supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
   
-  return client;
+  return window.supabase;
 }
