@@ -20,7 +20,7 @@ export default function GuestPassHub() {
   
   const [activePasses, setActivePasses] = useState<any[]>([]);
 
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
     async function fetchPrefs() {

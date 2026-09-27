@@ -16,7 +16,7 @@ function LiteratureReaderContent() {
   const [scenarioText, setScenarioText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
     const fetchLatestScenario = async () => {
