@@ -2,6 +2,58 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 
+function buildSystemInstruction(preferences: any[], playMode: string) {
+  const baseTolerance = preferences?.find(p => p.category_tag === 'Base Tolerance')?.preference_level || 'Moderate';
+
+  const mandatoryThemes = preferences
+    ?.filter(p => p.preference_level === 'Definitely' || p.preference_level === 'Curious')
+    .map(p => p.category_tag)
+    .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
+    .join(', ') || 'None specified';
+
+  const excludedVariables = preferences
+    ?.filter(p => p.preference_level === 'Off-Limits')
+    .map(p => p.category_tag)
+    .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
+    .join(', ') || 'None specified';
+
+  let primaryDirective = null;
+  const kinkRow = preferences?.find(p => p.kinks_override && p.category_tag !== 'Guest Pass Config');
+  if (kinkRow?.kinks_override) {
+    try {
+      const parsed = JSON.parse(kinkRow.kinks_override);
+      if (Array.isArray(parsed)) {
+        primaryDirective = parsed.map((k: any) => k.text).join('\n');
+      } else {
+        primaryDirective = kinkRow.kinks_override;
+      }
+    } catch(e) {
+      primaryDirective = kinkRow.kinks_override;
+    }
+  }
+
+  let modeInstructions = '';
+  if (playMode === 'solo') {
+    modeInstructions = 'This is a solo experience. Focus on self-exploration, individual perspective, and single-character narrative. Character count: 1.';
+  } else if (playMode === 'group') {
+    modeInstructions = 'This is a group experience. Focus on dynamic interactions between multiple participants, shared perspectives, and group narrative. Character count: 3 or more.';
+  } else {
+    modeInstructions = 'This is a couple experience. Focus on dual perspectives, mutual intimacy, and partner interactions. Character count: 2.';
+  }
+
+  let sys = `You are an expert intimacy and relationship guide.\n\n`;
+  sys += `Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}\n`;
+  sys += `Play Mode / Perspective: ${modeInstructions}\n\n`;
+  sys += `Mandatory Included Themes:\n- ${mandatoryThemes}\n\n`;
+  sys += `Strictly Excluded Variables:\n- ${excludedVariables}\n\n`;
+
+  if (primaryDirective) {
+    sys += `Primary Directive Override:\nPrioritize these text parameters above all other matrix selections:\n${primaryDirective}\n\n`;
+  }
+
+  return sys;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -35,18 +87,6 @@ export async function POST(req: Request) {
       .select('category_tag, preference_level, kinks_override')
       .eq('user_id', user.id);
 
-    const kinksOverrideRaw = preferences?.find(p => p.kinks_override)?.kinks_override;
-    let kinksOverride = kinksOverrideRaw;
-    if (kinksOverrideRaw) {
-      try {
-        const parsed = JSON.parse(kinksOverrideRaw);
-        if (Array.isArray(parsed)) kinksOverride = parsed.map((k: any) => k.text).join('\n\n');
-      } catch (e) {}
-    }
-
-    const offLimits = preferences?.filter(p => p.preference_level === 'Off-Limits').map(p => p.category_tag) || [];
-    const definitely = preferences?.filter(p => p.preference_level === 'Definitely').map(p => p.category_tag) || [];
-
     // Fetch History
     const historyQuery = supabase.from('activity_history').select('content_title').eq('content_type', contentType);
     if (groupId) {
@@ -67,17 +107,11 @@ export async function POST(req: Request) {
       apiKey: process.env.OPENROUTER_API_KEY,
     });
 
-    // Build Prompt
-    let prompt = `You are an expert intimacy and relationship guide. Generate a highly personalized ${contentType} for ${playMode} play.
-    
-IMPORTANT BOUNDARIES:
-- DO NOT INCLUDE ANY OF THESE THEMES (Off-Limits): ${offLimits.join(", ") || "None specified"}.
-- Try to incorporate these themes if appropriate (Definitely): ${definitely.join(", ") || "None specified"}.
+    const systemInstruction = buildSystemInstruction(preferences || [], playMode);
 
-${kinksOverride ? `CRITICAL KINK OVERRIDE (Must strictly supersede all other boundary choices and AI-generated user-rated content. You MUST focus the content tightly around these explicit user desires):\n${kinksOverride}\n` : ''}
-MEMORY CONTEXT:
-- To avoid repetition, DO NOT generate anything too similar to these recent activities: ${historyTitles.join(", ") || "None"}.
-`;
+    // Build Prompt
+    let prompt = `Generate a highly personalized ${contentType} for ${playMode} play.\n\n`;
+    prompt += `MEMORY CONTEXT:\n- To avoid repetition, DO NOT generate anything too similar to these recent activities: ${historyTitles.join(", ") || "None"}.\n`;
 
     if (contentType === "roleplay" || contentType === "literature") {
       prompt += `
@@ -107,7 +141,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
 
     const result = await openai.chat.completions.create({
       model: "cognitivecomputations/dolphin-mixtral-8x7b",
-      messages: [{ role: "system", content: "You are an expert intimacy and relationship guide." }, { role: "user", content: prompt }],
+      messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
 
