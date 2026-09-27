@@ -22,6 +22,7 @@ function LiteratureReaderContent() {
         const res = await fetch("/api/generate/content", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ 
             contentType: "literature", 
             category: "Erotic Fantasy", 

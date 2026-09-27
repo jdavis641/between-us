@@ -69,10 +69,11 @@ export async function POST(req: Request) {
     
     // Auth Check
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (authError || !user) {
+      console.error("Supabase Auth Failed:", authError);
+      return NextResponse.json({ error: "Supabase Auth Failed: No valid session cookie found or token expired" }, { status: 401 });
     }
 
     // Determine Group ID
