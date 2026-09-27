@@ -143,11 +143,17 @@ You must return a valid JSON object matching this schema exactly:
 Make the game prompts highly specific to the selected intimacy category. NEVER break the JSON structure.`;
     }
 
-    const result = await openai.chat.completions.create({
-      model: "cognitivecomputations/dolphin-mixtral-8x7b",
-      messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    });
+    let result;
+    try {
+      result = await openai.chat.completions.create({
+        model: "cognitivecomputations/dolphin-mixtral-8x7b",
+        messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+    } catch (apiError: any) {
+      console.error("OpenRouter API Fetch Error:", apiError);
+      return NextResponse.json({ error: apiError.message || "OpenRouter failed" }, { status: 500 });
+    }
 
     const responseText = result.choices[0].message.content || "{}";
     const generatedContent = JSON.parse(responseText);
