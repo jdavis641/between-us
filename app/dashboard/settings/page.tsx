@@ -87,8 +87,7 @@ export default function SettingsPage() {
     if (session) {
       const { error } = await supabase
         .from('profiles')
-        .update({ nickname: usernameToSave, anonymous_alias: usernameToSave })
-        .eq('id', session.user.id)
+        .upsert({ id: session.user.id, nickname: usernameToSave, anonymous_alias: usernameToSave, username: usernameToSave })
       
       if (!error) {
         setProfile((prev: any) => ({ ...prev, nickname: usernameToSave, anonymous_alias: usernameToSave }))

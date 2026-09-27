@@ -59,6 +59,9 @@ export async function POST(req: Request) {
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
     // Initialize OpenAI
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("Missing OPENROUTER_API_KEY in environment variables");
+    }
     const openai = new OpenAI({
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: process.env.OPENROUTER_API_KEY,

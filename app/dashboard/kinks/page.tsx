@@ -27,8 +27,10 @@ export default function KinksManagementPage() {
       if (session) {
         const { data } = await supabase
           .from('intimacy_preferences')
-          .select('kinks_override')
+          .select('id, kinks_override')
           .eq('user_id', session.user.id)
+          .neq('category_tag', 'Guest Pass Config')
+          .not('kinks_override', 'is', null)
           .limit(1)
 
         const raw = data?.[0]?.kinks_override
@@ -58,7 +60,11 @@ export default function KinksManagementPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       // Fetch if user has any rows
-      const { data: existing } = await supabase.from('intimacy_preferences').select('id').eq('user_id', session.user.id).limit(1)
+      const { data: existing } = await supabase.from('intimacy_preferences')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .neq('category_tag', 'Guest Pass Config')
+        .limit(1)
       
       const payload = JSON.stringify(newKinks)
       
@@ -68,6 +74,7 @@ export default function KinksManagementPage() {
           .upsert({ 
             id: existing[0].id,
             user_id: session.user.id,
+            category_tag: 'Base Tolerance', // Preserving this to prevent null constraint errors
             kinks_override: payload 
           })
       } else {

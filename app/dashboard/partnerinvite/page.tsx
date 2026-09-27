@@ -86,12 +86,28 @@ export default function InvitePartnerPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    await supabase.from('invitations').insert({
-      invite_token: crypto.randomUUID(),
-      invite_type: 'partner',
-      preferences: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks }),
-      // we could add target_user_id: foundUser.id
-    })
+    // Create persistent connection group
+    const { data: group } = await supabase.from('connection_groups').insert({
+      group_type: 'couple'
+    }).select().single()
+
+    if (group) {
+      // Add current user
+      await supabase.from('group_members').insert({
+        group_id: group.id,
+        user_id: session.user.id,
+        role: 'member',
+        preferences_shared: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks })
+      })
+
+      // Add target user
+      await supabase.from('group_members').insert({
+        group_id: group.id,
+        user_id: foundUser.id,
+        role: 'member',
+        preferences_shared: JSON.stringify({})
+      })
+    }
 
     setInviteSent(true)
   }

@@ -33,12 +33,13 @@ export default function GuestPassHub() {
         if (data) {
           const tags = data.filter(d => 
             d.category_tag !== 'Base' && 
+            d.category_tag !== 'Guest Pass Config' &&
             (d.preference_level === 'Definitely' || d.preference_level === 'Curious') && 
             d.category_tag
           );
           setPreferences(tags);
           
-          const override = data.find(d => d.kinks_override)?.kinks_override;
+          const override = data.find(d => d.kinks_override && d.category_tag !== 'Guest Pass Config')?.kinks_override;
           if (override) {
             try {
               const parsed = JSON.parse(override);
@@ -51,6 +52,16 @@ export default function GuestPassHub() {
               setCustomKinks(override.split('\n').filter((k: string) => k.trim() !== ''));
             }
           }
+
+          const savedConfig = data.find(d => d.category_tag === 'Guest Pass Config');
+          if (savedConfig?.kinks_override) {
+            try {
+              const parsed = JSON.parse(savedConfig.kinks_override);
+              if (parsed.boundaries) setSelectedTags(parsed.boundaries);
+              if (parsed.kinks) setSelectedKinks(parsed.kinks);
+              if (parsed.instructions) setInstructions(parsed.instructions);
+            } catch(e) {}
+          }
         }
 
         const { data: invites } = await supabase
@@ -58,13 +69,23 @@ export default function GuestPassHub() {
           .select('*')
           .eq('invite_type', 'guest_pass')
           .order('created_at', { ascending: false });
-        if (invites) {
+        if (invites && invites.length > 0) {
           setActivePasses(invites.map(inv => ({
             id: inv.id,
             type: "Guest Pass",
             status: new Date(inv.expires_at) > new Date() ? "Active" : "Expired",
             expires_at: inv.expires_at
           })));
+          
+          try {
+            const prefs = JSON.parse(invites[0].preferences);
+            if (prefs.selectedBoundaries) setSelectedTags(prefs.selectedBoundaries);
+            if (prefs.kinkSummary) {
+              const loadedKinks = prefs.kinkSummary.split('\n\n').filter((k: string) => k.trim());
+              setSelectedKinks(loadedKinks);
+            }
+            if (prefs.instructions) setInstructions(prefs.instructions);
+          } catch(e) {}
         } else {
           setActivePasses([]);
         }
@@ -196,6 +217,26 @@ export default function GuestPassHub() {
                   className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-medium transition-colors"
                 >
                   Back
+                </button>
+                <button 
+                  onClick={async () => {
+                    setLoading(true);
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                      await supabase.from('intimacy_preferences').upsert({
+                        user_id: session.user.id,
+                        category_tag: 'Guest Pass Config',
+                        preference_level: 'System',
+                        kinks_override: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks, instructions })
+                      }, { onConflict: 'user_id, category_tag' });
+                      alert("Configuration saved to your profile!");
+                    }
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="flex-1 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Configuration'}
                 </button>
                 <button 
                   onClick={() => setStep(3)}

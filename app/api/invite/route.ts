@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
+import { createClient as createClientBase } from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
   try {
@@ -12,13 +13,13 @@ export async function POST(req: Request) {
       expirationHours
     } = await req.json();
 
-    const supabase = createClient(
+    const authSupabase = await createClient();
+    const { data: { user } } = await authSupabase.auth.getUser();
+
+    const supabase = createClientBase(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-
-    // Get current user id from auth headers if possible, or just generate the token
-    // For this context we'll create the token directly
     const inviteToken = crypto.randomUUID();
     
     // Store the structured JSON payload securely attached to the token
@@ -35,7 +36,8 @@ export async function POST(req: Request) {
       invite_token: inviteToken,
       invite_type: "guest_pass",
       expires_at: expiresAt.toISOString(),
-      preferences: payload // Assuming preferences column can store this JSON string
+      preferences: payload,
+      ...(user && { created_by: user.id })
     });
 
     if (error) throw error;
