@@ -30,6 +30,7 @@ function LiteratureReaderContent() {
             ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
           },
           credentials: "include",
+          cache: "no-store",
           body: JSON.stringify({ 
             contentType: "literature", 
             category: "Erotic Fantasy", 
