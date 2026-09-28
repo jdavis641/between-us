@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import TolerancePromptManager from "../components/TolerancePromptManager";
+import LogoutButton from "../components/LogoutButton";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -74,6 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard/settings" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 transition-colors">
               ⚙️ Settings & Billing
             </Link>
+            <LogoutButton className='w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-red-950/20 text-red-500/70 hover:text-red-400 transition-colors mt-2' />
           </div>
           
         </nav>
@@ -87,3 +89,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

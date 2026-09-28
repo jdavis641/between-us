@@ -33,7 +33,22 @@ function RolePlayContent() {
       setError(null);
       
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        let { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          await new Promise(res => setTimeout(res, 1000)); // wait for hydration
+          const sessionAttempt = await supabase.auth.getSession();
+          session = sessionAttempt.data.session;
+          
+          if (!session?.access_token) {
+            // Check getUser as a final fallback
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const finalSession = await supabase.auth.getSession();
+              session = finalSession.data.session;
+            }
+          }
+        }
         
         if (!session?.access_token) {
           console.error("Missing token");

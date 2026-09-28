@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import LogoutButton from '../components/LogoutButton'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -165,6 +166,11 @@ export default function DashboardHome() {
               </button>
             </Link>
           </div>
+        </section>
+
+        {/* Mobile Logout */}
+        <section className="pt-8 pb-12 md:hidden">
+          <LogoutButton className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-red-500 font-bold tracking-wide hover:bg-zinc-800 transition-colors" />
         </section>
       </div>
     </div>

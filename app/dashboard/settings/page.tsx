@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
+import LogoutButton from '../../components/LogoutButton'
 
 export default function SettingsPage() {
   const [supabase] = useState(() => createClient());
@@ -248,6 +249,10 @@ export default function SettingsPage() {
               <p className="text-zinc-300 font-medium">{profile?.base_tolerance || profile?.tolerance || 'Not set'}</p>
             </div>
           </div>
+        </section>
+
+        <section className="mt-12 border-t border-zinc-800 pt-8">
+          <LogoutButton className="w-full md:w-auto px-6 py-3 bg-red-950/20 text-red-500 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors font-medium" />
         </section>
 
       </div>
