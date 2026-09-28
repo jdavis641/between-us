@@ -56,7 +56,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-4">
             <h3 className="text-xl font-serif font-medium text-zinc-200 border-b border-zinc-800 pb-4">Total Anonymity</h3>
             <p className="text-zinc-400 leading-relaxed font-light">
-              Our blind magic-link pairing system ensures complete privacy. We explicitly encourage you to create a burner email account for full anonymity while aligning your desires securely.
+              We built this app from the ground up with security and anonymity as our primary focus. Verification codes are sent directly to your email—we explicitly encourage using a burner account for absolute privacy. No identifying personal information is ever stored within our system, ensuring your profile and boundaries are only shared with the partners you choose.
             </p>
           </div>
 
