@@ -23,11 +23,18 @@ function LiteratureReaderContent() {
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          setScenarioText("Auth Rejected: No user found");
+          setLoading(false);
+          return;
+        }
+
         const res = await fetch("/api/generate/content", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+            "Authorization": `Bearer ${session?.access_token}`
           },
           credentials: "include",
           cache: "no-store",
@@ -39,7 +46,17 @@ function LiteratureReaderContent() {
           })
         });
 
-        if (!res.ok) throw new Error("Failed to fetch literature");
+        if (res.status === 401) {
+          const data = await res.json();
+          console.error(data.error);
+          setLoading(false);
+          return;
+        }
+
+        if (!res.ok) {
+          if (res.status === 500) throw new Error("500");
+          throw new Error("Failed to fetch literature");
+        }
         
         const data = await res.json();
         
@@ -62,16 +79,18 @@ function LiteratureReaderContent() {
         }
         
         setScenarioText(compiledText);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setScenarioText("The engine is currently resting. Please try again later.");
+        if (err.message === "500") {
+          setScenarioText("The engine is currently resting. Please try again later.");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchLatestScenario();
-  }, [activeMode, mode]);
+  }, [activeMode, mode, supabase]);
 
   return (
     <main className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100 max-w-2xl mx-auto w-full relative">

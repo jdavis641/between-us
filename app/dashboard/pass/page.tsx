@@ -105,6 +105,22 @@ export default function GuestPassHub() {
   const handleSendInvite = async () => {
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Upsert the Guest Pass config for seamless future hydration
+        await supabase.from('intimacy_preferences').upsert({
+          user_id: session.user.id,
+          category_tag: 'Guest Pass Config',
+          preference_level: 'System',
+          kinks_override: JSON.stringify({
+            boundaries: selectedTags,
+            kinks: selectedKinks,
+            instructions
+          }),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id, category_tag' });
+      }
+
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

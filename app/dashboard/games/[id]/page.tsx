@@ -80,7 +80,7 @@ export default async function GameDetail({ params }: GameParams) {
         {/* The Feedback Loop */}
         <div className="pt-10 border-t border-zinc-800">
           <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate & Save</h3>
-          <InteractionBar contentId={game.id} contentType="game" />
+          {game && <InteractionBar contentId={game.id} contentType="game" />}
         </div>
       </div>
     </div>
