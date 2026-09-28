@@ -17,6 +17,33 @@ export async function GET(request: Request) {
     }
     
     if (session) {
+      const adminEmails = [
+        'jdcdjd664411@proton.me',
+        'jdavis641+ember@gmail.com',
+        'crystalbrndt3+spark@gmail.com'
+      ];
+
+      if (session.user.email && adminEmails.includes(session.user.email)) {
+        // Admin Bypass Logic: instantly set is_active = true
+        await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id);
+
+        // Connection Group Auto-Activation
+        const { data: memberData } = await supabase
+          .from('group_members')
+          .select('group_id')
+          .eq('user_id', session.user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (memberData?.group_id) {
+          await supabase.from('connection_groups')
+            .update({ status: 'active' })
+            .eq('id', memberData.group_id);
+        }
+
+        return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+      }
+
       // Evaluate user's profile status
       const { data: profile } = await supabase
         .from('profiles')
