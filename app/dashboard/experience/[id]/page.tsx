@@ -24,7 +24,7 @@ export default function ExperienceReader({ params }: { params: { id: string } })
         .from('generated_content')
         .select('*')
         .eq('id', params.id)
-        .single()
+        .maybeSingle()
 
       if (data) {
         // Try to parse the body as JSON if it was stored as JSON from Gemini

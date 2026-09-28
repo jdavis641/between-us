@@ -36,7 +36,7 @@ export default function DashboardHome() {
           .select('connection_groups(group_type)')
           .eq('user_id', session.user.id)
           .limit(1)
-          .single()
+          .maybeSingle()
           
         // @ts-ignore - nested structure
         if (member?.connection_groups?.group_type === 'guest_pass') {
@@ -170,3 +170,4 @@ export default function DashboardHome() {
     </div>
   )
 }
+

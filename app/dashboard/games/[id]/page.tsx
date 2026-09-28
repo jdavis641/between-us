@@ -19,7 +19,7 @@ export default async function GameDetail({ params }: GameParams) {
     .from('intimacy_games')
     .select('*')
     .eq('id', params.id)
-    .single()
+    .maybeSingle()
 
   if (!game) {
     notFound()

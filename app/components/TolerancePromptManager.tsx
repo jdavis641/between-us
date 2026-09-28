@@ -18,7 +18,7 @@ export default function TolerancePromptManager() {
         .from('profiles')
         .select('account_created_at, last_survey_prompted_at')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
 
       if (data) {
         setProfile(data)
@@ -95,3 +95,4 @@ export default function TolerancePromptManager() {
     </div>
   )
 }
+

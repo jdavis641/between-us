@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import OpenAI from 'openai';
 
 function buildSystemInstruction(preferences: any[], playMode: string) {
@@ -70,9 +70,11 @@ export async function POST(req: Request) {
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
     // Auth Check
-    const supabase = await createClient();
-    const authHeader = req.headers.get('Authorization');
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '')?.trim();
+    
+    if (!token) return NextResponse.json({ error: 'Auth Rejected: Token missing from headers' }, { status: 401 });
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -90,7 +92,7 @@ export async function POST(req: Request) {
       .select('group_id')
       .eq('user_id', user.id)
       .limit(1)
-      .single();
+      .maybeSingle();
       
     const groupId = groupMember?.group_id;
 
@@ -184,3 +186,4 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

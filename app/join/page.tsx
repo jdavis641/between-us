@@ -32,7 +32,7 @@ function JoinContent() {
         .from("invitations")
         .select("group_id, is_used, expires_at")
         .eq("invite_token", token)
-        .single();
+        .maybeSingle();
         
       if (error || !data || data.is_used || new Date(data.expires_at) < new Date()) {
         setStatus("invalid");
@@ -119,3 +119,4 @@ export default function JoinPage() {
     </Suspense>
   );
 }
+

@@ -26,7 +26,7 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
           .select('id')
           .eq('user_id', session.user.id)
           .eq('content_id', contentId)
-          .single()
+          .maybeSingle()
         
         if (data) setIsFavorite(true)
       }

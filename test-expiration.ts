@@ -35,7 +35,7 @@ async function testExpiration() {
     .from('invitations')
     .select('expires_at')
     .eq('invite_token', data.token)
-    .single();
+    .maybeSingle();
 
   console.log('expires_at in DB:', dbData?.expires_at);
 

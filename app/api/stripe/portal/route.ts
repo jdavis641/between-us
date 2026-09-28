@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       .from('profiles')
       .select('stripe_customer_id')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     if (profileError || !profile?.stripe_customer_id) {
       return NextResponse.json({ error: 'No active Stripe customer found.' }, { status: 400 })
@@ -42,3 +42,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+

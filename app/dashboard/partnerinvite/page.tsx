@@ -66,7 +66,7 @@ export default function InvitePartnerPage() {
       query = query.eq('phone', searchValue)
     }
 
-    const { data, error } = await query.limit(1).single()
+    const { data, error } = await query.limit(1).maybeSingle()
 
     if (data) {
       setFoundUser({ id: data.id, username: data.anonymous_alias || data.nickname || data.username || searchValue })
@@ -85,7 +85,7 @@ export default function InvitePartnerPage() {
     // Create persistent connection group
     const { data: group } = await supabase.from('connection_groups').insert({
       group_type: 'couple'
-    }).select().single()
+    }).select().maybeSingle()
 
     if (group) {
       // Add current user
@@ -234,3 +234,4 @@ export default function InvitePartnerPage() {
     </div>
   )
 }
+

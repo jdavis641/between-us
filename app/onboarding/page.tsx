@@ -42,7 +42,7 @@ function OnboardingContent() {
           .from('profiles')
           .select('*')
           .eq('id', currentSession.user.id)
-          .single()
+          .maybeSingle()
         setProfile(data)
 
         if (sessionId) {
@@ -316,3 +316,4 @@ export default function OnboardingSurvey() {
     </Suspense>
   )
 }
+

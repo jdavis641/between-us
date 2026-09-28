@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       .from('profiles')
       .select('*, user_favorites(*)')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (!profile) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         body: generatedText,
     })
     .select()
-    .single()
+    .maybeSingle()
 
     if (error) throw error
 

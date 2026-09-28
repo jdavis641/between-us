@@ -30,7 +30,7 @@ export async function GET(request: Request) {
           .from('invitations')
           .select('id, group_id')
           .eq('invite_token', pass_token)
-          .single()
+          .maybeSingle()
           
         if (invitation && invitation.group_id) {
           // Find sender (assuming group_members has user_id of creator or just fetch from group)
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
             .select('profiles(email)')
             .eq('group_id', invitation.group_id)
             .limit(1)
-            .single()
+            .maybeSingle()
             
           // @ts-ignore
           const senderEmail = member?.profiles?.email
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
         .from('profiles')
         .select('is_active, nickname')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
 
       if (profile?.is_active) {
         if (!profile.nickname) {

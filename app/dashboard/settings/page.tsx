@@ -23,14 +23,14 @@ export default function SettingsPage() {
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single()
+          .maybeSingle()
 
         const { data: prefData } = await supabase
           .from('intimacy_preferences')
           .select('preference_level')
           .eq('user_id', session.user.id)
           .eq('category_tag', 'Base Tolerance')
-          .single()
+          .maybeSingle()
 
         setProfile({
           ...profileData,
@@ -254,3 +254,4 @@ export default function SettingsPage() {
     </div>
   )
 }
+

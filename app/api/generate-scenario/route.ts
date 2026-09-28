@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         is_mid_week: isMidWeek,
       })
       .select('id')
-      .single();
+      .maybeSingle();
 
     if (insertError) {
       console.error('Failed to save scenario:', insertError);
@@ -81,3 +81,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Failed to generate scenario' }, { status: 500 });
   }
 }
+

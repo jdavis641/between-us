@@ -66,7 +66,7 @@ function SignInContent() {
         .from('profiles')
         .select('is_active, nickname')
         .eq('id', data.user.id)
-        .single()
+        .maybeSingle()
 
       if (profile?.is_active) {
         if (!profile.nickname) {
@@ -199,3 +199,4 @@ export default function SignInFlow() {
     </Suspense>
   )
 }
+

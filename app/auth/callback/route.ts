@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         .from('profiles')
         .select('is_active, nickname')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
         
       if (profile?.is_active) {
         if (!profile.nickname) {
@@ -39,3 +39,4 @@ export async function GET(request: Request) {
   // Fallback redirect
   return NextResponse.redirect(`${requestUrl.origin}/login?error=auth-failed`)
 }
+
