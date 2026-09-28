@@ -77,6 +77,7 @@ export async function POST(req: Request) {
     if (!token) return NextResponse.json({ error: 'Auth Rejected: Token missing from headers' }, { status: 401 });
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    console.error("[AUTH DEBUG] Token Received:", !!token, "Error:", authError?.message);
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);

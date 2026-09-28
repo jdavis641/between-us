@@ -36,7 +36,8 @@ function RolePlayContent() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.access_token) {
-          setError("Auth Rejected: No user found");
+          console.error("Missing token");
+          alert("Session synchronizing, please try again in a moment.");
           setLoading(false);
           return;
         }
@@ -45,7 +46,7 @@ function RolePlayContent() {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`
+            "Authorization": `Bearer ${session.access_token}`
           },
           credentials: "include",
           cache: "no-store",
