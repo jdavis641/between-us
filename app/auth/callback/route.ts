@@ -24,8 +24,8 @@ export async function GET(request: Request) {
       ];
 
       if (session.user.email && adminEmails.includes(session.user.email)) {
-        // Admin Bypass Logic: instantly set is_active = true
-        await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id);
+        // Admin Bypass Logic: upsert is_active = true
+        await supabase.from('profiles').upsert({ id: session.user.id, is_active: true }, { onConflict: 'id' });
 
         // Connection Group Auto-Activation
         const { data: memberData } = await supabase
@@ -39,6 +39,21 @@ export async function GET(request: Request) {
           await supabase.from('connection_groups')
             .update({ status: 'active' })
             .eq('id', memberData.group_id);
+        } else {
+          // Force Connection Group Creation
+          const { data: newGroup } = await supabase.from('connection_groups').insert({
+            group_type: 'couple',
+            status: 'active'
+          }).select().maybeSingle();
+
+          if (newGroup) {
+            await supabase.from('group_members').insert({
+              group_id: newGroup.id,
+              user_id: session.user.id,
+              role: 'member',
+              preferences_shared: JSON.stringify({})
+            });
+          }
         }
 
         return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
