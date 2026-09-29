@@ -22,34 +22,10 @@ function LiteratureReaderContent() {
     const fetchLatestScenario = async () => {
       setLoading(true);
       try {
-        let { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) {
-          await new Promise(res => setTimeout(res, 1000));
-          const sessionAttempt = await supabase.auth.getSession();
-          session = sessionAttempt.data.session;
-          
-          if (!session?.access_token) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const finalSession = await supabase.auth.getSession();
-              session = finalSession.data.session;
-            }
-          }
-        }
-        
-        if (!session?.access_token) {
-          console.error("Missing token");
-          alert("Session synchronizing, please try again in a moment.");
-          setLoading(false);
-          return;
-        }
-
         const res = await fetch("/api/generate/content", {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`
+            "Content-Type": "application/json"
           },
           credentials: "include",
           cache: "no-store",
