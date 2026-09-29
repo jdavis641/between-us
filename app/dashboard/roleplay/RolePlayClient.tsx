@@ -16,7 +16,7 @@ interface ScenarioPayload {
   fullScript: string | null;
 }
 
-export default function RolePlayContent({ accessToken }: { accessToken?: string }) {
+export default function RolePlayContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") || "couple";
   
@@ -33,7 +33,9 @@ export default function RolePlayContent({ accessToken }: { accessToken?: string 
       setError(null);
       
       try {
-        if (!accessToken) {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
           alert('Your session has expired. Please log in again.');
           setLoading(false);
           return;
@@ -43,7 +45,7 @@ export default function RolePlayContent({ accessToken }: { accessToken?: string 
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${accessToken}`
+            "Authorization": `Bearer ${session.access_token}`
           },
           credentials: "include",
           cache: "no-store",
