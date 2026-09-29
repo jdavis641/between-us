@@ -35,6 +35,12 @@ function RolePlayContent() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
+        if (!session?.access_token) {
+          alert('Your session has expired or disconnected. Please refresh the page or log in again.');
+          setLoading(false);
+          return;
+        }
+
         const res = await fetch("/api/generate/content", {
           method: "POST",
           headers: { 

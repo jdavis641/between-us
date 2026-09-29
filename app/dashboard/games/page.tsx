@@ -19,6 +19,19 @@ export default async function GamesHub() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl md:text-5xl font-serif font-medium mb-4 text-zinc-100">Intimacy Games</h1>
         <p className="text-zinc-400 mb-12 text-lg max-w-2xl font-light leading-relaxed">Select a category to spark a new connection tonight. Hand-picked games designed specifically for your shared boundaries.</p>
+        
+        {error && (
+          <div className="p-4 bg-red-950 border border-red-500 text-red-500 rounded-lg mb-6">
+            Database Error: {error.message} (Code: {error.code})
+          </div>
+        )}
+        
+        {!error && games?.length === 0 && (
+          <div className="p-4 bg-yellow-950 border border-yellow-500 text-yellow-500 rounded-lg mb-6">
+            Connection successful, but 0 games found. Seed required.
+          </div>
+        )}
+
         <GameList sections={sections} />
       </div>
     </div>
