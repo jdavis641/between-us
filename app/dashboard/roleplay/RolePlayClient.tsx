@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
-import { createClient } from "@/utils/supabase/client";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
 
@@ -16,178 +15,206 @@ interface ScenarioPayload {
   fullScript: string | null;
 }
 
-export default function RolePlayContent() {
+export default function RolePlayClient() {
   const searchParams = useSearchParams();
-  const mode = searchParams.get("mode") || "couple";
+  const initialMode = searchParams.get("mode") || "couple";
   
+  const [playMode, setPlayMode] = useState(initialMode);
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [supabase] = useState(() => createClient());
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError(null);
+    setScenario(null);
+    
+    try {
+      const res = await fetch("/api/generate/content", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ 
+          contentType: "roleplay",
+          playMode: playMode,
+          hasScripts: true
+        })
+      });
 
-  useEffect(() => {
-    const fetchScenario = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const res = await fetch("/api/generate/content", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json"
-          },
-          credentials: "include",
-          cache: "no-store",
-          body: JSON.stringify({ 
-            contentType: "roleplay", 
-            category: "Roleplay Exploration", 
-            playMode: mode, 
-            hasScripts: true 
-          })
-        });
-
+      if (!res.ok) {
         if (res.status === 401) {
-          const data = await res.json();
-          console.error(data.error);
-          setLoading(false);
-          return; // Do not show AI fallback for auth errors
+          throw new Error("Auth Rejected: Session expired or missing.");
         }
-
-        if (!res.ok) {
-          if (res.status === 500) {
-            throw new Error("500");
-          }
-          throw new Error("Failed to generate scenario");
-        }
-        
-        const data = await res.json();
-        setScenario(data);
-      } catch (err: any) {
-        console.error(err);
-        if (err.message === "500") {
-          setError("Our AI engine encountered an issue shaping your scenario. Please try again.");
-        }
-      } finally {
-        setLoading(false);
+        throw new Error("Failed to generate scenario");
       }
-    };
-
-    fetchScenario();
-  }, [mode, supabase]);
+      
+      const data = await res.json();
+      setScenario(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Our AI engine encountered an issue shaping your scenario. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100 max-w-3xl mx-auto w-full relative">
-      <header className="sticky top-0 z-10 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 px-6 py-4">
-        <h1 className="text-xl font-bold tracking-widest uppercase text-center text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">
-          Immersive Role Play
-        </h1>
-      </header>
+    <div className="flex flex-col w-full relative">
+      {/* Configuration & Generate Area */}
+      {!scenario && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 mb-8">
+          <h2 className="text-xl font-medium text-zinc-100 mb-4">Configure Scenario</h2>
+          <div className="flex flex-wrap gap-4 mb-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
+                value="couple" 
+                checked={playMode === "couple"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Couple</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
+                value="solo" 
+                checked={playMode === "solo"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Solo</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
+                value="group" 
+                checked={playMode === "group"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Group</span>
+            </label>
+          </div>
+          
+          <button 
+            onClick={handleGenerate}
+            disabled={loading}
+            className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          >
+            {loading ? "Drafting Scenario..." : "Generate Experience"}
+          </button>
 
-      <div className="p-6 pb-24">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-4 animate-in fade-in">
-            <span className="text-4xl animate-bounce">🎭</span>
-            <p className="text-zinc-400">The engine is computing your safe boundaries and drafting a unique scenario...</p>
-          </div>
-        ) : error ? (
-          <div className="p-6 bg-red-950/20 border border-red-900/50 rounded-xl text-center">
-            <p className="text-red-400">{error}</p>
-            <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-zinc-900 rounded-lg text-zinc-300">Retry</button>
-          </div>
-        ) : scenario ? (
-          <div className="animate-in fade-in duration-700">
-            <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
-            
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
-              <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Setting the Scene</h3>
-              <p className="text-zinc-300 leading-relaxed">{scenario.overview}</p>
+          {error && (
+            <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+              {error}
             </div>
+          )}
+        </div>
+      )}
 
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-12">
-              {/* Dual Tab Toggle */}
-              <div className="flex bg-zinc-900/80 border-b border-zinc-800">
+      {/* Generated Content Area */}
+      {scenario && (
+        <div className="animate-in fade-in duration-700 pb-24">
+          <button 
+            onClick={() => setScenario(null)}
+            className="mb-8 text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
+          >
+            ← Configure a new scenario
+          </button>
+          
+          <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
+          
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
+            <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Setting the Scene</h3>
+            <p className="text-zinc-300 leading-relaxed">{scenario.overview}</p>
+          </div>
+
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-12">
+            <div className="flex bg-zinc-900/80 border-b border-zinc-800">
+              <button
+                onClick={() => setActiveMode("partner-a")}
+                className={`flex-1 py-4 text-sm font-medium transition-all ${
+                  activeMode === "partner-a" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                }`}
+              >
+                Partner A Lens
+              </button>
+              <button
+                onClick={() => setActiveMode("partner-b")}
+                className={`flex-1 py-4 text-sm font-medium transition-all ${
+                  activeMode === "partner-b" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                }`}
+              >
+                Partner B Lens
+              </button>
+              {scenario.fullScript && (
                 <button
-                  onClick={() => setActiveMode("partner-a")}
+                  onClick={() => setActiveMode("weekend-script")}
                   className={`flex-1 py-4 text-sm font-medium transition-all ${
-                    activeMode === "partner-a"
-                      ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                    activeMode === "weekend-script" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
                   }`}
                 >
-                  Partner A Lens
+                  Action Script
                 </button>
-                <button
-                  onClick={() => setActiveMode("partner-b")}
-                  className={`flex-1 py-4 text-sm font-medium transition-all ${
-                    activeMode === "partner-b"
-                      ? "bg-zinc-800 text-white shadow-sm border-b-2 border-orange-500"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
-                  }`}
-                >
-                  Partner B Lens
-                </button>
-                {scenario.fullScript && (
-                  <button
-                    onClick={() => setActiveMode("weekend-script")}
-                    className={`flex-1 py-4 text-sm font-medium transition-all ${
-                      activeMode === "weekend-script"
-                        ? "bg-red-950/20 text-red-300 border-b-2 border-red-500"
-                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
-                    }`}
-                  >
-                    Theatrical Script
-                  </button>
-                )}
-              </div>
-              
-              <div className="p-6 md:p-8">
-                {activeMode === "partner-a" && (
-                  <div className="animate-in slide-in-from-left-4 fade-in duration-500 space-y-6">
-                    <div>
-                      <h4 className="text-xs uppercase text-zinc-500 mb-2 font-bold tracking-wider">Secret Pre-Experience Task</h4>
-                      <p className="text-zinc-300 bg-zinc-900 p-4 rounded-lg border-l-2 border-red-500">{scenario.preExperienceTasks[0] || "No task assigned."}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-xs uppercase text-zinc-500 mb-2 font-bold tracking-wider">Your Inner Monologue & Motivation</h4>
-                      <p className="text-lg font-serif leading-loose text-zinc-200 whitespace-pre-wrap">{scenario.partnerAPerspective}</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeMode === "partner-b" && (
-                  <div className="animate-in slide-in-from-right-4 fade-in duration-500 space-y-6">
-                    <div>
-                      <h4 className="text-xs uppercase text-zinc-500 mb-2 font-bold tracking-wider">Secret Pre-Experience Task</h4>
-                      <p className="text-zinc-300 bg-zinc-900 p-4 rounded-lg border-l-2 border-orange-500">{scenario.preExperienceTasks[1] || scenario.preExperienceTasks[0] || "No task assigned."}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-xs uppercase text-zinc-500 mb-2 font-bold tracking-wider">Your Inner Monologue & Motivation</h4>
-                      <p className="text-lg font-serif leading-loose text-zinc-200 whitespace-pre-wrap">{scenario.partnerBPerspective}</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeMode === "weekend-script" && scenario.fullScript && (
-                  <div className="animate-in slide-in-from-bottom-4 fade-in duration-500">
-                     <h4 className="text-xs uppercase text-zinc-500 mb-4 font-bold tracking-wider text-center">Dialogue Reference</h4>
-                     <p className="text-lg font-serif leading-loose text-zinc-300 whitespace-pre-wrap p-6 bg-zinc-950 border border-zinc-900 rounded-xl shadow-inner">
-                       {scenario.fullScript}
-                     </p>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            <div className="mt-16 border-t border-zinc-900 pt-8">
-              <RatingWidget contentType="roleplay" contentId={scenario.title.replace(/\s+/g, '-').toLowerCase()} />
-            </div>
+            <div className="p-6 md:p-8">
+              {activeMode === "partner-a" && (
+                <div className="animate-in fade-in space-y-6">
+                  {scenario.preExperienceTasks && scenario.preExperienceTasks[0] && (
+                    <div className="bg-red-950/10 border border-red-900/20 rounded-lg p-5">
+                      <h4 className="text-red-500 font-bold text-sm uppercase tracking-wider mb-2">Pre-Experience Task</h4>
+                      <p className="text-zinc-300">{scenario.preExperienceTasks[0]}</p>
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
+                    <p className="text-zinc-300 leading-loose whitespace-pre-wrap">{scenario.partnerAPerspective}</p>
+                  </div>
+                </div>
+              )}
 
+              {activeMode === "partner-b" && (
+                <div className="animate-in fade-in space-y-6">
+                  {scenario.preExperienceTasks && scenario.preExperienceTasks[1] && (
+                    <div className="bg-red-950/10 border border-red-900/20 rounded-lg p-5">
+                      <h4 className="text-red-500 font-bold text-sm uppercase tracking-wider mb-2">Pre-Experience Task</h4>
+                      <p className="text-zinc-300">{scenario.preExperienceTasks[1]}</p>
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
+                    <p className="text-zinc-300 leading-loose whitespace-pre-wrap">{scenario.partnerBPerspective}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeMode === "weekend-script" && scenario.fullScript && (
+                <div className="animate-in fade-in">
+                  <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-4">The Scene</h4>
+                  <div className="bg-zinc-900 p-6 rounded-lg font-mono text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap border border-zinc-800">
+                    {scenario.fullScript}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        ) : null}
-      </div>
-    </main>
+          
+          <div className="pt-8 border-t border-zinc-800">
+            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate this Scenario</h3>
+            <RatingWidget contentId={scenario.title} contentType="roleplay" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
-

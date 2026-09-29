@@ -1,19 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
 export default function GameList({ sections }: { sections: any[] }) {
-  const [activeHash, setActiveHash] = useState('');
-
-  useEffect(() => {
-    const onHashChange = () => {
-      setActiveHash(window.location.hash.replace('#', ''));
-    };
-    onHashChange();
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
-
+  
+  
   const getIntensityBadge = (intensity: string) => {
     switch (intensity) {
       case 'Sensory': return '🌱 Sensory';
@@ -24,14 +14,12 @@ export default function GameList({ sections }: { sections: any[] }) {
     }
   };
 
-  const visibleSections = activeHash 
-    ? sections.filter(s => s.id === activeHash)
-    : sections;
+  
 
   return (
     <div className="space-y-16">
-      {visibleSections.map((section, idx) => (
-        <section key={idx} id={section.id}>
+      {sections.map((section, idx) => (
+        <section key={idx} id={section.id} className="scroll-mt-24">
           <h2 className="text-2xl font-serif font-medium mb-6 text-zinc-200 border-b border-zinc-800 pb-4">
             {section.title}
           </h2>
