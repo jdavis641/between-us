@@ -115,10 +115,17 @@ function OnboardingContent() {
         }
         
         if (session) {
-          await supabase.from('profiles').update({
+          if (!formData.nickname) {
+            setNicknameError('Nickname cannot be empty.')
+            setIsSubmitting(false)
+            return
+          }
+          await supabase.from('profiles').upsert({
+            id: session.user.id,
             nickname: formData.nickname,
             pronouns: formData.pronouns,
-          }).eq('id', session.user.id)
+            is_active: true
+          })
         }
         
         setStep(2)
