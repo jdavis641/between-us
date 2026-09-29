@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import OpenAI from 'openai';
 
 function buildSystemInstruction(preferences: any[], playMode: string) {
   const baseTolerance = preferences?.find(p => p.category_tag === 'Base Tolerance')?.preference_level || 'Moderate';
@@ -108,25 +109,16 @@ export async function POST(req: Request) {
     const { data: historyData } = await historyQuery.order('completed_at', { ascending: false }).limit(20);
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
-    
-    const systemInstruction = buildSystemInstruction(preferences || [], playMode);
-
-// Initialize Gemini
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("Missing GEMINI_API_KEY");
+    // Initialize OpenAI
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("Missing OPENROUTER_API_KEY in environment variables");
     }
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction,
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      ]
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
     });
 
+    const systemInstruction = buildSystemInstruction(preferences || [], playMode);
 
     // Build Prompt
     let prompt = `Generate a highly personalized ${contentType} for ${playMode} play.\n\n`;
@@ -160,17 +152,17 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
 
     let result;
     try {
-      const response = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json' }
+      result = await openai.chat.completions.create({
+        model: "cognitivecomputations/dolphin-mixtral-8x7b",
+        messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
+        response_format: { type: "json_object" },
       });
-      result = response.response.text();
     } catch (apiError: any) {
-      console.error("Gemini API Fetch Error:", apiError);
-      return NextResponse.json({ error: apiError.message || "Gemini failed" }, { status: 500 });
+      console.error("OpenRouter API Fetch Error:", apiError);
+      return NextResponse.json({ error: apiError.message || "OpenRouter failed" }, { status: 500 });
     }
 
-    const responseText = result || "{}";
+    const responseText = result.choices[0].message.content || "{}";
     const generatedContent = JSON.parse(responseText);
 
     // Record to Activity History using service role because normal users might not have insert rights if RLS is broken 

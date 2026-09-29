@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -9,20 +9,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-
-// Initialize Gemini
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("Missing GEMINI_API_KEY");
-}
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  model: 'gemini-2.5-flash',
-  safetySettings: [
-    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-  ]
+const openai = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 const TIERS = ['Sensory', 'Playful', 'Intense', 'Extreme'];
@@ -36,11 +25,12 @@ async function delay(ms: number) {
 async function generateWithRetry(prompt: string, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: 'You are an AI assistant.\n\n' + prompt }] }],
-        generationConfig: { responseMimeType: 'application/json' }
+      const response = await openai.chat.completions.create({
+        model: 'cognitivecomputations/dolphin-mixtral-8x7b',
+        messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
+        response_format: { type: "json_object" },
       });
-      return response.response.text();
+      return response;
     } catch (error: any) {
       console.error(`Attempt ${attempt} failed:`, error.message);
       if (attempt === retries) throw error;
@@ -75,7 +65,7 @@ async function generateIntimacyGames() {
       try {
         const response = await generateWithRetry(prompt);
         
-        let rawResponse = response || '[]';
+        let rawResponse = response?.choices?.[0]?.message?.content || '[]';
         const games = JSON.parse(rawResponse);
         
         for (const game of games) {
@@ -133,7 +123,7 @@ async function generateEroticLiterature() {
         try {
           const response = await generateWithRetry(prompt);
           
-          let rawResponse = response || '{}';
+          let rawResponse = response?.choices?.[0]?.message?.content || '{}';
           const story = JSON.parse(rawResponse);
           
           const { error } = await supabase.from('generated_content').insert({

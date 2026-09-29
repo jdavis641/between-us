@@ -12,7 +12,6 @@
     "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^18.0.0",
