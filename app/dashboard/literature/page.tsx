@@ -22,10 +22,13 @@ function LiteratureReaderContent() {
     const fetchLatestScenario = async () => {
       setLoading(true);
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
         const res = await fetch("/api/generate/content", {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`
           },
           credentials: "include",
           cache: "no-store",

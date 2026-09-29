@@ -71,8 +71,10 @@ export async function POST(req: Request) {
     
     // Auth Check
     const supabase = await createClient();
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '')?.trim();
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);
