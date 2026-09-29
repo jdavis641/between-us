@@ -71,14 +71,8 @@ export async function POST(req: Request) {
     
     // Auth Check
     const supabase = await createClient();
-    const authHeader = req.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '')?.trim();
     
-    if (!token || token === 'undefined' || token === 'null') {
-      return NextResponse.json({ error: 'Auth Rejected: Token is missing or undefined' }, { status: 401 });
-    }
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);
