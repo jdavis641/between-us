@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import InteractionBar from '../../../components/InteractionBar'
 import { notFound } from 'next/navigation'
@@ -10,10 +10,7 @@ type GameParams = {
 }
 
 export default async function GameDetail({ params }: GameParams) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = await createClient()
 
   const { data: game } = await supabase
     .from('intimacy_games')
@@ -27,11 +24,11 @@ export default async function GameDetail({ params }: GameParams) {
 
   const getIntensityBadge = (intensity: string) => {
     switch (intensity) {
-      case 'Sensory': return '🔥 Sensory'
-      case 'Playful': return '🔥🔥 Playful'
-      case 'Intense': return '🔥🔥🔥 Intense'
-      case 'Extreme': return '🌶️ Extreme'
-      default: return `🔥 ${intensity || 'Sensory'}`
+      case 'Sensory': return 'dYO Sensory'
+      case 'Playful': return 'dYO ,? Playful'
+      case 'Intense': return 'dY" Intense'
+      case 'Extreme': return 'dY " Extreme'
+      default: return `dYO ${intensity || 'Sensory'}`
     }
   }
 

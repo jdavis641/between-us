@@ -6,8 +6,9 @@ echo "Starting Autonomous Cycle..."
 
 # 0. Trigger Cybersecurity Sentry scan
 echo "[Cybersecurity Sentry Agent] Running vulnerability sweep..."
-if ! node scripts/security-sentry.js; then
-    echo "[Cybersecurity Sentry Agent] ABORTING CYCLE: System lockdown engaged."
+if ! node scripts/security-sentry.js > security_output.log 2>&1; then
+    cat security_output.log
+    echo "[Cybersecurity Sentry Agent] ABORTING CYCLE: System lockdown engaged. Feeding trace back to Programmer Agent for self-healing."
     exit 1
 fi
 
@@ -20,9 +21,10 @@ export MOCK_GEMINI=true
 echo "[QA Agent] Running sanity checks with MOCK_GEMINI=true..."
 
 # If there is a test suite, run it. Otherwise, mock success for scaffolding.
-if npm run test --if-present; then
+if npm run test --if-present > test_output.log 2>&1; then
   echo "[QA Agent] Tests passed."
 else
+  cat test_output.log
   echo "[QA Agent] Tests failed. Feeding error trace back to Programmer Agent for self-healing."
   exit 1
 fi
@@ -36,13 +38,16 @@ node scripts/compliance-check.js
 
 # 3. Next.js Compilation
 echo "[Programmer Agent] Running Next.js build..."
-if ! npm run build; then
+export CI=true # Ensure non-interactive CI mode
+if ! npm run build > build_output.log 2>&1; then
+    cat build_output.log
     echo "[Programmer Agent] Build failed. Feeding error trace back for immediate self-healing."
     exit 1
 fi
 
 # 4. Auto-commit and Push
 echo "[Project Manager Agent] Build passed. Staging and deploying..."
+export GIT_TERMINAL_PROMPT=0 # Prevent git from prompting for credentials
 git add .
 git commit -m "[Auto-Agent] Fixes & Refinements" || echo "No changes to commit."
 git push origin main

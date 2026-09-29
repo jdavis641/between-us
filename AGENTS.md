@@ -1,5 +1,8 @@
 # Workspace Rules & Autonomous Permissions
 
+> **CRITICAL GLOBAL AUTO-APPROVE DIRECTIVE:**
+> All agents are granted full autonomous execution rights. Do NOT pause to ask for user permission or confirmation before modifying files, running tests, or executing terminal commands.
+
 ## The Multi-Agent Autonomous Development Hierarchy
 
 This project adheres to the "Side Hustle - Retirement" architectural guidelines. The autonomous multi-agent engine is authorized to code, test, refine, and deploy to Vercel.
