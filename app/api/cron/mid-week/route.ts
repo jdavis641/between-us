@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from 'openai';
 
 // Use service role for cron jobs to bypass RLS and query all active groups
 const supabase = createClient(
@@ -19,8 +19,10 @@ export async function GET(request: Request) {
     if (error) throw error;
     if (!groups || groups.length === 0) return NextResponse.json({ success: true, count: 0 });
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
 
     // 2. Iterate and trigger generation
     const promises = groups.map(async (group) => {
@@ -79,12 +81,12 @@ JSON SCHEMA REQUIREMENT:
 }
 Ensure the output is valid JSON.`;
 
-        const result = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" }
+        const result = await openai.chat.completions.create({
+          model: 'cognitivecomputations/dolphin-mixtral-8x7b',
+          messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
+          response_format: { type: 'json_object' }
         });
-
-        const generatedContent = JSON.parse(result.response.text());
+        const generatedContent = JSON.parse(result.choices[0].message.content);
 
         // Insert into Scenarios
         const { error: insertError } = await supabase.from('scenarios').insert({

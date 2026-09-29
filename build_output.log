@@ -1,0 +1,86 @@
+
+> between-us@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 140ms
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 4 errors:
+./app/api/cron/mid-week/route.ts:3:1
+Error: Module not found: Can't resolve '@google/generative-ai'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m'next/server'[0m;
+  [90m2 |[0m [36mimport[0m { createClient } [36mfrom[0m [32m'@supabase/supabase-js'[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { [33mGoogleGenerativeAI[0m } [36mfrom[0m [32m"@google/generative-ai"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m
+  [90m5 |[0m [90m// Use service role for cron jobs to bypass RLS and query all active groups[0m
+  [90m6 |[0m [36mconst[0m supabase = createClient(
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/cron/weekend/route.ts:3:1
+Error: Module not found: Can't resolve '@google/generative-ai'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m'next/server'[0m;
+  [90m2 |[0m [36mimport[0m { createClient } [36mfrom[0m [32m'@supabase/supabase-js'[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { [33mGoogleGenerativeAI[0m } [36mfrom[0m [32m"@google/generative-ai"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m
+  [90m5 |[0m [36mconst[0m supabase = createClient(
+  [90m6 |[0m   process.env.[33mNEXT_PUBLIC_SUPABASE_URL[0m!,
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/generate-content/route.ts:3:1
+Error: Module not found: Can't resolve '@google/generative-ai'
+  [90m1 |[0m [36mimport[0m { createClient } [36mfrom[0m [32m'@supabase/supabase-js'[0m
+  [90m2 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m'next/server'[0m
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { [33mGoogleGenerativeAI[0m, [33mHarmCategory[0m, [33mHarmBlockThreshold[0m } [36mfrom[0m [32m"@google/generative-ai"[0m
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m
+  [90m5 |[0m [36mexport[0m [36masync[0m [36mfunction[0m [33mPOST[0m(request: [33mRequest[0m) {
+  [90m6 |[0m   [36mtry[0m {
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/generate-scenario/route.ts:3:1
+Error: Module not found: Can't resolve '@google/generative-ai'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m'next/server'[0m;
+  [90m2 |[0m [36mimport[0m { createClient } [36mfrom[0m [32m'@supabase/supabase-js'[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { [33mGoogleGenerativeAI[0m, [33mHarmCategory[0m, [33mHarmBlockThreshold[0m } [36mfrom[0m [32m'@google/generative-ai'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m
+  [90m5 |[0m [90m// Initialize Supabase and Gemini[0m
+  [90m6 |[0m [36mconst[0m supabase = createClient(
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./app/api/cron/mid-week/route.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/cron/weekend/route.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/generate-content/route.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/generate-scenario/route.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
