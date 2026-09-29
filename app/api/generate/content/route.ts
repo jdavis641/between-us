@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 
 function buildSystemInstruction(preferences: any[], playMode: string) {
@@ -70,19 +70,14 @@ export async function POST(req: Request) {
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
     // Auth Check
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '')?.trim();
+    const supabase = await createClient();
     
-    if (!token) return NextResponse.json({ error: 'Auth Rejected: Token missing from headers' }, { status: 401 });
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    console.error("[AUTH DEBUG] Token Received:", !!token, "Error:", authError?.message);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);
       return NextResponse.json(
-        { error: `Auth Rejected: ${authError?.message || 'No user found'}`, tokenReceived: !!token }, 
+        { error: `Auth Rejected: ${authError?.message || 'No user found'}` }, 
         { status: 401 }
       );
     }
