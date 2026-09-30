@@ -31,7 +31,7 @@ export default function GuestPassHub() {
           .eq('user_id', session.user.id);
           
         if (data) {
-          const tags = data.filter(d => 
+          const tags = data.filter((d: any) => 
             d.category_tag !== 'Base' && 
             d.category_tag !== 'Guest Pass Config' &&
             (d.preference_level === 'Definitely' || d.preference_level === 'Curious') && 
@@ -39,7 +39,7 @@ export default function GuestPassHub() {
           );
           setPreferences(tags);
           
-          const override = data.find(d => d.kinks_override && d.category_tag !== 'Guest Pass Config')?.kinks_override;
+          const override = data.find((d: any) => d.kinks_override && d.category_tag !== 'Guest Pass Config')?.kinks_override;
           if (override) {
             try {
               const parsed = JSON.parse(override);
@@ -53,7 +53,7 @@ export default function GuestPassHub() {
             }
           }
 
-          const savedConfig = data.find(d => d.category_tag === 'Guest Pass Config');
+          const savedConfig = data.find((d: any) => d.category_tag === 'Guest Pass Config');
           if (savedConfig?.kinks_override) {
             try {
               const parsed = JSON.parse(savedConfig.kinks_override);
@@ -70,7 +70,7 @@ export default function GuestPassHub() {
           .eq('invite_type', 'guest_pass')
           .order('created_at', { ascending: false });
         if (invites && invites.length > 0) {
-          setActivePasses(invites.map(inv => ({
+          setActivePasses(invites.map((inv: any) => ({
             id: inv.id,
             type: "Guest Pass",
             status: new Date(inv.expires_at) > new Date() ? "Active" : "Expired",
@@ -277,12 +277,7 @@ export default function GuestPassHub() {
                 >
                   Email
                 </button>
-                <button 
-                  onClick={() => }
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${false ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  SMS
-                </button>
+                
               </div>
 
               <div className="mb-6">

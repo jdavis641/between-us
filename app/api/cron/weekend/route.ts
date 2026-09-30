@@ -79,7 +79,7 @@ Ensure the output is valid JSON.`;
           messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
           response_format: { type: 'json_object' }
         });
-        const generatedContent = JSON.parse(result.choices[0].message.content);
+        const generatedContent = JSON.parse(result.choices[0].message.content || '{}');
 
         // Insert into Scenarios
         const { error: insertError } = await supabase.from('scenarios').insert({

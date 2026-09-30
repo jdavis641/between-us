@@ -62,13 +62,13 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
     await supabase.from('scenario_ratings').insert({ 
       scenario_id: contentId,
       rating: flame
-    }).catch(() => {})
+    })
 
     await supabase.from('anonymous_ratings').insert({ 
       content_id: contentId, 
       content_type: contentType,
       flame_rating: flame
-    }).catch(() => {})
+    })
   }
 
   const handleShare = async () => {

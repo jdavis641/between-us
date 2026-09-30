@@ -4,7 +4,7 @@ import Stripe from 'stripe'
 
 // Initialize Stripe (assuming the secret is in env, but fallback for dev if needed)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2025-02-24.acacia',
+  apiVersion: '2026-08-26.dahlia' as any,
 })
 
 export async function POST(req: Request) {

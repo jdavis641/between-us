@@ -54,6 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Account */}
           <div className="pt-4 mt-4 border-t border-zinc-900">
+            <Link href="/dashboard/messages" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors mb-1">
+              📬 Inbox
+            </Link>
             <Link href="/dashboard/settings" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 transition-colors">
               ⚙️ Settings & Billing
             </Link>
