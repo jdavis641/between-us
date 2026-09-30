@@ -61,7 +61,7 @@ export default function InvitePartnerPage() {
     if (searchMethod === 'username') {
       query = query.or(`anonymous_alias.eq.${searchValue},nickname.eq.${searchValue},username.eq.${searchValue}`)
     } else if (searchMethod === 'email') {
-      query = query.eq('email', searchValue)
+      query = query.ilike('email', searchValue)
     } else if (searchMethod === 'phone') {
       query = query.eq('phone', searchValue)
     }

@@ -11,6 +11,8 @@ export default function SettingsPage() {
 
   // Username Modification State
   const [isEditingUsername, setIsEditingUsername] = useState(false)
+  const [pronouns, setPronouns] = useState("")
+  const [baseTolerance, setBaseTolerance] = useState("")
   const [newUsername, setNewUsername] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -37,11 +39,35 @@ export default function SettingsPage() {
           ...profileData,
           base_tolerance: prefData ? prefData.preference_level : 'Not set'
         })
+        setPronouns(profileData?.pronouns || '')
+        setBaseTolerance(prefData ? prefData.preference_level : '')
       }
       setLoading(false)
     }
     fetchProfile()
   }, [])
+
+
+  const handleSavePronouns = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      await supabase.from('profiles').update({ pronouns }).eq('id', session.user.id)
+      setProfile((prev: any) => ({ ...prev, pronouns }))
+    }
+  }
+
+  const handleSaveTolerance = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: existing } = await supabase.from('intimacy_preferences').select('id').eq('user_id', session.user.id).eq('category_tag', 'Base Tolerance').single();
+      if (existing) {
+        await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existing.id);
+      } else {
+        await supabase.from('intimacy_preferences').insert({ user_id: session.user.id, category_tag: 'Base Tolerance', preference_level: baseTolerance });
+      }
+      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance }))
+    }
+  }
 
   // Debounced Username Availability Check
   useEffect(() => {
@@ -245,8 +271,36 @@ export default function SettingsPage() {
             </div>
             
             <div>
+              <p className="text-sm text-zinc-500 mb-1">Pronouns</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pronouns}
+                  onChange={(e) => setPronouns(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
+                  placeholder="e.g., they/them, she/her"
+                />
+                <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
+              </div>
+            </div>
+
+            <div>
               <p className="text-sm text-zinc-500 mb-1">Base Tolerance Tier</p>
-              <p className="text-zinc-300 font-medium">{profile?.base_tolerance || profile?.tolerance || 'Not set'}</p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={baseTolerance}
+                  onChange={(e) => setBaseTolerance(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
+                >
+                  <option value="">Select a baseline</option>
+                  <option value="Moderate">Moderate</option>
+                  <option value="Sensory">Sensory</option>
+                  <option value="Playful">Playful</option>
+                  <option value="Intense">Intense</option>
+                  <option value="Extreme">Extreme</option>
+                </select>
+                <button onClick={handleSaveTolerance} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
+              </div>
             </div>
           </div>
         </section>

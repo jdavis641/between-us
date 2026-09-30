@@ -48,7 +48,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div>
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-3">Community</h3>
             <div className="space-y-1">
-              <Link href="/dashboard/suggest" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">💡 Suggest Scenario</Link>
+              <Link href="/dashboard/suggest" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">💡 Suggest an erotic literature scenario for public enjoyment</Link>
             </div>
           </div>
 

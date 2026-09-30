@@ -104,6 +104,39 @@ export default function LiteratureClient() {
               <input 
                 type="radio" 
                 name="playMode" 
+                value="couple" 
+                checked={playMode === "couple"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Couple</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
+                value="couple" 
+                checked={playMode === "couple"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Couple</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
+                value="solo" 
+                checked={playMode === "solo"} 
+                onChange={(e) => setPlayMode(e.target.value)}
+                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+              />
+              <span className="text-zinc-300">Solo</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="playMode" 
                 value="group" 
                 checked={playMode === "group"} 
                 onChange={(e) => setPlayMode(e.target.value)}

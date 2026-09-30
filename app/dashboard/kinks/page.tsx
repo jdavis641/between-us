@@ -55,35 +55,25 @@ export default function KinksManagementPage() {
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      // Fetch if user has any rows
+      const payload = JSON.stringify(newKinks);
+      
       const { data: existing } = await supabase.from('intimacy_preferences')
         .select('id')
         .eq('user_id', session.user.id)
-        .neq('category_tag', 'Guest Pass Config')
-        .limit(1)
-      
-      const payload = JSON.stringify(newKinks)
-      
-      if (existing && existing.length > 0) {
-        await supabase
-          .from('intimacy_preferences')
-          .upsert({ 
-            id: existing[0].id,
-            user_id: session.user.id,
-            category_tag: 'Base Tolerance', // Preserving this to prevent null constraint errors
-            kinks_override: payload 
-          })
+        .eq('category_tag', 'Primary Directive')
+        .single();
+        
+      if (existing) {
+        await supabase.from('intimacy_preferences').update({ kinks_override: payload }).eq('id', existing.id);
       } else {
-        await supabase
-          .from('intimacy_preferences')
-          .upsert({ 
-            user_id: session.user.id, 
-            category_tag: 'Base Tolerance', 
-            preference_level: 'Sensory', 
-            kinks_override: payload 
-          })
+        await supabase.from('intimacy_preferences').insert({
+          user_id: session.user.id,
+          category_tag: 'Primary Directive',
+          preference_level: 'Definitely',
+          kinks_override: payload
+        });
       }
-      
+
       setKinks(newKinks)
     }
     setSaving(false)

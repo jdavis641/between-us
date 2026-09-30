@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
+import MovieGameGenerator from '@/components/MovieGameGenerator'
 import InteractionBar from '../../../components/InteractionBar'
 import { notFound } from 'next/navigation'
 
@@ -55,6 +56,8 @@ export default async function GameDetail({ params }: GameParams) {
           <p className="text-zinc-400 text-lg leading-relaxed font-light">{game.description}</p>
         </div>
 
+        {game.category === 'movie' && <MovieGameGenerator gameTitle={game.title} />}
+        
         {/* Rules & Content Section */}
         <div className="space-y-8 py-4">
           <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>

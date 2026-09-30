@@ -278,8 +278,8 @@ export default function GuestPassHub() {
                   Email
                 </button>
                 <button 
-                  onClick={() => setContactMethod('sms')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${contactMethod === 'sms' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  onClick={() => }
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${false ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                   SMS
                 </button>
