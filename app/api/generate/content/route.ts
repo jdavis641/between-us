@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 
-function buildSystemInstruction(preferences: any[], playMode: string) {
-  const baseTolerance = preferences?.find(p => p.category_tag === 'Base Tolerance')?.preference_level || 'Moderate';
+function buildSystemInstruction(preferences: any[], playMode: string, theme?: string, targetBoundary?: string) {
+  const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance')?.preference_level || 'Moderate');
 
   const mandatoryThemes = preferences
     ?.filter(p => p.preference_level === 'Definitely' || p.preference_level === 'Curious')
@@ -57,6 +57,10 @@ function buildSystemInstruction(preferences: any[], playMode: string) {
     sys += `Primary Directive Override:\nPrioritize these text parameters above all other matrix selections:\n${primaryDirective}\n\n`;
   }
 
+  if (theme) {
+    sys += `Primary Narrative Driver:\nCenter the plot, pacing, and vocabulary entirely around this concept: ${theme}\n\n`;
+  }
+
   return sys;
 }
 
@@ -66,6 +70,8 @@ export async function POST(req: Request) {
     const contentType = body.contentType;
     const category = body.category;
     const hasScripts = body.hasScripts;
+    const theme = body.theme;
+    const targetBoundary = body.targetBoundary;
     const validModes = ["solo", "couple", "group"];
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
@@ -128,7 +134,7 @@ export async function POST(req: Request) {
       apiKey: process.env.OPENROUTER_API_KEY,
     });
 
-    const systemInstruction = buildSystemInstruction(preferences || [], playMode);
+    const systemInstruction = buildSystemInstruction(preferences || [], playMode, theme, targetBoundary);
 
     // Build Prompt
     let prompt = `Generate a highly personalized ${contentType} for ${playMode} play.\n\n`;

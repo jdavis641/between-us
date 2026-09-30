@@ -1,0 +1,244 @@
+commit 30171ce5db20b66c81d5f1c4bd5d13e877659834
+Author: Justin Davis <jdavis641@gmail.com>
+Date:   Wed Sep 30 07:50:01 2026 -0500
+
+    [Launch Sprint] Fix auth hydration and seed 16-game balanced matrix
+
+diff --git a/app/api/generate/content/route.ts b/app/api/generate/content/route.ts
+index 1c76ac8..4b98a5f 100644
+--- a/app/api/generate/content/route.ts
++++ b/app/api/generate/content/route.ts
+@@ -70,9 +70,19 @@ export async function POST(req: Request) {
+     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
+     
+     // Auth Check
++    let authHeader = req.headers.get('Authorization'); 
++    let explicitToken = authHeader?.replace('Bearer ', '')?.trim();
++    if (explicitToken === 'undefined' || explicitToken === 'null') explicitToken = undefined;
++
+     const supabase = await createClient();
+     
+-    const { data: { user }, error: authError } = await supabase.auth.getUser();
++    let { data: { user }, error: authError } = await supabase.auth.getUser();
++    
++    if ((authError || !user) && explicitToken) {
++      const res = await supabase.auth.getUser(explicitToken);
++      user = res.data?.user || null;
++      authError = res.error;
++    }
+     
+     if (authError || !user) {
+       console.error("Supabase Auth Failed:", authError);
+diff --git a/app/dashboard/literature/LiteratureClient.tsx b/app/dashboard/literature/LiteratureClient.tsx
+index e8df1db..1ec7ab8 100644
+--- a/app/dashboard/literature/LiteratureClient.tsx
++++ b/app/dashboard/literature/LiteratureClient.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState } from "react";
++import { createClient } from "@/utils/supabase/client";
+ import { useSearchParams } from "next/navigation";
+ import RatingWidget from "@/components/RatingWidget";
+ 
+@@ -22,6 +23,7 @@ export default function LiteratureClient() {
+   const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [supabase] = useState(() => createClient());
+ 
+   const handleGenerate = async () => {
+     setLoading(true);
+@@ -29,10 +31,16 @@ export default function LiteratureClient() {
+     setScenario(null);
+ 
+     try {
++      const { data: { session } } = await supabase.auth.getSession();
++      if (!session) {
++        throw new Error("Auth Rejected: Session expired or missing.");
++      }
++      
+       const res = await fetch("/api/generate/content", {
+         method: "POST",
+         headers: { 
+-          "Content-Type": "application/json"
++          "Content-Type": "application/json",
++          "Authorization": `Bearer ${session.access_token}`
+         },
+         credentials: "include",
+         cache: "no-store",
+diff --git a/app/dashboard/roleplay/RolePlayClient.tsx b/app/dashboard/roleplay/RolePlayClient.tsx
+index 988b386..bcf48d6 100644
+--- a/app/dashboard/roleplay/RolePlayClient.tsx
++++ b/app/dashboard/roleplay/RolePlayClient.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState } from "react";
++import { createClient } from "@/utils/supabase/client";
+ import { useSearchParams } from "next/navigation";
+ import RatingWidget from "@/components/RatingWidget";
+ 
+@@ -24,6 +25,7 @@ export default function RolePlayClient() {
+   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [supabase] = useState(() => createClient());
+ 
+   const handleGenerate = async () => {
+     setLoading(true);
+@@ -31,10 +33,16 @@ export default function RolePlayClient() {
+     setScenario(null);
+     
+     try {
++      const { data: { session } } = await supabase.auth.getSession();
++      if (!session) {
++        throw new Error("Auth Rejected: Session expired or missing.");
++      }
++      
+       const res = await fetch("/api/generate/content", {
+         method: "POST",
+         headers: { 
+-          "Content-Type": "application/json"
++          "Content-Type": "application/json",
++          "Authorization": `Bearer ${session.access_token}`
+         },
+         credentials: "include",
+         cache: "no-store",
+diff --git a/fix_auth.js b/fix_auth.js
+new file mode 100644
+index 0000000..22f557e
+--- /dev/null
++++ b/fix_auth.js
+@@ -0,0 +1,22 @@
++const fs = require('fs');
++let code = fs.readFileSync('app/api/generate/content/route.ts', 'utf8');
++
++const newAuth = `    // Auth Check
++    let authHeader = req.headers.get('Authorization'); 
++    let explicitToken = authHeader?.replace('Bearer ', '')?.trim();
++    if (explicitToken === 'undefined' || explicitToken === 'null') explicitToken = undefined;
++
++    const supabase = await createClient();
++    
++    let { data: { user }, error: authError } = await supabase.auth.getUser();
++    
++    if ((authError || !user) && explicitToken) {
++      const res = await supabase.auth.getUser(explicitToken);
++      user = res.data?.user || null;
++      authError = res.error;
++    }
++    
++    if (authError || !user) {`;
++
++code = code.replace(/    \/\/ Auth Check\s+const supabase = await createClient\(\);\s+const \{ data: \{ user \}, error: authError \} = await supabase\.auth\.getUser\(\);\s+if \(authError \|\| !user\) \{/g, newAuth);
++fs.writeFileSync('app/api/generate/content/route.ts', code);
+diff --git a/fix_clients.js b/fix_clients.js
+new file mode 100644
+index 0000000..9507d74
+--- /dev/null
++++ b/fix_clients.js
+@@ -0,0 +1,35 @@
++const fs = require('fs');
++
++function addSessionCheck(filePath) {
++  let code = fs.readFileSync(filePath, 'utf8');
++
++  if (!code.includes('@/utils/supabase/client')) {
++    code = code.replace(/import \{ useState \} from "react";/, 'import { useState } from "react";\nimport { createClient } from "@/utils/supabase/client";');
++  }
++
++  if (!code.includes('createClient()')) {
++    code = code.replace(/const \[error, setError\] = useState<string \| null>\(null\);/, 'const [error, setError] = useState<string | null>(null);\n  const [supabase] = useState(() => createClient());');
++  }
++
++  const sessionCheck = `    try {
++      const { data: { session } } = await supabase.auth.getSession();
++      if (!session) {
++        throw new Error("Auth Rejected: Session expired or missing.");
++      }
++      
++      const res = await fetch`;
++
++  code = code.replace(/    try \{\s*const res = await fetch/g, sessionCheck);
++
++  const tokenHeader = `        headers: { 
++          "Content-Type": "application/json",
++          "Authorization": \`Bearer \${session.access_token}\`
++        },`;
++  
++  code = code.replace(/        headers: \{ \s*"Content-Type": "application\/json"\s*\},/g, tokenHeader);
++
++  fs.writeFileSync(filePath, code);
++}
++
++addSessionCheck('app/dashboard/roleplay/RolePlayClient.tsx');
++addSessionCheck('app/dashboard/literature/LiteratureClient.tsx');
+diff --git a/scripts/seed-matrix.ts b/scripts/seed-matrix.ts
+new file mode 100644
+index 0000000..942a586
+--- /dev/null
++++ b/scripts/seed-matrix.ts
+@@ -0,0 +1,62 @@
++import { createClient } from '@supabase/supabase-js';
++import * as dotenv from 'dotenv';
++dotenv.config({ path: '.env.local' });
++
++const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
++const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
++
++if (!supabaseUrl || !supabaseKey) {
++  console.error("Missing Supabase credentials.");
++  process.exit(1);
++}
++
++const supabase = createClient(supabaseUrl, supabaseKey);
++
++const matrix = [
++  // Card Games
++  { category: 'card', intensity: 'Sensory', title: 'Whispering Deck', description: 'A gentle card game focused on touch and eye contact.', content: { rules: ['Draw a card and read the sensory prompt.', 'Maintain eye contact for 10 seconds.', 'Follow the prompt slowly.'] } },
++  { category: 'card', intensity: 'Playful', title: 'Truth or Tease', description: 'A fun game mixing revealing questions with light physical teasing.', content: { rules: ['Draw a card. If red, answer the question. If black, follow the tease prompt.', 'Winner gets a 5-minute massage.'] } },
++  { category: 'card', intensity: 'Intense', title: 'Blindfold Blackjack', description: 'High stakes blackjack where the loser loses a piece of clothing or control.', content: { rules: ['Play a hand of blackjack.', 'The loser is blindfolded for 5 minutes and must endure whatever the winner desires.'] } },
++  { category: 'card', intensity: 'Extreme', title: 'The Boundary Deck', description: 'Cards designed to push your psychological and physical limits securely.', content: { rules: ['Each card has a command.', 'You must obey or use your safe word.', 'No hesitations.'] } },
++
++  // Movie Night Games
++  { category: 'movie', intensity: 'Sensory', title: 'Cuddle Cinema', description: 'Focus on closeness during a movie. Every time the scene changes, shift your touch.', content: { rules: ['Start cuddling during the opening credits.', 'Every scene change, trace a new path on your partner\'s arm or back.'] } },
++  { category: 'movie', intensity: 'Playful', title: 'Rom-Com Bingo', description: 'A playful bingo game based on movie cliches. The winner gets a kiss.', content: { rules: ['Mark your card when a cliche happens.', 'First to get bingo gets a long, passionate kiss.'] } },
++  { category: 'movie', intensity: 'Intense', title: 'Tension Thriller', description: 'Watch a suspenseful movie. When tension rises on screen, so does the physical tension.', content: { rules: ['During suspenseful scenes, one partner is tied or restricted.', 'Release only when the scene resolves.'] } },
++  { category: 'movie', intensity: 'Extreme', title: 'Sensory Deprivation Cinema', description: 'One partner is blindfolded and wears noise-canceling headphones while the other uses the movie as inspiration.', content: { rules: ['Blindfold Partner A.', 'Partner B enacts scenes inspired by the movie onto Partner A.'] } },
++
++  // Drinking Games
++  { category: 'drinking', intensity: 'Sensory', title: 'Sip & Trace', description: 'A slow drinking game. Every sip is accompanied by a light touch.', content: { rules: ['Take a sip.', 'Trace the rim of the glass on your partner\'s collarbone.'] } },
++  { category: 'drinking', intensity: 'Playful', title: 'Never Have I Ever: Intimate Edition', description: 'A classic game with a spicy twist.', content: { rules: ['Take turns saying something intimate you haven\'t done.', 'If you have, drink and share the story.'] } },
++  { category: 'drinking', intensity: 'Intense', title: 'Shot Roulette', description: 'High stakes. Some shots are water, some are liquor, some come with a dare.', content: { rules: ['Take a shot.', 'If it\'s liquor, you must perform the assigned intense dare.'] } },
++  { category: 'drinking', intensity: 'Extreme', title: 'The Master\'s Cup', description: 'A dominant/submissive drinking dynamic.', content: { rules: ['The dominant partner controls when and what the submissive drinks.', 'Disobedience results in punishment.'] } },
++
++  // Date Night Games
++  { category: 'date_night', intensity: 'Sensory', title: 'Taste Test', description: 'Blindfolded food tasting focused on texture and flavor.', content: { rules: ['Blindfold your partner.', 'Feed them different foods and have them guess.', 'Focus on the sensation on their lips.'] } },
++  { category: 'date_night', intensity: 'Playful', title: 'Roleplay Restaurant', description: 'Pretend to be strangers meeting at a bar or restaurant.', content: { rules: ['Sit separately.', 'One partner approaches the other with a cheesy pickup line.', 'Stay in character all night.'] } },
++  { category: 'date_night', intensity: 'Intense', title: 'Public Secret', description: 'Wear something hidden (like a vibrating toy) during a public date.', content: { rules: ['Partner A wears the device.', 'Partner B holds the remote during dinner.', 'Maintain composure.'] } },
++  { category: 'date_night', intensity: 'Extreme', title: 'The Kidnapping Date', description: 'A consensual non-consent scenario starting from the moment you leave the house.', content: { rules: ['Partner B "kidnaps" Partner A.', 'Follow pre-arranged safe words and boundaries strictly.', 'Drive to a secluded location.'] } },
++];
++
++async function seedMatrix() {
++  console.log("Truncating intimacy_games table...");
++  // Use RPC if available, or just delete all rows
++  const { error: deleteError } = await supabase.from('intimacy_games').delete().neq('id', '00000000-0000-0000-0000-000000000000');
++  
++  if (deleteError) {
++    console.error("Failed to delete existing games:", deleteError);
++  } else {
++    console.log("Table cleared.");
++  }
++
++  console.log("Inserting 16 balanced games...");
++  const { data, error } = await supabase.from('intimacy_games').insert(matrix);
++
++  if (error) {
++    console.error("Seeding failed:", error);
++  } else {
++    console.log("Successfully seeded 16 games!");
++  }
++}
++
++seedMatrix();

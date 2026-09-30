@@ -19,6 +19,8 @@ export default function LiteratureClient() {
   const initialMode = searchParams.get("mode") || "couple";
 
   const [playMode, setPlayMode] = useState(initialMode);
+  const [theme, setTheme] = useState("");
+  const [targetBoundary, setTargetBoundary] = useState("");
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,9 @@ export default function LiteratureClient() {
         body: JSON.stringify({ 
           contentType: "literature",
           playMode: playMode,
-          hasScripts: false
+          hasScripts: false,
+          theme: theme,
+          targetBoundary: targetBoundary
         })
       });
 
@@ -108,8 +112,35 @@ export default function LiteratureClient() {
               <span className="text-zinc-300">Group</span>
             </label>
           </div>
+
+<div className="mb-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Target Boundary Level (Optional)</label>
+              <select 
+                value={targetBoundary} 
+                onChange={(e) => setTargetBoundary(e.target.value)}
+                className="w-full md:w-1/2 bg-zinc-950 border border-zinc-700 rounded-lg p-2.5 text-zinc-300 focus:outline-none focus:border-red-900"
+              >
+                <option value="">Default (Use Profile Baseline)</option>
+                <option value="Sensory">Sensory (Gentle & Emotional)</option>
+                <option value="Playful">Playful (Teasing & Fun)</option>
+                <option value="Intense">Intense (High Stakes & Passionate)</option>
+                <option value="Extreme">Extreme (Boundary Pushing)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Theme Suggestions (Optional)</label>
+              <textarea 
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                placeholder="e.g., A rainy night in a secluded cabin, masquerade ball, enemies to lovers..."
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 h-24 focus:outline-none focus:border-red-900"
+              />
+            </div>
+          </div>
           
-          <button 
+          <button
             onClick={handleGenerate}
             disabled={loading}
             className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
@@ -127,7 +158,7 @@ export default function LiteratureClient() {
 
       {scenario && (
         <div className="animate-in fade-in duration-700 pb-24">
-          <button 
+<button 
             onClick={() => setScenario(null)}
             className="mb-8 text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
           >
