@@ -77,74 +77,41 @@ export default function LiteratureClient() {
       {!scenario && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 mb-8">
           <h2 className="text-xl font-medium text-zinc-100 mb-4">Configure Literature</h2>
-          <div className="flex flex-wrap gap-4 mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="couple" 
-                checked={playMode === "couple"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Couple</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="solo" 
-                checked={playMode === "solo"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Solo</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="couple" 
-                checked={playMode === "couple"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Couple</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="couple" 
-                checked={playMode === "couple"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Couple</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="solo" 
-                checked={playMode === "solo"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Solo</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="group" 
-                checked={playMode === "group"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Group</span>
-            </label>
-          </div>
+                      <div className="flex flex-wrap gap-4 mb-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="playMode" 
+                  value="solo" 
+                  checked={playMode === 'solo'} 
+                  onChange={(e) => setPlayMode(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+                />
+                <span className="text-zinc-300">Solo</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="playMode" 
+                  value="couple" 
+                  checked={playMode === 'couple'} 
+                  onChange={(e) => setPlayMode(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+                />
+                <span className="text-zinc-300">Couple</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="playMode" 
+                  value="group" 
+                  checked={playMode === 'group'} 
+                  onChange={(e) => setPlayMode(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
+                />
+                <span className="text-zinc-300">Group</span>
+              </label>
+            </div>
 
 <div className="mb-6 space-y-4">
             <div>

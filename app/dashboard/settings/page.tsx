@@ -26,21 +26,14 @@ export default function SettingsPage() {
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .maybeSingle()
-
-        const { data: prefData } = await supabase
-          .from('intimacy_preferences')
-          .select('preference_level')
-          .eq('user_id', session.user.id)
-          .eq('category_tag', 'Base Tolerance')
-          .maybeSingle()
+          .single()
 
         setProfile({
           ...profileData,
-          base_tolerance: prefData ? prefData.preference_level : 'Not set'
+          base_tolerance: profileData?.base_tolerance || 'Not set'
         })
         setPronouns(profileData?.pronouns || '')
-        setBaseTolerance(prefData ? prefData.preference_level : '')
+        setBaseTolerance(profileData?.base_tolerance || '')
       }
       setLoading(false)
     }
@@ -48,24 +41,23 @@ export default function SettingsPage() {
   }, [])
 
 
-  const handleSavePronouns = async () => {
+  const handleSavePronouns = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       await supabase.from('profiles').update({ pronouns }).eq('id', session.user.id)
       setProfile((prev: any) => ({ ...prev, pronouns }))
+      alert('Pronouns saved!');
     }
   }
 
-  const handleSaveTolerance = async () => {
+  const handleSaveTolerance = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const { data: existing } = await supabase.from('intimacy_preferences').select('id').eq('user_id', session.user.id).eq('category_tag', 'Base Tolerance').single();
-      if (existing) {
-        await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existing.id);
-      } else {
-        await supabase.from('intimacy_preferences').insert({ user_id: session.user.id, category_tag: 'Base Tolerance', preference_level: baseTolerance });
-      }
+      await supabase.from('profiles').update({ base_tolerance: baseTolerance }).eq('id', session.user.id)
       setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance }))
+      alert('Tolerance saved!');
     }
   }
 
@@ -103,14 +95,16 @@ export default function SettingsPage() {
     return () => clearTimeout(timer)
   }, [newUsername, profile])
 
-  const handleSaveUsername = async (usernameToSave: string) => {
+  const handleSaveUsername = async (e: React.MouseEvent | React.FormEvent, usernameToSave: string) => {
+    if (e) e.preventDefault()
     if (!usernameToSave || usernameToSave.trim() === '') return
     setSavingUsername(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: session.user.id, nickname: usernameToSave, anonymous_alias: usernameToSave, username: usernameToSave })
+        .update({ nickname: usernameToSave, anonymous_alias: usernameToSave })
+        .eq('id', session.user.id)
       
       if (!error) {
         setProfile((prev: any) => ({ ...prev, nickname: usernameToSave, anonymous_alias: usernameToSave }))
@@ -223,7 +217,7 @@ export default function SettingsPage() {
                       placeholder="Enter new username"
                     />
                     <button
-                      onClick={() => handleSaveUsername(newUsername.trim())}
+                      onClick={(e) => handleSaveUsername(e, newUsername.trim())}
                       disabled={savingUsername || usernameStatus !== 'available'}
                       className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors"
                     >
