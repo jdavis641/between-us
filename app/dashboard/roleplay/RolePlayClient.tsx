@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
 
@@ -24,6 +25,7 @@ export default function RolePlayClient() {
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [supabase] = useState(() => createClient());
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -31,10 +33,16 @@ export default function RolePlayClient() {
     setScenario(null);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Auth Rejected: Session expired or missing.");
+      }
+      
       const res = await fetch("/api/generate/content", {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
         },
         credentials: "include",
         cache: "no-store",

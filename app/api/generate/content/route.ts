@@ -70,9 +70,19 @@ export async function POST(req: Request) {
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
     // Auth Check
+    let authHeader = req.headers.get('Authorization'); 
+    let explicitToken = authHeader?.replace('Bearer ', '')?.trim();
+    if (explicitToken === 'undefined' || explicitToken === 'null') explicitToken = undefined;
+
     const supabase = await createClient();
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    let { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if ((authError || !user) && explicitToken) {
+      const res = await supabase.auth.getUser(explicitToken);
+      user = res.data?.user || null;
+      authError = res.error;
+    }
     
     if (authError || !user) {
       console.error("Supabase Auth Failed:", authError);
