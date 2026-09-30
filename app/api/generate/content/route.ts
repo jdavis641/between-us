@@ -78,7 +78,9 @@ export async function POST(req: Request) {
     // Auth Check
     let authHeader = req.headers.get('Authorization'); 
     let explicitToken = authHeader?.replace('Bearer ', '')?.trim();
-    if (explicitToken === 'undefined' || explicitToken === 'null') explicitToken = undefined;
+    if (!explicitToken || explicitToken === 'undefined' || explicitToken === 'null') {
+        return NextResponse.json({ error: 'Auth Rejected: Token explicitly missing or undefined' }, { status: 401 });
+      }
 
     const supabase = await createClient();
     
