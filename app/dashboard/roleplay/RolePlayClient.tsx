@@ -35,16 +35,12 @@ export default function RolePlayClient() {
     setScenario(null);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Auth Rejected: Session expired or missing.");
-      }
+      
       
       const res = await fetch("/api/generate/content", {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
+          "Content-Type": "application/json"
         },
         credentials: "include",
         cache: "no-store",
