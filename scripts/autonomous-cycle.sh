@@ -45,6 +45,13 @@ if ! npm run build > build_output.log 2>&1; then
     exit 1
 fi
 
+echo "[Programmer Agent] Running Vercel CLI build for Vercel-specific feedback loop..."
+if ! npx vercel build --yes > vercel_build_output.log 2>&1; then
+    cat vercel_build_output.log
+    echo "[Programmer Agent] Vercel build failed. Feeding error trace back for immediate self-healing."
+    exit 1
+fi
+
 # 4. Auto-commit and Push
 echo "[Project Manager Agent] Build passed. Staging and deploying..."
 export GIT_TERMINAL_PROMPT=0 # Prevent git from prompting for credentials
