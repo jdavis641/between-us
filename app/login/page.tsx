@@ -49,37 +49,25 @@ function SignInContent() {
     if (!otp || otp.length < 6) return
     setLoading(true)
     setAuthMessage('Verifying code...')
-    const { data, error } = await supabase.auth.verifyOtp({ 
-      email, 
-      token: otp, 
-      type: 'email' 
-    })
 
-    if (error) {
-      setAuthMessage('Invalid code: ' + error.message)
-      setLoading(false)
-    } else if (data?.user) {
-      // Ensure session is fully hydrated in browser context before routing
-      await supabase.auth.getSession()
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: otp })
+      });
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_active, nickname')
-        .eq('id', data.user.id)
-        .maybeSingle()
+      const data = await res.json();
 
-      if (profile?.is_active) {
-        if (!profile.nickname) {
-          router.push('/onboarding')
-        } else {
-          router.push('/dashboard')
-        }
+      if (!res.ok) {
+        setAuthMessage(data.error || 'Verification failed');
+        setLoading(false);
       } else {
-        router.push('/onboarding')
+        window.location.href = data.destination;
       }
-    } else {
-      setAuthMessage('Verification failed, no user returned.')
-      setLoading(false)
+    } catch (err: any) {
+      setAuthMessage('Network error: ' + err.message);
+      setLoading(false);
     }
   }
 
