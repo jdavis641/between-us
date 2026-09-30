@@ -11,16 +11,17 @@ type GameParams = {
 }
 
 export default async function GameDetail({ params }: GameParams) {
+  const { id } = await params;
   const supabase = await createClient()
 
   const { data: game } = await supabase
     .from('intimacy_games')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle()
 
   if (!game) {
-    notFound()
+    return <div className="p-12 text-center text-zinc-400">Game not found.</div>
   }
 
   const getIntensityBadge = (intensity: string) => {
@@ -62,14 +63,14 @@ export default async function GameDetail({ params }: GameParams) {
         <div className="space-y-8 py-4">
           <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>
           {game.content?.rules ? (
-            <ul className="space-y-4">
+            <ol className="space-y-4 list-decimal list-inside">
               {game.content.rules.map((rule: string, index: number) => (
                 <li key={index} className="flex space-x-4 bg-zinc-900 p-5 rounded-xl border border-zinc-800 shadow-sm">
                   <span className="text-red-500 font-bold text-lg leading-none">{index + 1}.</span>
                   <span className="text-zinc-300 font-light leading-relaxed">{rule}</span>
                 </li>
               ))}
-            </ul>
+            </ol>
           ) : (
             <p className="text-zinc-500 italic font-light p-6 bg-zinc-900/50 rounded-xl border border-zinc-800 border-dashed text-center">
               No specific rules provided for this scenario.
