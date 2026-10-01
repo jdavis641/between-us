@@ -75,7 +75,7 @@ JSON SCHEMA REQUIREMENT:
 Ensure the output is valid JSON.`;
 
         const result = await openai.chat.completions.create({
-          model: 'neversleep/llama-3-lumimaid-70b',
+          model: 'sao10k/l3.1-euryale-70b',
           messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
           response_format: { type: 'json_object' }
         });

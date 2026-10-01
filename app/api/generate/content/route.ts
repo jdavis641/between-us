@@ -171,7 +171,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
     let result;
     try {
       result = await openai.chat.completions.create({
-        model: "neversleep/llama-3-lumimaid-70b",
+        model: "sao10k/l3.1-euryale-70b",
         messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
         response_format: { type: "json_object" },
       });
