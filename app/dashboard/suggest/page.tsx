@@ -47,7 +47,7 @@ export default function SuggestionBox() {
             <span className="text-5xl mb-4">💌</span>
             <h2 className="text-2xl font-bold text-green-400 mb-2">Received!</h2>
             <p className="text-zinc-400 max-w-md">
-              Your scenario idea has been anonymously submitted to our admin pipeline. Thank you for helping Between Us evolve.
+              Your suggestions has been anonymously added to our admin team for approval. It should enter the database shortly.
             </p>
             <button 
               onClick={() => setSubmitted(false)}

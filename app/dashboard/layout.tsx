@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link href="/dashboard/games#card" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Card Games</Link>
               <Link href="/dashboard/games#movie" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Movie Night</Link>
               <Link href="/dashboard/games#drinking" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Drinking Games</Link>
-              <Link href="/dashboard/games#date" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Date Night</Link>
+              <Link href="/dashboard/games#date_night" className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200">Date Night</Link>
             </div>
           </div>
           {/* Community & Feedback */}

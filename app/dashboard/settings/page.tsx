@@ -28,12 +28,21 @@ export default function SettingsPage() {
           .eq('id', session.user.id)
           .single()
 
+        const { data: prefData } = await supabase
+          .from('intimacy_preferences')
+          .select('preference_level')
+          .eq('user_id', session.user.id)
+          .eq('category_tag', 'Primary Directive')
+          .maybeSingle();
+
+        const tolerance = prefData?.preference_level || profileData?.base_tolerance || '';
+
         setProfile({
           ...profileData,
-          base_tolerance: profileData?.base_tolerance || 'Not set'
+          base_tolerance: tolerance || 'Not set'
         })
         setPronouns(profileData?.pronouns || '')
-        setBaseTolerance(profileData?.base_tolerance || '')
+        setBaseTolerance(tolerance)
       }
       setLoading(false)
     }

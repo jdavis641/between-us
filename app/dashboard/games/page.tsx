@@ -13,7 +13,7 @@ export default async function GamesHub() {
   const movieNightGames = games?.filter((g: Game) => g.category === 'movie' || g.category === 'Movie Night Games') || []
   const drinkingGames = games?.filter((g: Game) => g.category === 'drinking' || g.category === 'Drinking Games') || []
   const dateNightGames = games?.filter((g: Game) => g.category === 'date_night' || g.category === 'Date Night Games') || []
-  const sections = [ { title: 'Card Games', id: 'card', data: cardGames }, { title: 'Movie Night Games', id: 'movie', data: movieNightGames }, { title: 'Drinking Games', id: 'drinking', data: drinkingGames }, { title: 'Date Night Games', id: 'date', data: dateNightGames } ]
+  const sections = [ { title: 'Card Games', id: 'card', data: cardGames }, { title: 'Movie Night Games', id: 'movie', data: movieNightGames }, { title: 'Drinking Games', id: 'drinking', data: drinkingGames }, { title: 'Date Night Games', id: 'date_night', data: dateNightGames } ]
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 pb-32 font-sans selection:bg-rose-500/30">
       <div className="max-w-6xl mx-auto">

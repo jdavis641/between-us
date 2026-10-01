@@ -1,7 +1,20 @@
 'use client';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 export default function GameList({ sections }: { sections: any[] }) {
+  const [activeHash, setActiveHash] = useState('');
+
+  useEffect(() => {
+    const handleHashChange = () => setActiveHash(window.location.hash);
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const filteredSections = activeHash 
+    ? sections.filter(s => '#' + s.id === activeHash)
+    : sections;
   
   
   const getIntensityBadge = (intensity: string) => {
@@ -18,7 +31,7 @@ export default function GameList({ sections }: { sections: any[] }) {
 
   return (
     <div className="space-y-16">
-      {sections.map((section, idx) => (
+      {filteredSections.map((section, idx) => (
         <section key={idx} id={section.id} className="scroll-mt-24">
           <h2 className="text-2xl font-serif font-medium mb-6 text-zinc-200 border-b border-zinc-800 pb-4">
             {section.title}
