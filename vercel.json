@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/trigger-ai",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/retention",
+      "schedule": "0 12 * * *"
     }
   ]
 }
