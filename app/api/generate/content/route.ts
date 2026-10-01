@@ -170,11 +170,18 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
 
     let result;
     try {
-      result = await openai.chat.completions.create({
+            result = await openai.chat.completions.create({
         model: "sao10k/l3.1-euryale-70b",
         messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
         response_format: { type: "json_object" },
-      });
+        extra_body: {
+          models: [
+            "sao10k/l3.1-euryale-70b",
+            "neversleep/llama-3.1-lumimaid-70b",
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+          ]
+        }
+        } as any);
     } catch (apiError: any) {
       console.error("OpenRouter API Fetch Error:", apiError);
       return NextResponse.json({ error: apiError.message || "OpenRouter failed" }, { status: 500 });

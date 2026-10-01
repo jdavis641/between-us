@@ -25,11 +25,18 @@ async function delay(ms: number) {
 async function generateWithRetry(prompt: string, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await openai.chat.completions.create({
+            const response = await openai.chat.completions.create({
         model: 'sao10k/l3.1-euryale-70b',
         messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
         response_format: { type: "json_object" },
-      });
+        extra_body: {
+          models: [
+            "sao10k/l3.1-euryale-70b",
+            "neversleep/llama-3.1-lumimaid-70b",
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+          ]
+        }
+        } as any);
       return response;
     } catch (error: any) {
       console.error(`Attempt ${attempt} failed:`, error.message);
