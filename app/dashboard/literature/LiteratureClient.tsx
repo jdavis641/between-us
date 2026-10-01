@@ -147,7 +147,7 @@ export default function LiteratureClient() {
             disabled={loading}
             className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
           >
-            {loading ? "Drafting Chapter..." : "Generate Chapter"}
+            {loading ? "Drafting Story..." : "Generate Story"}
           </button>
 
           {error && (

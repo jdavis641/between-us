@@ -10,7 +10,8 @@
     "seed:library": "ts-node scripts/seed-library.ts",
     "marketing:launch": "ts-node scripts/cmo-marketing-engine.ts launch",
     "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines",
-    "seed:expanded": "ts-node scripts/seed-expanded-options.ts"
+    "seed:expanded": "ts-node scripts/seed-expanded-options.ts",
+    "seed:tropes": "ts-node scripts/seed-romantasy-tropes.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
