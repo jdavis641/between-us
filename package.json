@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed:library": "ts-node scripts/seed-library.ts",
     "marketing:launch": "ts-node scripts/cmo-marketing-engine.ts launch",
-    "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines"
+    "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines",
+    "seed:expanded": "ts-node scripts/seed-expanded-options.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
