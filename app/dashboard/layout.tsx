@@ -57,6 +57,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard/messages" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors mb-1">
               📬 Inbox
             </Link>
+            <Link href="/dashboard/suggest" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 transition-colors mb-1">
+              🛠️ Improve the App
+            </Link>
             <Link href="/dashboard/settings" className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 transition-colors">
               ⚙️ Settings & Billing
             </Link>

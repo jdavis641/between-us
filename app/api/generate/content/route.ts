@@ -183,8 +183,16 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
     const responseText = result.choices[0].message.content || "{}";
     const generatedContent = JSON.parse(responseText);
 
-    // Record to Activity History using service role because normal users might not have insert rights if RLS is broken 
-    // or just use authenticated client since we added an insert policy.
+    // Record to generated_content
+    await supabase.from('generated_content').insert({
+      user_id: user.id,
+      content_type: contentType,
+      title: generatedContent.title,
+      body: JSON.stringify(generatedContent),
+      status: 'active'
+    });
+
+    // Record to Activity History
     await supabase.from('activity_history').insert({
       user_id: user.id,
       group_id: groupId || null,

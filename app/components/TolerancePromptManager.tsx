@@ -49,7 +49,8 @@ export default function TolerancePromptManager() {
   const handleUpdate = async () => {
     // A real implementation would mark this and redirect to survey
     await recordPrompt()
-    router.push('/onboarding')
+    router.push('/dashboard/settings')
+    setShowPrompt(false)
   }
 
   const handleNotNow = async () => {

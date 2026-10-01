@@ -59,9 +59,9 @@ export default function InvitePartnerPage() {
     
     let query = supabase.from('profiles').select('id, username, anonymous_alias, nickname')
     if (searchMethod === 'username') {
-      query = query.or(`anonymous_alias.eq.${searchValue},nickname.eq.${searchValue},username.eq.${searchValue}`)
+      query = query.eq('anonymous_alias', searchValue)
     } else if (searchMethod === 'email') {
-      query = query.ilike('email', searchValue)
+      query = query.eq('email', searchValue)
     } else if (searchMethod === 'phone') {
       query = query.eq('phone', searchValue)
     }

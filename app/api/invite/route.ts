@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       invite_type: "guest_pass",
       expires_at: expiresAt.toISOString(),
       preferences: payload,
-      ...(user && { created_by: user.id })
+      ...(user && { sender_id: user.id })
     });
 
     if (error) throw error;

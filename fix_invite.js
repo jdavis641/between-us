@@ -1,6 +1,5 @@
 const fs = require('fs');
-let code = fs.readFileSync('app/dashboard/partnerinvite/page.tsx', 'utf8');
 
-code = code.replace(/query\.eq\('email', searchValue\)/g, "query.ilike('email', searchValue)");
-
-fs.writeFileSync('app/dashboard/partnerinvite/page.tsx', code);
+let inviteCode = fs.readFileSync('app/api/invite/route.ts', 'utf8');
+inviteCode = inviteCode.replace(/created_by: user\.id/, 'sender_id: user.id');
+fs.writeFileSync('app/api/invite/route.ts', inviteCode);
