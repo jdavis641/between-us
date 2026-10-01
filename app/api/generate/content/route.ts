@@ -1,10 +1,11 @@
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 
-function buildSystemInstruction(preferences: any[], playMode: string, theme?: string, targetBoundary?: string) {
+function buildSystemInstruction(preferences: any[], playMode: string, theme?: string, targetBoundary?: string, contentType?: string) {
   const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance')?.preference_level || 'Moderate');
 
   const mandatoryThemes = preferences
@@ -44,6 +45,12 @@ function buildSystemInstruction(preferences: any[], playMode: string, theme?: st
   }
 
   let sys = `You are an expert intimacy and relationship guide.\n\n`;
+
+  if (contentType === 'literature') {
+    sys += `You are a master of serialized erotic fantasy. You MUST generate a full, multi-chapter story (minimum 3 chapters, 1500+ words). You must establish a slow-burn narrative buildup in Chapter 1, escalating tension in Chapter 2, and a highly explicit, detailed climax in Chapter 3. Use Markdown headers (e.g., '## Chapter 1') to separate sections. Do not summarize; write the full scenes.\n\n`;
+  } else if (contentType === 'roleplay') {
+    sys += `Generate a complete, highly detailed roleplay script. Include 'Pre-Experience Tasks', 'The Storyboard', and explicit 'Dialogue/Action Scripts'. Do not stall or summarize.\n\n`;
+  }
   
   sys += `Writing Style: Master the build-intensity dynamic. You must utilize a slow, tension-building pacing that relies heavily on anticipation, psychological buildup, and emotional friction before any physical escalation. Vocabulary: Use hyper-descriptive, visceral, and evocative vocabulary. Focus heavily on granular sensory details (touch, breath, temperature, micro-expressions). Strictly avoid clinical medicalized terminology, euphemisms, or generic romance tropes.\n\n`;
   
@@ -127,6 +134,35 @@ export async function POST(req: Request) {
     const { data: historyData } = await historyQuery.order('completed_at', { ascending: false }).limit(20);
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
+    
+    // Check Inventory First
+    if (theme) {
+      const { data: existingData } = await supabase
+        .from('generated_content')
+        .select('*')
+        .eq('content_type', contentType)
+        .ilike('theme_tags', `%${theme}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingData) {
+        // We have to parse the body if it's stored as JSON string, but maybe it's just the object
+        let cachedContent = existingData.body;
+        try {
+          if (typeof cachedContent === 'string') {
+            cachedContent = JSON.parse(cachedContent);
+          }
+        } catch (e) {}
+        
+        // ensure title is there
+        if (typeof cachedContent === 'object' && cachedContent !== null) {
+          cachedContent.title = cachedContent.title || existingData.title;
+        }
+
+        return NextResponse.json({ ...cachedContent, cached: true });
+      }
+    }
+
     // Initialize OpenAI
     if (!process.env.OPENROUTER_API_KEY) {
       throw new Error("Missing OPENROUTER_API_KEY in environment variables");
@@ -136,23 +172,33 @@ export async function POST(req: Request) {
       apiKey: process.env.OPENROUTER_API_KEY,
     });
 
-    const systemInstruction = buildSystemInstruction(preferences || [], playMode, theme, targetBoundary);
+    const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
+    const systemInstruction = buildSystemInstruction(preferences || [], playMode, theme, targetBoundary, contentType);
 
     // Build Prompt
     let prompt = `Generate a highly personalized ${contentType} for ${playMode} play.\n\n`;
     prompt += `MEMORY CONTEXT:\n- To avoid repetition, DO NOT generate anything too similar to these recent activities: ${historyTitles.join(", ") || "None"}.\n`;
 
-    if (contentType === "roleplay" || contentType === "literature") {
+    if (contentType === "literature") {
+      prompt += `
+JSON SCHEMA REQUIREMENT:
+You must return a valid JSON object matching this schema exactly:
+{
+  "title": "A catchy title for the story",
+  "body": "The full markdown text of the multi-chapter story as requested. Do not summarize, write the full scenes."
+}
+Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure.`;
+    } else if (contentType === "roleplay") {
       prompt += `
 JSON SCHEMA REQUIREMENT:
 You must return a valid JSON object matching this schema exactly:
 {
   "title": "A catchy title for the scenario",
-  "overview": "A rich, setting-the-scene context",
-  "preExperienceTasks": ["Task for Partner A", "Task for Partner B"],
+  "overview": "The Storyboard. A rich, setting-the-scene context",
+  "preExperienceTasks": ["Pre-Experience Task for Partner A", "Pre-Experience Task for Partner B"],
   "partnerAPerspective": "Internal monologue, motivation, or secret instructions for Partner A. Make it emotionally engaging and focused on intimacy without being explicitly sexually graphic.",
   "partnerBPerspective": "Internal monologue, motivation, or secret instructions for Partner B. Make it emotionally engaging and focused on intimacy without being explicitly sexually graphic.",
-  "fullScript": ${hasScripts ? `"A back-and-forth dialogue script for them to follow."` : "null"}
+  "fullScript": ${hasScripts ? `"Dialogue/Action Scripts. A back-and-forth dialogue script for them to follow."` : "null"}
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure.`;
     } else if (contentType === "game") {
@@ -173,6 +219,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
             result = await openai.chat.completions.create({
         model: "sao10k/l3.1-euryale-70b",
         messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
+        max_tokens: 4000,
         response_format: { type: "json_object" },
         extra_body: {
           models: [
@@ -190,14 +237,23 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
     const responseText = result.choices[0].message.content || "{}";
     const generatedContent = JSON.parse(responseText);
 
-    // Record to generated_content
-    await supabase.from('generated_content').insert({
+    // Record to generated_content (if columns exist)
+    const payload: any = {
       user_id: user.id,
       content_type: contentType,
       title: generatedContent.title,
       body: JSON.stringify(generatedContent),
       status: 'active'
-    });
+    };
+    
+    // Add meta tags for inventory retrieval
+    // Note: If these columns do not exist in the database, Supabase JS client will throw an error.
+    // The instructions explicitly require these to be populated.
+    payload.tolerance_tier = targetBoundary || baseTolerance || null;
+    payload.play_mode = playMode;
+    payload.theme_tags = theme || null;
+
+    await supabase.from('generated_content').insert(payload);
 
     // Record to Activity History
     await supabase.from('activity_history').insert({
