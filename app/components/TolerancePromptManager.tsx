@@ -5,12 +5,17 @@ import { useRouter } from 'next/navigation'
 
 export default function TolerancePromptManager() {
   const [showPrompt, setShowPrompt] = useState(false)
+  const [doNotShow, setDoNotShow] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     async function checkPrompt() {
+      if (typeof window !== 'undefined' && localStorage.getItem('hideBoundaryModal') === 'true') {
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
@@ -47,13 +52,18 @@ export default function TolerancePromptManager() {
   }, [supabase])
 
   const handleUpdate = async () => {
-    // A real implementation would mark this and redirect to survey
+    if (doNotShow && typeof window !== 'undefined') {
+      localStorage.setItem('hideBoundaryModal', 'true');
+    }
     await recordPrompt()
     router.push('/dashboard/settings')
     setShowPrompt(false)
   }
 
   const handleNotNow = async () => {
+    if (doNotShow && typeof window !== 'undefined') {
+      localStorage.setItem('hideBoundaryModal', 'true');
+    }
     await recordPrompt()
     setShowPrompt(false)
   }
@@ -78,6 +88,19 @@ export default function TolerancePromptManager() {
           Desires evolve. We recommend regularly updating your tolerance profile and boundary preferences to ensure the best possible matches and content.
         </p>
         
+        <div className="mb-6 flex items-center gap-2">
+          <input 
+            type="checkbox" 
+            id="doNotShow"
+            checked={doNotShow}
+            onChange={(e) => setDoNotShow(e.target.checked)}
+            className="w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-950"
+          />
+          <label htmlFor="doNotShow" className="text-sm text-zinc-400 cursor-pointer select-none">
+            Do not show again
+          </label>
+        </div>
+
         <div className="space-y-3">
           <button 
             onClick={handleUpdate}
@@ -96,4 +119,3 @@ export default function TolerancePromptManager() {
     </div>
   )
 }
-
