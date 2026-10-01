@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [pronouns, setPronouns] = useState("")
   const [baseTolerance, setBaseTolerance] = useState("")
+  const [toleranceSaved, setToleranceSaved] = useState(false)
   const [newUsername, setNewUsername] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -79,7 +80,8 @@ export default function SettingsPage() {
       }
 
       setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance }))
-      alert('Tolerance saved!');
+      setToleranceSaved(true)
+      setTimeout(() => setToleranceSaved(false), 3000)
     }
   }
 
@@ -309,14 +311,14 @@ export default function SettingsPage() {
                   className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
                 >
                   <option value="">Select a baseline</option>
-                  <option value="Moderate">Moderate</option>
                   <option value="Sensory">Sensory</option>
                   <option value="Playful">Playful</option>
                   <option value="Intense">Intense</option>
                   <option value="Extreme">Extreme</option>
                 </select>
                 <button onClick={handleSaveTolerance} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
-              </div>
+                </div>
+                {toleranceSaved && <p className="text-green-500 text-xs mt-2 font-medium">Saved!</p>}
             </div>
           </div>
         </section>
