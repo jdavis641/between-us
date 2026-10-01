@@ -26,7 +26,7 @@ async function generateWithRetry(prompt: string, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await openai.chat.completions.create({
-        model: 'cognitivecomputations/dolphin-mixtral-8x7b',
+        model: 'nousresearch/nous-hermes-2-mixtral-8x7b-dpo',
         messages: [{ role: 'system', content: 'You are an AI assistant.' }, { role: 'user', content: prompt }],
         response_format: { type: "json_object" },
       });

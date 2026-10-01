@@ -171,7 +171,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
     let result;
     try {
       result = await openai.chat.completions.create({
-        model: "cognitivecomputations/dolphin-mixtral-8x7b",
+        model: "nousresearch/nous-hermes-2-mixtral-8x7b-dpo",
         messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
         response_format: { type: "json_object" },
       });
