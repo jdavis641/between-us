@@ -20,9 +20,6 @@ export default function Footer() {
             </a>
             <div className="text-xs text-zinc-600 mt-2">
               <p>Between Us</p>
-              <p>1043 S. Roselle Rd, #1048</p>
-              <p>Schaumburg, IL 60193</p>
-              <p>Support Line: 224-223-8077</p>
             </div>
             <span className="mt-2 text-xs">&copy; 2026 Between Us. All rights reserved.</span>
           </div>
