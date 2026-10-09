@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     // Forward the parsed email to the designated admin inbox
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@betweenusapp.io';
+    const adminEmail = 'jdcdjd664411@proton.me';
     
     if (process.env.RESEND_API_KEY) {
       await fetch('https://api.resend.com/emails', {
