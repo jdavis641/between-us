@@ -13,10 +13,10 @@ export async function POST(req: Request) {
 
     const { subject, from, to, text, html } = emailData;
 
-    // Check if the email was sent to our support inbox
+    // Check if the email was sent to our support or jd3 inbox
     const recipientList = Array.isArray(to) ? to.join(',') : (to || '');
-    if (!recipientList.includes('support@betweenusapp.io')) {
-      return NextResponse.json({ success: true, message: 'Ignored: Not directed to support inbox.' });
+    if (!recipientList.includes('support@betweenusapp.io') && !recipientList.includes('jd3@betweenusapp.io')) {
+      return NextResponse.json({ success: true, message: 'Ignored: Not directed to support or jd3 inbox.' });
     }
 
     // Forward the parsed email to the designated admin inbox
