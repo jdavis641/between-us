@@ -30,7 +30,28 @@ export default function MovieGameGenerator({ gameTitle }: { gameTitle: string })
         })
       });
       
-      const data = await res.json();
+      const reader = res.body?.getReader();
+      let rawText = "";
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          rawText += decoder.decode(value, { stream: true });
+        }
+      } else {
+        rawText = await res.text();
+      }
+
+      let data: any;
+      try {
+        const cleaned = rawText.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
+        data = JSON.parse(cleaned);
+      } catch (e) {
+        data = JSON.parse(rawText);
+      }
+
       if (data.preExperienceTasks) {
         setGeneratedRules(data.preExperienceTasks);
       } else if (data.partnerAPerspective) {

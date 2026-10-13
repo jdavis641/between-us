@@ -214,13 +214,14 @@ You must return a valid JSON object matching this schema exactly:
 Make the game prompts highly specific to the selected intimacy category. NEVER break the JSON structure.`;
     }
 
-    let result;
+    let streamResult;
     try {
-            result = await openai.chat.completions.create({
+      streamResult = await openai.chat.completions.create({
         model: "sao10k/l3.1-euryale-70b",
         messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
         max_tokens: 4000,
         response_format: { type: "json_object" },
+        stream: true,
         extra_body: {
           models: [
             "sao10k/l3.1-euryale-70b",
@@ -228,44 +229,70 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
             "cognitivecomputations/dolphin-mistral-24b-venice-edition"
           ]
         }
-        } as any);
+      } as any);
     } catch (apiError: any) {
       console.error("OpenRouter API Fetch Error:", apiError);
       return NextResponse.json({ error: apiError.message || "OpenRouter failed" }, { status: 500 });
     }
 
-    const responseText = result.choices[0].message.content || "{}";
-    const generatedContent = JSON.parse(responseText);
+    const encoder = new TextEncoder();
+    let accumulatedText = "";
 
-    // Record to generated_content (if columns exist)
-    const payload: any = {
-      user_id: user.id,
-      content_type: contentType,
-      title: generatedContent.title,
-      body: JSON.stringify(generatedContent),
-      status: 'active'
-    };
-    
-    // Add meta tags for inventory retrieval
-    // Note: If these columns do not exist in the database, Supabase JS client will throw an error.
-    // The instructions explicitly require these to be populated.
-    payload.tolerance_tier = targetBoundary || baseTolerance || null;
-    payload.play_mode = playMode;
-    payload.theme_tags = theme || null;
+    const customStream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamResult as any) {
+            const content = chunk.choices?.[0]?.delta?.content || "";
+            if (content) {
+              accumulatedText += content;
+              controller.enqueue(encoder.encode(content));
+            }
+          }
 
-    await supabase.from('generated_content').insert(payload);
+          // Record to generated_content and activity history after stream completes
+          try {
+            const cleaned = accumulatedText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+            const generatedContent = JSON.parse(cleaned);
 
-    // Record to Activity History
-    await supabase.from('activity_history').insert({
-      user_id: user.id,
-      group_id: groupId || null,
-      content_type: contentType,
-      category: category || playMode,
-      content_title: generatedContent.title,
-      tags: [playMode, ...(hasScripts ? ['scripted'] : [])]
+            const payload: any = {
+              user_id: user.id,
+              content_type: contentType,
+              title: generatedContent.title || "Untitled Experience",
+              body: JSON.stringify(generatedContent),
+              status: 'active',
+              tolerance_tier: targetBoundary || baseTolerance || null,
+              play_mode: playMode,
+              theme_tags: theme || null
+            };
+
+            await supabase.from('generated_content').insert(payload);
+
+            await supabase.from('activity_history').insert({
+              user_id: user.id,
+              group_id: groupId || null,
+              content_type: contentType,
+              category: category || playMode,
+              content_title: generatedContent.title || "Untitled Experience",
+              tags: [playMode, ...(hasScripts ? ['scripted'] : [])]
+            });
+          } catch (persistError) {
+            console.error("Failed to parse or persist generated content to Supabase:", persistError);
+          }
+
+          controller.close();
+        } catch (streamErr) {
+          console.error("Stream generation error:", streamErr);
+          controller.error(streamErr);
+        }
+      }
     });
 
-    return NextResponse.json(generatedContent);
+    return new Response(customStream, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+      }
+    });
   } catch (error: any) {
     console.error("OpenAI Generation Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -66,7 +66,27 @@ export default function RolePlayClient() {
         throw new Error("Failed to generate scenario");
       }
       
-      const data = await res.json();
+      const reader = res.body?.getReader();
+      let rawText = "";
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          rawText += decoder.decode(value, { stream: true });
+        }
+      } else {
+        rawText = await res.text();
+      }
+
+      let data: ScenarioPayload;
+      try {
+        const cleaned = rawText.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
+        data = JSON.parse(cleaned);
+      } catch (parseErr) {
+        data = JSON.parse(rawText);
+      }
       setScenario(data);
     } catch (err: any) {
       console.error(err);
