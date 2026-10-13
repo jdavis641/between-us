@@ -9,12 +9,26 @@ export default function GameList({ sections }: { sections: any[] }) {
     const handleHashChange = () => setActiveHash(window.location.hash);
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
   }, []);
 
-  const filteredSections = activeHash 
-    ? sections.filter(s => '#' + s.id === activeHash)
+  const normalizeId = (id: string) => {
+    const clean = id.replace(/^#/, '');
+    if (clean === 'date' || clean === 'date_night') return 'date_night';
+    return clean;
+  };
+
+  const activeNorm = normalizeId(activeHash);
+
+  const matchedSections = activeNorm 
+    ? sections.filter(s => normalizeId(s.id) === activeNorm)
     : sections;
+
+  const filteredSections = matchedSections.length > 0 ? matchedSections : sections;
   
   
   const getIntensityBadge = (intensity: string) => {
