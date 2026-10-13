@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [savingUsername, setSavingUsername] = useState(false)
+  const [contributions, setContributions] = useState<any[]>([])
+  const [contributionsLoading, setContributionsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchProfile() {
@@ -44,6 +46,23 @@ export default function SettingsPage() {
         })
         setPronouns(profileData?.pronouns || '')
         setBaseTolerance(tolerance)
+
+        // Fetch user contributions
+        try {
+          const { data: userContributions } = await supabase
+            .from('scenario_suggestions')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false });
+
+          setContributions(userContributions || []);
+        } catch (err) {
+          console.warn('Error fetching contributions:', err);
+        } finally {
+          setContributionsLoading(false);
+        }
+      } else {
+        setContributionsLoading(false);
       }
       setLoading(false)
     }
@@ -321,6 +340,90 @@ export default function SettingsPage() {
                 {toleranceSaved && <p className="text-green-500 text-xs mt-2 font-medium">Saved!</p>}
             </div>
           </div>
+        </section>
+
+        {/* My Contributions */}
+        <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+            <div>
+              <h2 className="text-xl font-medium text-zinc-200">My Contributions</h2>
+              <p className="text-zinc-500 text-sm mt-1">Track the status and community ratings of your submitted scenarios.</p>
+            </div>
+            <Link 
+              href="/dashboard/suggest" 
+              className="text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-950/50 border border-red-900/30 px-3 py-1.5 rounded-lg transition-colors uppercase tracking-wider"
+            >
+              + Suggest Idea
+            </Link>
+          </div>
+
+          {contributionsLoading ? (
+            <div className="p-6 text-center text-zinc-500 text-sm animate-pulse">Loading contributions...</div>
+          ) : contributions.length === 0 ? (
+            <div className="p-8 text-center bg-zinc-950/40 rounded-xl border border-zinc-800/60">
+              <span className="text-3xl block mb-2">💡</span>
+              <p className="text-zinc-400 font-medium">No contributions submitted yet.</p>
+              <p className="text-zinc-500 text-sm mt-1 mb-4">Have an intimate story or roleplay idea? Share it with the community.</p>
+              <Link 
+                href="/dashboard/suggest"
+                className="inline-block text-xs font-semibold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg border border-zinc-700 transition-colors"
+              >
+                Submit Your First Idea
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {contributions.map((item: any) => {
+                let title = item.suggestion_text;
+                let description = '';
+                try {
+                  const parsed = JSON.parse(item.suggestion_text);
+                  title = parsed.title || item.suggestion_text;
+                  description = parsed.description || '';
+                } catch {}
+
+                const status = item.status || 'pending';
+                const avgRating = item.average_rating ? Number(item.average_rating) : 0;
+                const timesTested = item.times_tested ?? 0;
+
+                return (
+                  <div key={item.id} className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-zinc-200 font-medium text-base truncate">{title}</h3>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wider ${
+                          status === 'approved' ? 'bg-green-950/60 text-green-400 border border-green-800/40' :
+                          status === 'archived' ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' :
+                          'bg-amber-950/60 text-amber-400 border border-amber-800/40'
+                        }`}>
+                          {status}
+                        </span>
+                      </div>
+                      {description && (
+                        <p className="text-zinc-400 text-xs line-clamp-1">{description}</p>
+                      )}
+                      <p className="text-zinc-600 text-[11px]">
+                        Submitted on {new Date(item.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/50">
+                      <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Community Score</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {timesTested > 0 ? (
+                          <span className="text-sm font-semibold text-amber-400 flex items-center gap-1">
+                            <span>★</span> {avgRating.toFixed(1)} <span className="text-xs text-zinc-500 font-normal">({timesTested} tests)</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-400 italic">Untested (New)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="mt-12 border-t border-zinc-800 pt-8">

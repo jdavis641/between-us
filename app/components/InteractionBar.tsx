@@ -58,17 +58,31 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
     setRating(flame)
     setHasRated(true)
 
-    // Fallback: If table anonymous_ratings doesn't exist, we assume it's created or we fail gracefully
-    await supabase.from('scenario_ratings').insert({ 
-      scenario_id: contentId,
-      rating: flame
-    })
+    try {
+      await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId,
+          contentType,
+          rating: flame
+        })
+      });
+    } catch (e) {
+      // Fallback
+      await supabase.from('scenario_ratings').insert({ 
+        scenario_id: contentId,
+        rating: flame
+      });
+    }
 
-    await supabase.from('anonymous_ratings').insert({ 
-      content_id: contentId, 
-      content_type: contentType,
-      flame_rating: flame
-    })
+    try {
+      await supabase.from('anonymous_ratings').insert({ 
+        content_id: contentId, 
+        content_type: contentType,
+        flame_rating: flame
+      });
+    } catch (e) {}
   }
 
   const handleShare = async () => {

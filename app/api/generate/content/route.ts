@@ -175,9 +175,53 @@ export async function POST(req: Request) {
     const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
     const systemInstruction = buildSystemInstruction(preferences || [], playMode, theme, targetBoundary, contentType);
 
+    // Fetch and rotate community scenarios for OpenRouter generation
+    const { data: rawCommunityScenarios } = await supabase
+      .from('scenario_suggestions')
+      .select('*')
+      .eq('status', 'approved');
+
+    const activeCommunityScenarios: any[] = [];
+
+    if (rawCommunityScenarios && rawCommunityScenarios.length > 0) {
+      for (const scenario of rawCommunityScenarios) {
+        const timesTested = scenario.times_tested ?? 0;
+        const avgRating = scenario.average_rating ? Number(scenario.average_rating) : 0;
+
+        // If a scenario falls below a 4.0 average after the 5-test threshold, update its status to 'archived'
+        if (timesTested >= 5 && avgRating < 4.0) {
+          await supabase
+            .from('scenario_suggestions')
+            .update({ status: 'archived' })
+            .eq('id', scenario.id);
+          continue;
+        }
+
+        // Strictly filter to only include: status = 'approved' AND (average_rating >= 4.0 OR times_tested < 5)
+        if (avgRating >= 4.0 || timesTested < 5) {
+          activeCommunityScenarios.push(scenario);
+        }
+      }
+    }
+
     // Build Prompt
     let prompt = `Generate a highly personalized ${contentType} for ${playMode} play.\n\n`;
     prompt += `MEMORY CONTEXT:\n- To avoid repetition, DO NOT generate anything too similar to these recent activities: ${historyTitles.join(", ") || "None"}.\n`;
+
+    if (activeCommunityScenarios.length > 0) {
+      const communitySample = activeCommunityScenarios
+        .slice(0, 5)
+        .map((s: any) => {
+          try {
+            const parsed = JSON.parse(s.suggestion_text);
+            return `${parsed.title}: ${parsed.description || ''}`;
+          } catch {
+            return s.suggestion_text;
+          }
+        })
+        .join("\n- ");
+      prompt += `\nCOMMUNITY SCENARIO INSPIRATIONS (Active Pool: Approved & >= 4.0 Stars or New):\n- ${communitySample}\n`;
+    }
 
     if (contentType === "literature") {
       prompt += `

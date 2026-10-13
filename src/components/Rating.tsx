@@ -12,11 +12,23 @@ export default function Rating({ scenarioId }: { scenarioId: string }) {
   const handleRate = async (value: number) => {
     setRating(value);
     
-    // Insert into Supabase
-    await supabase.from("scenario_ratings").insert({
-      scenario_id: scenarioId,
-      rating: value,
-    });
+    try {
+      await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentType: 'roleplay',
+          contentId: scenarioId,
+          rating: value
+        })
+      });
+    } catch (e) {
+      // Fallback
+      await supabase.from("scenario_ratings").insert({
+        scenario_id: scenarioId,
+        rating: value,
+      });
+    }
 
     setSubmitted(true);
   };

@@ -21,24 +21,44 @@ export default function RatingWidget({ contentType, contentId }: RatingWidgetPro
     setError(null);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const { error: insertError } = await supabase
-        .from('content_ratings')
-        .insert({
-          user_id: user?.id, // Will be null if anonymous, but RLS requires auth.
-          content_type: contentType,
-          content_id: contentId,
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          contentType,
+          contentId,
           rating: selectedRating
-        });
-        
-      if (insertError) throw insertError;
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to submit rating via API');
+      }
       
       setSubmitted(true);
     } catch (err: any) {
       console.error("Error submitting rating", err);
-      setError("Failed to submit rating. Please try again.");
-      setRating(null);
+      // Fallback: direct insert to content_ratings
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase
+          .from('content_ratings')
+          .insert({
+            user_id: user?.id,
+            content_type: contentType,
+            content_id: contentId,
+            rating: selectedRating
+          });
+        setSubmitted(true);
+      } catch (fallbackErr) {
+        setError("Failed to submit rating. Please try again.");
+        setRating(null);
+      }
     }
   };
 
@@ -46,7 +66,7 @@ export default function RatingWidget({ contentType, contentId }: RatingWidgetPro
     return (
       <div className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 rounded-xl border border-zinc-800">
         <p className="text-green-400 font-medium mb-1">Feedback Submitted!</p>
-        <p className="text-zinc-500 text-sm">Your anonymous rating helps the AI evolve.</p>
+        <p className="text-zinc-500 text-sm">Your rating recalculates community rotation and helps the AI evolve.</p>
       </div>
     );
   }
