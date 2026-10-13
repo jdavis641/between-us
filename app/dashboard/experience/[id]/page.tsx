@@ -12,18 +12,24 @@ const supabase = createClient(
 
 type ReaderMode = "partner-a" | "partner-b" | "script";
 
-export default function ExperienceReader({ params }: { params: { id: string } }) {
+export default function ExperienceReader({ params }: { params: any }) {
   const [experience, setExperience] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeMode, setActiveMode] = useState<ReaderMode>("script")
   const [textSize, setTextSize] = useState<"text-lg" | "text-xl" | "text-2xl">("text-lg")
+  const [storyId, setStoryId] = useState<string>("")
 
   useEffect(() => {
     async function fetchContent() {
+      const resolved = await params;
+      const id = resolved?.id || params?.id;
+      if (!id) return;
+      setStoryId(id);
+
       const { data } = await supabase
         .from('generated_content')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .maybeSingle()
 
       if (data) {
@@ -42,7 +48,109 @@ export default function ExperienceReader({ params }: { params: { id: string } })
       setLoading(false)
     }
     fetchContent()
-  }, [params.id])
+  }, [params])
+
+  // Restore reading progress from localStorage on mount / once story is loaded
+  useEffect(() => {
+    if (loading || !experience || !storyId) return;
+
+    try {
+      const savedPosition = localStorage.getItem(`story_progress_${storyId}`);
+      if (savedPosition) {
+        const targetScroll = parseInt(savedPosition, 10);
+        if (!isNaN(targetScroll) && targetScroll > 0) {
+          const timer = setTimeout(() => {
+            window.scrollTo({
+              top: targetScroll,
+              behavior: 'smooth'
+            });
+          }, 150);
+          return () => clearTimeout(timer);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not retrieve saved story progress:", err);
+    }
+  }, [loading, experience, storyId]);
+
+  // Track and debounce scroll position to save to localStorage
+  useEffect(() => {
+    if (loading || !experience || !storyId) return;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+
+    const handleScroll = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        try {
+          const scrollPosition = window.scrollY;
+          if (scrollPosition >= 0) {
+            localStorage.setItem(`story_progress_${storyId}`, scrollPosition.toString());
+          }
+        } catch (err) {
+          console.warn("Could not save story progress:", err);
+        }
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [loading, experience, storyId]);
+
+  const handleDownloadStory = () => {
+    if (!experience) return;
+
+    const contentObj = experience.parsedData || {};
+    const title = contentObj.title || experience.title || "Untitled Story";
+    const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
+    const isRoleplay = experience.content_type !== 'midweek_story';
+    const storyboard = contentObj.overview || contentObj.storyboard || "";
+    const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
+    const partnerA = contentObj.partnerAPerspective || contentObj.partner_a_perspective || "";
+    const partnerB = contentObj.partnerBPerspective || contentObj.partner_b_perspective || "";
+
+    let fileContent = `# ${title}\n\n`;
+
+    if (experience.content_type === 'literature' || !isRoleplay) {
+      const bodyText = typeof scriptBody === 'string'
+        ? scriptBody
+        : (contentObj.body || JSON.stringify(scriptBody, null, 2));
+      fileContent += `${bodyText}\n`;
+    } else {
+      if (storyboard) {
+        fileContent += `## Storyboard\n${storyboard}\n\n`;
+      }
+      if (preTasks && preTasks.length > 0) {
+        fileContent += `## Pre-Experience Tasks\n${preTasks.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}\n\n`;
+      }
+      if (partnerA) {
+        fileContent += `## Partner A Perspective\n${partnerA}\n\n`;
+      }
+      if (partnerB) {
+        fileContent += `## Partner B Perspective\n${partnerB}\n\n`;
+      }
+      if (scriptBody) {
+        fileContent += `## The Script\n${typeof scriptBody === 'string' ? scriptBody : JSON.stringify(scriptBody, null, 2)}\n\n`;
+      }
+    }
+
+    const blob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = title.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+    link.href = url;
+    link.download = `${safeTitle || 'story'}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -192,6 +300,20 @@ export default function ExperienceReader({ params }: { params: { id: string } })
           )}
 
         </article>
+
+        {/* Story Download Action */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-10 border-t border-zinc-800/80">
+          <button
+            onClick={handleDownloadStory}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 hover:border-red-900/50 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 group"
+          >
+            <span className="text-lg group-hover:scale-110 transition-transform">📥</span>
+            Download Story
+          </button>
+          <span className="text-xs text-zinc-500 font-light">
+            Export story as Markdown for offline reading
+          </span>
+        </div>
 
         {/* Feedback Loop */}
         <div className="mt-24 pt-16 border-t border-zinc-800/80 space-y-16">

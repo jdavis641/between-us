@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
+import FlameLoader from "../../components/FlameLoader";
 
 type ReaderMode = "partner-a" | "partner-b";
 
@@ -181,13 +182,11 @@ export default function LiteratureClient() {
           </button>
 
           {loading && (
-            <div className="mt-4 p-4 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-400 text-sm flex items-center gap-3 animate-pulse">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span>
-              <span>
-                {streamProgress.length > 0 
-                  ? `Streaming story chapters... (${Math.round(streamProgress.length / 5)} words generated)` 
-                  : "Connecting to story engine..."}
-              </span>
+            <div className="mt-6">
+              <FlameLoader 
+                isGenerating={loading} 
+                progressText={streamProgress.length > 0 ? "Streaming story chapters..." : "Connecting to story engine..."} 
+              />
             </div>
           )}
 
@@ -201,12 +200,33 @@ export default function LiteratureClient() {
 
       {scenario && (
         <div className="animate-in fade-in duration-700 pb-24">
-          <button 
-            onClick={() => setScenario(null)}
-            className="mb-8 text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
-          >
-            ← Configure a new story
-          </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <button 
+              onClick={() => setScenario(null)}
+              className="text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
+            >
+              ← Configure a new story
+            </button>
+            <button
+              onClick={() => {
+                const title = scenario.title || "Untitled Story";
+                const bodyText = scenario.body || scenario.overview || "";
+                const blob = new Blob([`# ${title}\n\n${bodyText}\n`], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${title.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit"
+            >
+              <span>📥</span>
+              Download Story
+            </button>
+          </div>
           
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
