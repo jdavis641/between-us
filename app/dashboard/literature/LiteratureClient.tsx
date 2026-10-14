@@ -198,6 +198,12 @@ export default function LiteratureClient() {
     }
   };
 
+  const content = scenario?.body || '';
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerB = (scenario?.partnerBPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+
   return (
     <div className="flex flex-col w-full relative">
       {!scenario && (
@@ -324,23 +330,19 @@ export default function LiteratureClient() {
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
           {scenario.body ? (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner">
-              <div className="prose prose-invert prose-red max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
-                <ReactMarkdown>
-                  {scenario.body}
-                </ReactMarkdown>
-              </div>
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
+              <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                {cleanContent}
+              </ReactMarkdown>
             </div>
           ) : (
             <>
               {scenario.overview && (
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
                   <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Synopsis</h3>
-                  <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
-                    <ReactMarkdown>
-                      {scenario.overview}
-                    </ReactMarkdown>
-                  </div>
+                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
+                    {cleanOverview}
+                  </ReactMarkdown>
                 </div>
               )}
 
@@ -366,17 +368,17 @@ export default function LiteratureClient() {
 
                 <div className="p-6 md:p-8">
                   {activeMode === "partner-a" && (
-                    <div className="animate-in fade-in prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                      <ReactMarkdown>
-                        {scenario.partnerAPerspective || ""}
+                    <div className="animate-in fade-in">
+                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                        {cleanPartnerA}
                       </ReactMarkdown>
                     </div>
                   )}
 
                   {activeMode === "partner-b" && (
-                    <div className="animate-in fade-in prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                      <ReactMarkdown>
-                        {scenario.partnerBPerspective || ""}
+                    <div className="animate-in fade-in">
+                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                        {cleanPartnerB}
                       </ReactMarkdown>
                     </div>
                   )}

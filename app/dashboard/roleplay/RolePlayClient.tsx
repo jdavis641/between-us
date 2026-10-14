@@ -205,6 +205,12 @@ export default function RolePlayClient() {
     }
   };
 
+  const content = scenario?.fullScript || scenario?.overview || '';
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerB = (scenario?.partnerBPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+
   return (
     <div className="flex flex-col w-full relative">
       {/* Configuration & Generate Area */}
@@ -313,11 +319,9 @@ export default function RolePlayClient() {
           
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
             <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Setting the Scene</h3>
-            <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
-              <ReactMarkdown>
-                {scenario.overview}
-              </ReactMarkdown>
-            </div>
+            <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
+              {cleanOverview}
+            </ReactMarkdown>
           </div>
 
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-8">
@@ -361,11 +365,9 @@ export default function RolePlayClient() {
                   )}
                   <div>
                     <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <div className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
-                      <ReactMarkdown>
-                        {scenario.partnerAPerspective}
-                      </ReactMarkdown>
-                    </div>
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                      {cleanPartnerA}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}
@@ -380,11 +382,9 @@ export default function RolePlayClient() {
                   )}
                   <div>
                     <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <div className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
-                      <ReactMarkdown>
-                        {scenario.partnerBPerspective}
-                      </ReactMarkdown>
-                    </div>
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                      {cleanPartnerB}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}
@@ -392,9 +392,9 @@ export default function RolePlayClient() {
               {activeMode === "weekend-script" && scenario.fullScript && (
                 <div className="animate-in fade-in">
                   <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-4">The Scene</h4>
-                  <div className="bg-zinc-900 p-6 rounded-lg font-mono text-sm text-zinc-300 leading-relaxed border border-zinc-800 prose prose-invert max-w-none whitespace-pre-wrap">
-                    <ReactMarkdown>
-                      {scenario.fullScript}
+                  <div className="bg-zinc-900 p-6 rounded-lg font-mono text-sm text-zinc-300 leading-relaxed border border-zinc-800">
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                      {cleanContent}
                     </ReactMarkdown>
                   </div>
                 </div>

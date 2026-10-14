@@ -1,7 +1,15 @@
 import { Suspense } from "react";
 import RolePlayClient from "./RolePlayClient";
+import ReactMarkdown from "react-markdown";
 
 export const dynamic = 'force-dynamic';
+
+export const sanitizeContent = (content: string) => (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+
+export function RolePlayMarkdown({ content }: { content: string }) {
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  return <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>;
+}
 
 export default async function RolePlayPage() {
   return (

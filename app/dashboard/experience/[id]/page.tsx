@@ -227,6 +227,12 @@ export default function ExperienceReader({ params }: { params: any }) {
   const storyboard = contentObj.overview || contentObj.storyboard || "The stage is set for an intimate encounter.";
   const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
 
+  const content = typeof scriptBody === 'string' ? scriptBody : (scriptBody ? JSON.stringify(scriptBody, null, 2) : '');
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanStoryboard = (storyboard || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerA = (partnerA || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerB = (partnerB || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8 lg:p-12 pb-32 font-sans selection:bg-red-900/50">
       
@@ -297,22 +303,18 @@ export default function ExperienceReader({ params }: { params: any }) {
           {activeMode === "partner-a" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner A</h2>
-               <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                 <ReactMarkdown>
-                   {partnerA}
-                 </ReactMarkdown>
-               </div>
+               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                 {cleanPartnerA}
+               </ReactMarkdown>
              </div>
           )}
 
           {activeMode === "partner-b" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner B</h2>
-               <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                 <ReactMarkdown>
-                   {partnerB}
-                 </ReactMarkdown>
-               </div>
+               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                 {cleanPartnerB}
+               </ReactMarkdown>
              </div>
           )}
 
@@ -340,21 +342,17 @@ export default function ExperienceReader({ params }: { params: any }) {
               {isRoleplay && storyboard && (
                 <section className="bg-zinc-950 border border-zinc-800/60 p-6 md:p-8 rounded-2xl">
                   <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-6">The Storyboard</h3>
-                  <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif italic text-zinc-300 leading-relaxed">
-                    <ReactMarkdown>
-                      {storyboard}
-                    </ReactMarkdown>
-                  </div>
+                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif italic text-zinc-300 leading-relaxed">
+                    {cleanStoryboard}
+                  </ReactMarkdown>
                 </section>
               )}
 
-              <section className="space-y-6 pt-4">
+              <section className="space-y-6 pt-4 font-serif text-zinc-200">
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-200">
-                  <ReactMarkdown>
-                    {typeof scriptBody === 'string' ? scriptBody : JSON.stringify(scriptBody, null, 2)}
-                  </ReactMarkdown>
-                </div>
+                <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                  {cleanContent}
+                </ReactMarkdown>
               </section>
 
             </div>
