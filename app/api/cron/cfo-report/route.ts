@@ -13,6 +13,11 @@ export async function GET() {
       mrr: result.liveMRR,
       grossMargin: result.grossMargin,
       meetsThreshold: result.meetsThreshold,
+      nextMilestone: result.nextMilestone,
+      nextThreshold: result.nextThreshold,
+      capacityPercentage: result.capacityPercentage,
+      is85PercentBreached: result.is85PercentBreached,
+      scalingAlert: result.scalingAlert,
       reportPath: 'docs/financial-reports/weekly-summary.md'
     });
   } catch (error: any) {

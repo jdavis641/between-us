@@ -39,7 +39,51 @@ async function runCfoEngine() {
     console.warn('[CFO Engine] Missing Supabase credentials; running in fallback mode.');
   }
 
-  // Unit Economics Model (Side Hustle - Retirement mandate)
+  // 1. Critical Infrastructure Scaling Phases (Side Hustle - Retirement architecture)
+  const scalingPhases = [
+    {
+      threshold: 10000,
+      name: "Database Pooling/Cache",
+      instructions: "Enable Supabase connection pooling (PgBouncer/Supavisor) and configure edge caching (Upstash/Redis) for hot reader scenarios to prevent database connection starvation."
+    },
+    {
+      threshold: 50000,
+      name: "Compute Add-on",
+      instructions: "Scale Vercel function instances and provision dedicated compute resources (4x-8x vCPU) to sustain peak weekend generation spikes without request latency degradation."
+    },
+    {
+      threshold: 100000,
+      name: "Supabase Team tier",
+      instructions: "Migrate to Supabase Team tier with multi-region read replicas, Point-In-Time Recovery (PITR), HIPAA/SOC2 compliance isolation, and customized backup retention."
+    },
+    {
+      threshold: 250000,
+      name: "Provisioned AI Throughput",
+      instructions: "Contract dedicated provisioned throughput units (PTUs / TPMs) across OpenRouter / cloud providers to guarantee zero queue times and eliminate concurrency throttles."
+    },
+    {
+      threshold: 500000,
+      name: "Enterprise Tiers",
+      instructions: "Engage enterprise tier architecture: private VPC peering, automated failover multi-cloud deployments, 24/7 dedicated SRE support, and bespoke infrastructure SLA contracts."
+    }
+  ];
+
+  // Identify next upcoming milestone
+  const nextMilestone = scalingPhases.find(p => p.threshold > activeSubscribers) || scalingPhases[scalingPhases.length - 1];
+  const warningThreshold = Math.floor(nextMilestone.threshold * 0.85);
+  const capacityPercentage = parseFloat(((activeSubscribers / nextMilestone.threshold) * 100).toFixed(2));
+  const is85PercentBreached = activeSubscribers >= warningThreshold;
+
+  let scalingAlert = null;
+  if (is85PercentBreached) {
+    scalingAlert = `[ACTION REQUIRED] Live subscriber count (${activeSubscribers.toLocaleString()}) has reached ${capacityPercentage}% of the ${nextMilestone.threshold.toLocaleString()} capacity limit for '${nextMilestone.name}'. Upgrade required immediately before bottleneck occurs.`;
+    console.warn(`\n[CFO Engine] 🚨 ${scalingAlert}`);
+    console.warn(`[CFO Engine] Upgrade Instructions: ${nextMilestone.instructions}\n`);
+  } else {
+    console.log(`[CFO Engine] Infrastructure Health: Operating at ${capacityPercentage}% of next scaling phase limit (${nextMilestone.name} - ${nextMilestone.threshold.toLocaleString()} users).`);
+  }
+
+  // 2. Unit Economics Model (Side Hustle - Retirement mandate)
   // Base subscription: $2.99/mo; Net recovered revenue after payment processing: $2.60/user
   const netRevenuePerUser = 2.60;
   const liveMRR = activeSubscribers * netRevenuePerUser;
@@ -88,7 +132,7 @@ async function runCfoEngine() {
 ---
 
 ## 1. Executive Summary & Subscriber Metrics
-- **Active Paid Subscribers (\`is_active = true\`):** ${activeSubscribers}
+- **Active Paid Subscribers (\`is_active = true\`):** ${activeSubscribers.toLocaleString()}
 - **Net Recovered Revenue per User:** $${netRevenuePerUser.toFixed(2)} / month
 - **Live Monthly Recurring Revenue (MRR):** $${liveMRR.toFixed(2)}
 - **Annualized Run Rate (ARR):** $${annualizedRunRate.toFixed(2)}
@@ -110,6 +154,33 @@ async function runCfoEngine() {
 - **Estimated Quarterly Tax Reserves (30% Net Profit):** $${estimatedTaxReserve.toFixed(2)}
 - **Section 179 & R&D Expense Qualification:** Cloud compute and AI token costs logged as deductible software engineering R&D expenditures.
 - **Reporting Schedule:** Weekly automated execution scheduled every Friday at 5:00 PM.
+
+## 5. Infrastructure Health & Scaling Timeline
+- **Current Active User Count:** ${activeSubscribers.toLocaleString()}
+- **Next Infrastructure Bottleneck:** **${nextMilestone.name}** (${nextMilestone.threshold.toLocaleString()} active users)
+- **Current Milestone Utilization:** **${capacityPercentage}%** of limit (Warning Threshold: 85.00% / ${warningThreshold.toLocaleString()} users)
+- **Bottleneck Threat Assessment:** ${is85PercentBreached ? '🚨 **CRITICAL CAPACITY LIMIT REACHED**' : '🟢 **NORMAL OPERATING CAPACITY**'}
+
+${is85PercentBreached ? `> 🚨 **${scalingAlert}**
+> 
+> **Specific Upgrade Instructions:**
+> ${nextMilestone.instructions}` : `> 🟢 **STATUS OPTIMAL:** Current live subscriber count is operating safely within nominal infrastructure limits. No immediate tier intervention required.
+> 
+> **Upcoming Scaling Phase Action Plan (${nextMilestone.threshold.toLocaleString()} users):**
+> ${nextMilestone.instructions}`}
+
+### Infrastructure Milestone Matrix
+| Phase Milestone | Capacity Threshold | Architectural Focus | Operational Trigger Status |
+| :--- | :--- | :--- | :--- |
+${scalingPhases.map(phase => {
+  let status = "Planned Future Tier";
+  if (activeSubscribers >= phase.threshold) {
+    status = "✅ Completed";
+  } else if (phase.threshold === nextMilestone.threshold) {
+    status = is85PercentBreached ? "🚨 ACTION REQUIRED" : "🎯 Active Target Milestone";
+  }
+  return `| **${phase.name}** | ${phase.threshold.toLocaleString()} users | ${phase.instructions} | ${status} |`;
+}).join('\n')}
 `;
 
   fs.writeFileSync(reportPath, reportMarkdown, 'utf8');
@@ -124,6 +195,11 @@ async function runCfoEngine() {
     grossProfit,
     grossMargin,
     meetsThreshold,
+    nextMilestone: nextMilestone.name,
+    nextThreshold: nextMilestone.threshold,
+    capacityPercentage,
+    is85PercentBreached,
+    scalingAlert,
     reportPath
   };
 }
