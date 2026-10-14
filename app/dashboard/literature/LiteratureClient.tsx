@@ -27,9 +27,101 @@ export default function LiteratureClient() {
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
   const [streamProgress, setStreamProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
+
+  const handleConfigureNewStory = () => {
+    setLoading(false);
+    setIsContinuing(false);
+    setScenario(null);
+    setStreamProgress("");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleContinueStory = async () => {
+    if (!scenario) return;
+    const currentStoryText = scenario.body || scenario.overview || "";
+    setIsContinuing(true);
+    setError(null);
+    setStreamProgress("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Session is still hydrating. Please wait a second and click Continue again.');
+        setIsContinuing(false);
+        return;
+      }
+
+      const res = await fetch("/api/generate/content", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ 
+          contentType: "literature",
+          playMode: playMode,
+          hasScripts: false,
+          theme: theme,
+          targetBoundary: targetBoundary,
+          previousContent: currentStoryText
+        })
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Auth Rejected: Session expired or missing.");
+        }
+        throw new Error("Failed to continue literature.");
+      }
+
+      const reader = res.body?.getReader();
+      let rawText = "";
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          rawText += chunk;
+          setStreamProgress(prev => prev + chunk);
+        }
+      } else {
+        rawText = await res.text();
+      }
+
+      let newText = rawText;
+      try {
+        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.body) {
+          newText = parsed.body;
+        }
+      } catch (parseErr) {
+        console.warn("JSON parse fallback for continuation:", parseErr);
+      }
+
+      setScenario(prev => {
+        if (!prev) return prev;
+        const existingBody = prev.body || "";
+        return {
+          ...prev,
+          body: existingBody ? `${existingBody}\n\n${newText}` : newText
+        };
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Our AI engine encountered an issue continuing your story. Please try again.");
+    } finally {
+      setIsContinuing(false);
+    }
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -203,7 +295,7 @@ export default function LiteratureClient() {
         <div className="animate-in fade-in duration-700 pb-24">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <button 
-              onClick={() => setScenario(null)}
+              onClick={handleConfigureNewStory}
               className="text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
             >
               ← Configure a new story
@@ -232,7 +324,7 @@ export default function LiteratureClient() {
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
           {scenario.body ? (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-12 shadow-inner">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner">
               <div className="prose prose-invert prose-red max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
                 <ReactMarkdown>
                   {scenario.body}
@@ -252,7 +344,7 @@ export default function LiteratureClient() {
                 </div>
               )}
 
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-12">
+              <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-8">
                 <div className="flex bg-zinc-900/80 border-b border-zinc-800">
                   <button
                     onClick={() => setActiveMode("partner-a")}
@@ -291,6 +383,39 @@ export default function LiteratureClient() {
                 </div>
               </div>
             </>
+          )}
+
+          {error && !loading && (
+            <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Story Actions: Configure New Story & Continue Existing Story */}
+          <div className="flex flex-wrap items-center gap-4 mb-8">
+            <button
+              onClick={handleConfigureNewStory}
+              disabled={isContinuing}
+              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Configure New Story
+            </button>
+            <button
+              onClick={handleContinueStory}
+              disabled={isContinuing}
+              className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {isContinuing ? "Extending Story..." : "Continue Existing Story"}
+            </button>
+          </div>
+
+          {isContinuing && (
+            <div className="mt-4 mb-8">
+              <FlameLoader
+                isGenerating={isContinuing}
+                progressText={streamProgress.length > 0 ? "Extending story chapters..." : "Generating continuation..."}
+              />
+            </div>
           )}
           
           <div className="pt-8 border-t border-zinc-800">

@@ -13,7 +13,8 @@ function buildSystemInstruction({
   historyTitles = [],
   activeCommunityScenarios = [],
   category,
-  hasScripts
+  hasScripts,
+  previousContent
 }: {
   preferences: any[];
   playMode: string;
@@ -23,6 +24,7 @@ function buildSystemInstruction({
   activeCommunityScenarios?: any[];
   category?: string;
   hasScripts?: boolean;
+  previousContent?: string;
 }) {
   const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
@@ -63,6 +65,11 @@ function buildSystemInstruction({
   }
 
   let sys = `You are an expert intimacy and relationship guide.\n\n`;
+
+  if (previousContent) {
+    sys += `STORY CONTINUATION DIRECTIVE:
+You are continuing an ongoing narrative. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
+  }
 
   if (contentType === 'literature') {
     sys += `You are a master of serialized erotic fantasy. You MUST generate a full, multi-chapter story (minimum 3 chapters, 1500+ words). You must establish a slow-burn narrative buildup in Chapter 1, escalating tension in Chapter 2, and a highly explicit, detailed climax in Chapter 3. Use Markdown headers (e.g., '## Chapter 1') to separate sections. Do not summarize; write the full scenes.\n\n`;
@@ -154,6 +161,7 @@ export async function POST(req: Request) {
     const hasScripts = body.hasScripts;
     const theme = body.theme;
     const targetBoundary = body.targetBoundary;
+    const previousContent = body.previousContent;
     const validModes = ["solo", "couple", "group"];
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
@@ -210,8 +218,8 @@ export async function POST(req: Request) {
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
     
-    // Check Inventory First
-    if (theme) {
+    // Check Inventory First (skip if continuing an ongoing story)
+    if (theme && !previousContent) {
       const { data: existingData } = await supabase
         .from('generated_content')
         .select('*')
@@ -286,16 +294,21 @@ export async function POST(req: Request) {
       historyTitles,
       activeCommunityScenarios,
       category,
-      hasScripts
+      hasScripts,
+      previousContent
     });
 
-    const userPrompt = (theme && typeof theme === 'string' && theme.trim().length > 0)
+    let userPrompt = (theme && typeof theme === 'string' && theme.trim().length > 0)
       ? theme.trim()
       : (contentType === 'literature'
           ? "A slow-burn, passionate narrative."
           : contentType === 'roleplay'
             ? "An intimate exploratory roleplay scenario."
             : "An intimate challenge for couples.");
+
+    if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {
+      userPrompt = `PREVIOUS CONTENT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the ongoing narrative from where it left off, matching pacing and tone. ${userPrompt}`;
+    }
 
     let streamResult;
     try {

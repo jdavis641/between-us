@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
+import FlameLoader from "../../components/FlameLoader";
 import ReactMarkdown from "react-markdown";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
@@ -27,8 +28,115 @@ export default function RolePlayClient() {
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
+  const [streamProgress, setStreamProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
+
+  const handleConfigureNewStory = () => {
+    setLoading(false);
+    setIsContinuing(false);
+    setScenario(null);
+    setStreamProgress("");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleContinueStory = async () => {
+    if (!scenario) return;
+    const currentStoryText = scenario.fullScript
+      ? `Setting the Scene:\n${scenario.overview}\n\nAction Script:\n${scenario.fullScript}`
+      : scenario.overview || "";
+    setIsContinuing(true);
+    setError(null);
+    setStreamProgress("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Session is still hydrating. Please wait a second and click Continue again.');
+        setIsContinuing(false);
+        return;
+      }
+
+      const res = await fetch("/api/generate/content", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ 
+          contentType: "roleplay",
+          playMode: playMode,
+          hasScripts: true,
+          theme: theme,
+          targetBoundary: targetBoundary,
+          previousContent: currentStoryText
+        })
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Auth Rejected: Session expired or missing.");
+        }
+        throw new Error("Failed to continue scenario.");
+      }
+
+      const reader = res.body?.getReader();
+      let rawText = "";
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          rawText += chunk;
+          setStreamProgress(prev => prev + chunk);
+        }
+      } else {
+        rawText = await res.text();
+      }
+
+      let parsedData: any = null;
+      try {
+        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        parsedData = JSON.parse(cleaned);
+      } catch (parseErr) {
+        try {
+          parsedData = JSON.parse(rawText);
+        } catch {
+          console.warn("JSON parse fallback for roleplay continuation:", parseErr);
+        }
+      }
+
+      setScenario(prev => {
+        if (!prev) return prev;
+        if (parsedData?.fullScript) {
+          return {
+            ...prev,
+            fullScript: prev.fullScript ? `${prev.fullScript}\n\n${parsedData.fullScript}` : parsedData.fullScript
+          };
+        } else if (parsedData?.overview) {
+          return {
+            ...prev,
+            overview: prev.overview ? `${prev.overview}\n\n${parsedData.overview}` : parsedData.overview
+          };
+        } else {
+          return {
+            ...prev,
+            fullScript: prev.fullScript ? `${prev.fullScript}\n\n${rawText}` : (prev.overview ? `${prev.overview}\n\n${rawText}` : rawText)
+          };
+        }
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Our AI engine encountered an issue continuing your scenario. Please try again.");
+    } finally {
+      setIsContinuing(false);
+    }
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -174,6 +282,15 @@ export default function RolePlayClient() {
             {loading ? "Drafting Scenario..." : "Generate Experience"}
           </button>
 
+          {loading && (
+            <div className="mt-6">
+              <FlameLoader 
+                isGenerating={loading} 
+                progressText="Connecting to experience engine..." 
+              />
+            </div>
+          )}
+
           {error && (
             <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
               {error}
@@ -185,8 +302,8 @@ export default function RolePlayClient() {
       {/* Generated Content Area */}
       {scenario && (
         <div className="animate-in fade-in duration-700 pb-24">
-<button 
-            onClick={() => setScenario(null)}
+          <button 
+            onClick={handleConfigureNewStory}
             className="mb-8 text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
           >
             ← Configure a new scenario
@@ -203,7 +320,7 @@ export default function RolePlayClient() {
             </div>
           </div>
 
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-12">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-8">
             <div className="flex bg-zinc-900/80 border-b border-zinc-800">
               <button
                 onClick={() => setActiveMode("partner-a")}
@@ -284,6 +401,39 @@ export default function RolePlayClient() {
               )}
             </div>
           </div>
+
+          {error && !loading && (
+            <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Story Actions: Configure New Story & Continue Existing Story */}
+          <div className="flex flex-wrap items-center gap-4 mb-8">
+            <button
+              onClick={handleConfigureNewStory}
+              disabled={isContinuing}
+              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Configure New Story
+            </button>
+            <button
+              onClick={handleContinueStory}
+              disabled={isContinuing}
+              className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {isContinuing ? "Extending Story..." : "Continue Existing Story"}
+            </button>
+          </div>
+
+          {isContinuing && (
+            <div className="mt-4 mb-8">
+              <FlameLoader
+                isGenerating={isContinuing}
+                progressText={streamProgress.length > 0 ? "Extending scenario chapters..." : "Generating continuation..."}
+              />
+            </div>
+          )}
           
           <div className="pt-8 border-t border-zinc-800">
             <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate this Scenario</h3>
