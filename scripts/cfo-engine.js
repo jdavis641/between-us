@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config();
 
 const { createClient } = require('@supabase/supabase-js');
+const { Resend } = require('resend');
 
 async function runCfoEngine() {
   console.log('[CFO Engine] Starting automated financial and subscriber audit...');
@@ -188,6 +189,36 @@ ${scalingPhases.map(phase => {
   console.log(`[CFO Engine] Report successfully written to: ${reportPath}`);
   console.log(`[CFO Engine] Summary -> Active Users: ${activeSubscribers} | MRR: $${liveMRR.toFixed(2)} | Gross Margin: ${grossMargin.toFixed(2)}% (Threshold: ${meetsThreshold ? 'PASSED' : 'FAILED'})`);
 
+  // Resend Email Dispatch to Admin Inbox
+  let emailStatus = { sent: false };
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    try {
+      const resend = new Resend(resendApiKey);
+      console.log('[CFO Engine] Dispatching weekly report email to admin via Resend...');
+      const emailResult = await resend.emails.send({
+        from: 'support@betweenusapp.io',
+        to: 'jdcdjd664411@proton.me',
+        subject: 'Between Us: Weekly CFO & Infrastructure Report',
+        text: reportMarkdown
+      });
+
+      if (emailResult.error) {
+        console.error('[CFO Engine] Resend email transmission error:', emailResult.error);
+        emailStatus = { sent: false, error: emailResult.error };
+      } else {
+        console.log(`[CFO Engine] Weekly report successfully emailed to jdcdjd664411@proton.me (ID: ${emailResult.data?.id})`);
+        emailStatus = { sent: true, id: emailResult.data?.id };
+      }
+    } catch (emailErr) {
+      console.error('[CFO Engine] Exception dispatching Resend email:', emailErr.message);
+      emailStatus = { sent: false, error: emailErr.message };
+    }
+  } else {
+    console.warn('[CFO Engine] RESEND_API_KEY not configured; email dispatch skipped.');
+    emailStatus = { sent: false, reason: 'RESEND_API_KEY missing' };
+  }
+
   return {
     activeSubscribers,
     liveMRR,
@@ -200,7 +231,8 @@ ${scalingPhases.map(phase => {
     capacityPercentage,
     is85PercentBreached,
     scalingAlert,
-    reportPath
+    reportPath,
+    emailStatus
   };
 }
 

@@ -18,7 +18,8 @@ export async function GET() {
       capacityPercentage: result.capacityPercentage,
       is85PercentBreached: result.is85PercentBreached,
       scalingAlert: result.scalingAlert,
-      reportPath: 'docs/financial-reports/weekly-summary.md'
+      reportPath: 'docs/financial-reports/weekly-summary.md',
+      emailStatus: result.emailStatus
     });
   } catch (error: any) {
     console.error('[CFO Cron API] Error executing reporting engine:', error);
