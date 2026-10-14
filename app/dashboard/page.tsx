@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import Image from 'next/image'
 import LogoutButton from '../components/LogoutButton'
 
 const supabase = createClient(
@@ -53,7 +54,7 @@ export default function DashboardHome() {
     <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12 pb-32">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-10 border-b border-gray-800 pb-6">
-        <span className="text-4xl">🔥</span>
+        <Image src="/brand-logo.webp" alt="Between Us Logo" width={32} height={32} priority className="rounded-md" />
         <h1 className="text-3xl font-bold tracking-tight">Between Us</h1>
       </div>
 

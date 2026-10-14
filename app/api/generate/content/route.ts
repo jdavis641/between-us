@@ -85,6 +85,9 @@ Master the build-intensity dynamic. You must utilize a deliberate, tension-build
   sys += `EXPLICIT ANATOMICAL VOCABULARY DIRECTIVES:
 Use explicit anatomical vocabulary, visceral imagery, and evocative descriptions throughout the narrative. When depicting intimate physical encounters, touch, arousal, and sexual acts, use uncompromising, explicit anatomical vocabulary rather than clinical medicalized terms, vague euphemisms, flowery poetic abstractions, or generic romance tropes. Focus deeply on granular sensory details (touch, friction, breath, temperature, micro-expressions, skin flushed with arousal, scent, taste, and vocal feedback).\n\n`;
 
+  sys += `STYLISTIC & PROSE CONSTRAINTS:
+Climax Execution: You must make the climax portion of the story highly detailed and expansive. Do not rush or summarize the peak of the scene. You must explicitly explain the granular physiological reactions and the overwhelming emotional responses of the characters in detail.\n\n`;
+
   sys += `BOUNDARY ENFORCEMENT & INTENSITY:
 - Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}
 - Mandatory Included Themes: ${mandatoryThemes}
