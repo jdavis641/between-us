@@ -152,20 +152,18 @@ export default function DashboardHome() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Custom Boundaries</h2>
           </div>
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-red-500/50 transition-all cursor-pointer group flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-3xl">🔥</span>
-              <div>
-                <h3 className="text-lg font-bold text-white">Custom Kink Overrides</h3>
-                <p className="text-gray-400 text-sm">Define explicit desires that manually override AI boundaries.</p>
+          <Link href="/dashboard/kinks" className="block">
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-red-500/50 transition-all cursor-pointer group flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-3xl">🔥</span>
+                <div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-red-400 transition-colors">custom Kinks</h3>
+                  <p className="text-gray-400 text-sm">Define explicit desires that manually override AI boundaries.</p>
+                </div>
               </div>
+              <span className="text-2xl text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-all">→</span>
             </div>
-            <Link href="/dashboard/kinks">
-              <button className="text-xs font-bold uppercase tracking-widest bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded text-zinc-300 transition-colors border border-zinc-700">
-                Manage
-              </button>
-            </Link>
-          </div>
+          </Link>
         </section>
 
         {/* Mobile Logout */}

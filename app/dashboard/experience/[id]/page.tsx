@@ -19,6 +19,11 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [activeMode, setActiveMode] = useState<ReaderMode>("script")
   const [textSize, setTextSize] = useState<"text-lg" | "text-xl" | "text-2xl">("text-lg")
   const [storyId, setStoryId] = useState<string>("")
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareRecipient, setShareRecipient] = useState('')
+  const [isSharing, setIsSharing] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [shareToast, setShareToast] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchContent() {
@@ -151,6 +156,49 @@ export default function ExperienceReader({ params }: { params: any }) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleShareStory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!shareRecipient.trim() || isSharing) return;
+
+    setIsSharing(true);
+    setShareError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const contentObj = experience?.parsedData || {};
+      const title = contentObj.title || experience?.title || "Intimate Story";
+
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          storyId,
+          storyTitle: title,
+          recipient: shareRecipient.trim()
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch share');
+      }
+
+      setShareRecipient('');
+      setIsShareModalOpen(false);
+      setShareToast('Story shared successfully');
+      setTimeout(() => setShareToast(null), 4000);
+    } catch (err: any) {
+      console.error("Error sharing story:", err);
+      setShareError(err.message || 'Failed to share story. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   if (loading) {
@@ -314,19 +362,99 @@ export default function ExperienceReader({ params }: { params: any }) {
 
         </article>
 
-        {/* Story Download Action */}
+        {/* Story Actions (Download & Share) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-10 border-t border-zinc-800/80">
-          <button
-            onClick={handleDownloadStory}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 hover:border-red-900/50 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 group"
-          >
-            <span className="text-lg group-hover:scale-110 transition-transform">📥</span>
-            Download Story
-          </button>
+          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+            <button
+              onClick={handleDownloadStory}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 hover:border-red-900/50 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 group cursor-pointer"
+            >
+              <span className="text-lg group-hover:scale-110 transition-transform">📥</span>
+              Download Story
+            </button>
+            <button
+              onClick={() => { setIsShareModalOpen(true); setShareError(null); }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-900/60 hover:border-red-700 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 group cursor-pointer"
+            >
+              <span className="text-lg group-hover:scale-110 transition-transform">📤</span>
+              Share
+            </button>
+          </div>
           <span className="text-xs text-zinc-500 font-light">
-            Export story as Markdown for offline reading
+            Export offline or share securely via Email / SMS
           </span>
         </div>
+
+        {/* Share Modal */}
+        {isShareModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🔥</span>
+                  <h3 className="text-xl font-serif font-bold text-zinc-100">Share Experience</h3>
+                </div>
+                <button
+                  onClick={() => setIsShareModalOpen(false)}
+                  className="text-zinc-500 hover:text-zinc-300 text-xl font-bold p-1 leading-none cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Send a secure direct link for <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> via email or text message.
+              </p>
+
+              <form onSubmit={handleShareStory} className="space-y-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
+                    Recipient Email Address or Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    value={shareRecipient}
+                    onChange={(e) => setShareRecipient(e.target.value)}
+                    placeholder="partner@example.com or +1234567890"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                    autoFocus
+                  />
+                </div>
+
+                {shareError && (
+                  <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
+                    {shareError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsShareModalOpen(false)}
+                    className="px-4 py-2.5 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSharing || !shareRecipient.trim()}
+                    className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors shadow-md cursor-pointer"
+                  >
+                    {isSharing ? 'Sending Link...' : 'Send Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Visual Success Toast */}
+        {shareToast && (
+          <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 border border-green-800/80 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+            <span className="text-green-400 text-lg">✓</span>
+            <span className="text-sm font-medium text-zinc-200">{shareToast}</span>
+          </div>
+        )}
 
         {/* Feedback Loop */}
         <div className="mt-24 pt-16 border-t border-zinc-800/80 space-y-16">

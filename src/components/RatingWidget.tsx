@@ -66,7 +66,7 @@ export default function RatingWidget({ contentType, contentId }: RatingWidgetPro
     return (
       <div className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 rounded-xl border border-zinc-800">
         <p className="text-green-400 font-medium mb-1">Feedback Submitted!</p>
-        <p className="text-zinc-500 text-sm">Your rating recalculates community rotation and helps the AI evolve.</p>
+        <p className="text-zinc-500 text-sm">Your rating improves the community experience and helps the system evolve. Thank you!</p>
       </div>
     );
   }

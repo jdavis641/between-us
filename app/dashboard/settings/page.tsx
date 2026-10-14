@@ -70,13 +70,28 @@ export default function SettingsPage() {
   }, [])
 
 
+  const [pronounsSaved, setPronounsSaved] = useState(false)
+
   const handleSavePronouns = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      await supabase.from('profiles').update({ pronouns }).eq('id', session.user.id)
-      setProfile((prev: any) => ({ ...prev, pronouns }))
-      alert('Pronouns saved!');
+      const currentNickname = profile?.nickname || profile?.anonymous_alias || ''
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          pronouns,
+          ...(currentNickname ? { nickname: currentNickname, anonymous_alias: currentNickname } : {})
+        })
+        .eq('id', session.user.id)
+
+      if (!error) {
+        setProfile((prev: any) => ({ ...prev, pronouns }))
+        setPronounsSaved(true)
+        setTimeout(() => setPronounsSaved(false), 3000)
+      } else {
+        alert('Error saving pronouns: ' + error.message)
+      }
     }
   }
 
@@ -146,11 +161,20 @@ export default function SettingsPage() {
     if (session) {
       const { error } = await supabase
         .from('profiles')
-        .update({ nickname: usernameToSave, anonymous_alias: usernameToSave })
+        .update({ 
+          nickname: usernameToSave, 
+          anonymous_alias: usernameToSave,
+          pronouns: pronouns
+        })
         .eq('id', session.user.id)
       
       if (!error) {
-        setProfile((prev: any) => ({ ...prev, nickname: usernameToSave, anonymous_alias: usernameToSave }))
+        setProfile((prev: any) => ({ 
+          ...prev, 
+          nickname: usernameToSave, 
+          anonymous_alias: usernameToSave,
+          pronouns: pronouns 
+        }))
         setIsEditingUsername(false)
         setNewUsername('')
       } else {
@@ -317,8 +341,9 @@ export default function SettingsPage() {
                   className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
                   placeholder="e.g., they/them, she/her"
                 />
-                <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
+                <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-3 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors">Save</button>
               </div>
+              {pronounsSaved && <p className="text-green-500 text-xs mt-2 font-medium">Pronouns saved!</p>}
             </div>
 
             <div>
