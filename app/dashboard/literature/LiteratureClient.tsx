@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "../../components/FlameLoader";
+import ReactMarkdown from "react-markdown";
 
 type ReaderMode = "partner-a" | "partner-b";
 
@@ -232,8 +233,10 @@ export default function LiteratureClient() {
           
           {scenario.body ? (
             <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-12 shadow-inner">
-              <div className="prose prose-invert prose-red max-w-none prose-p:leading-loose prose-p:font-serif prose-p:text-lg prose-headings:font-serif">
-                <p className="text-zinc-300 leading-loose whitespace-pre-wrap font-serif text-lg">{scenario.body}</p>
+              <div className="prose prose-invert prose-red max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
+                <ReactMarkdown>
+                  {scenario.body}
+                </ReactMarkdown>
               </div>
             </div>
           ) : (
@@ -241,7 +244,11 @@ export default function LiteratureClient() {
               {scenario.overview && (
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
                   <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Synopsis</h3>
-                  <p className="text-zinc-300 leading-relaxed">{scenario.overview}</p>
+                  <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
+                    <ReactMarkdown>
+                      {scenario.overview}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
@@ -267,14 +274,18 @@ export default function LiteratureClient() {
 
                 <div className="p-6 md:p-8">
                   {activeMode === "partner-a" && (
-                    <div className="animate-in fade-in">
-                      <p className="text-zinc-300 leading-loose whitespace-pre-wrap font-serif text-lg">{scenario.partnerAPerspective}</p>
+                    <div className="animate-in fade-in prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                      <ReactMarkdown>
+                        {scenario.partnerAPerspective || ""}
+                      </ReactMarkdown>
                     </div>
                   )}
 
                   {activeMode === "partner-b" && (
-                    <div className="animate-in fade-in">
-                      <p className="text-zinc-300 leading-loose whitespace-pre-wrap font-serif text-lg">{scenario.partnerBPerspective}</p>
+                    <div className="animate-in fade-in prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                      <ReactMarkdown>
+                        {scenario.partnerBPerspective || ""}
+                      </ReactMarkdown>
                     </div>
                   )}
                 </div>

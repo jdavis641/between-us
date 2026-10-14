@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
+import ReactMarkdown from "react-markdown";
 
 type ReaderMode = "partner-a" | "partner-b" | "weekend-script";
 
@@ -195,7 +196,11 @@ export default function RolePlayClient() {
           
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
             <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Setting the Scene</h3>
-            <p className="text-zinc-300 leading-relaxed">{scenario.overview}</p>
+            <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
+              <ReactMarkdown>
+                {scenario.overview}
+              </ReactMarkdown>
+            </div>
           </div>
 
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-12">
@@ -239,7 +244,11 @@ export default function RolePlayClient() {
                   )}
                   <div>
                     <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <p className="text-zinc-300 leading-loose whitespace-pre-wrap">{scenario.partnerAPerspective}</p>
+                    <div className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                      <ReactMarkdown>
+                        {scenario.partnerAPerspective}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               )}
@@ -254,7 +263,11 @@ export default function RolePlayClient() {
                   )}
                   <div>
                     <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <p className="text-zinc-300 leading-loose whitespace-pre-wrap">{scenario.partnerBPerspective}</p>
+                    <div className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                      <ReactMarkdown>
+                        {scenario.partnerBPerspective}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               )}
@@ -262,8 +275,10 @@ export default function RolePlayClient() {
               {activeMode === "weekend-script" && scenario.fullScript && (
                 <div className="animate-in fade-in">
                   <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-4">The Scene</h4>
-                  <div className="bg-zinc-900 p-6 rounded-lg font-mono text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap border border-zinc-800">
-                    {scenario.fullScript}
+                  <div className="bg-zinc-900 p-6 rounded-lg font-mono text-sm text-zinc-300 leading-relaxed border border-zinc-800 prose prose-invert max-w-none whitespace-pre-wrap">
+                    <ReactMarkdown>
+                      {scenario.fullScript}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}

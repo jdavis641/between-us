@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
 import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
 
@@ -248,14 +249,22 @@ export default function ExperienceReader({ params }: { params: any }) {
           {activeMode === "partner-a" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner A</h2>
-               <p className="text-zinc-300 font-serif whitespace-pre-wrap">{partnerA}</p>
+               <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                 <ReactMarkdown>
+                   {partnerA}
+                 </ReactMarkdown>
+               </div>
              </div>
           )}
 
           {activeMode === "partner-b" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner B</h2>
-               <p className="text-zinc-300 font-serif whitespace-pre-wrap">{partnerB}</p>
+               <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                 <ReactMarkdown>
+                   {partnerB}
+                 </ReactMarkdown>
+               </div>
              </div>
           )}
 
@@ -283,16 +292,20 @@ export default function ExperienceReader({ params }: { params: any }) {
               {isRoleplay && storyboard && (
                 <section className="bg-zinc-950 border border-zinc-800/60 p-6 md:p-8 rounded-2xl">
                   <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-6">The Storyboard</h3>
-                  <p className="text-zinc-300 font-serif whitespace-pre-wrap italic leading-relaxed">{storyboard}</p>
+                  <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif italic text-zinc-300 leading-relaxed">
+                    <ReactMarkdown>
+                      {storyboard}
+                    </ReactMarkdown>
+                  </div>
                 </section>
               )}
 
               <section className="space-y-6 pt-4">
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
-                <div className="font-serif text-zinc-200">
-                  {typeof scriptBody === 'string' ? scriptBody.split('\n').map((paragraph: string, index: number) => (
-                    paragraph.trim() ? <p key={index} className="mb-6">{paragraph}</p> : <br key={index} />
-                  )) : JSON.stringify(scriptBody, null, 2)}
+                <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-200">
+                  <ReactMarkdown>
+                    {typeof scriptBody === 'string' ? scriptBody : JSON.stringify(scriptBody, null, 2)}
+                  </ReactMarkdown>
                 </div>
               </section>
 
