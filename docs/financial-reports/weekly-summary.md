@@ -1,6 +1,6 @@
 # CFO Weekly Financial & Subscriber Summary
 
-**Execution Timestamp:** 2026-10-14T23:12:43.215Z  
+**Execution Timestamp:** 2026-10-14T23:16:33.631Z  
 **Reporting Period:** Week ending 2026-10-14  
 **Data Source:** Supabase profiles live database  
 **Target Operating Threshold:** >= 80.00% Gross Margin  

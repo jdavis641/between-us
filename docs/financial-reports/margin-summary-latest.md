@@ -1,4 +1,4 @@
-# CFO Weekly Margin Summary: 2026-09-29
+# CFO Weekly Margin Summary: 2026-10-14
 
 ## Revenue Metrics
 - **Active Subscribers:** 145
