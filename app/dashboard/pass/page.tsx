@@ -121,7 +121,7 @@ export default function GuestPassHub() {
         }, { onConflict: 'user_id, category_tag' });
       }
 
-      const res = await fetch("/api/invite", {
+      const res = await fetch("/api/invite/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,6 +130,8 @@ export default function GuestPassHub() {
           instructions,
           contactMethod,
           contactInfo,
+          phoneNumber: contactMethod === 'sms' ? contactInfo : undefined,
+          mobileNumber: contactMethod === 'sms' ? contactInfo : undefined,
           expirationHours
         })
       });
@@ -277,12 +279,17 @@ export default function GuestPassHub() {
                 >
                   Email
                 </button>
-                
+                <button 
+                  onClick={() => setContactMethod('sms')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${contactMethod === 'sms' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  SMS (Mobile Delivery)
+                </button>
               </div>
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  {contactMethod === 'email' ? 'Email Address' : 'Mobile Number'}
+                  {contactMethod === 'email' ? 'Email Address' : 'Mobile Number (SMS)'}
                 </label>
                 <input
                   type={contactMethod === 'email' ? 'email' : 'tel'}
@@ -291,6 +298,11 @@ export default function GuestPassHub() {
                   placeholder={contactMethod === 'email' ? 'partner@example.com' : '+1 (555) 000-0000'}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
                 />
+                {contactMethod === 'sms' && (
+                  <p className="mt-1.5 text-xs text-zinc-500">
+                    Enter the recipient's mobile number to dispatch the guest pass via SMS.
+                  </p>
+                )}
               </div>
 
               <div className="mb-6">

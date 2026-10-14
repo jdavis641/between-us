@@ -23,6 +23,7 @@ export async function POST(req: Request) {
     const adminEmail = 'jdcdjd664411@proton.me';
     
     if (process.env.RESEND_API_KEY) {
+      // 1. Forward the parsed email to the designated admin inbox
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -39,8 +40,35 @@ export async function POST(req: Request) {
         })
       });
       console.log(`Support email from ${from} forwarded to ${adminEmail}`);
+
+      // 2. Automated email reply for inbound messages to support@betweenusapp.io
+      if (recipientList.includes('support@betweenusapp.io') && from) {
+        const userEmail = from.match(/<([^>]+)>/)?.[1] || from;
+        const autoReplyCopy = "Please allow 48 hours for a reply. If you do not receive a response within 48 hours, feel free to give us a call at 224-223-8077.";
+
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'Between Us Support <support@betweenusapp.io>',
+            to: userEmail,
+            subject: `Re: ${subject || 'Your Support Request - Between Us'}`,
+            text: `Thank you for contacting Between Us Support.\n\n${autoReplyCopy}\n\nBest regards,\nBetween Us Support Team`,
+            html: `<div>
+              <p>Thank you for contacting Between Us Support.</p>
+              <p>${autoReplyCopy}</p>
+              <br/>
+              <p>Best regards,<br/>Between Us Support Team</p>
+            </div>`
+          })
+        });
+        console.log(`Support auto-reply sent to ${userEmail}`);
+      }
     } else {
-      console.warn('RESEND_API_KEY not configured. Support email not forwarded.');
+      console.warn('RESEND_API_KEY not configured. Support email not forwarded or auto-replied.');
     }
 
     return NextResponse.json({ success: true, message: 'Email forwarded to admin successfully.' });

@@ -11,17 +11,17 @@ export default function Footer() {
           <Link href="/privacy" className="hover:text-zinc-300 transition-colors">
             Privacy Policy
           </Link>
+          <a href="mailto:support@betweenusapp.io" className="hover:text-zinc-300 transition-colors">
+            Support
+          </a>
         </div>
         
         <div className="flex items-center gap-6 flex-col md:flex-row text-center md:text-right">
           <div className="flex flex-col gap-1">
-            <a href="mailto:support@betweenusapp.io" className="hover:text-zinc-300 transition-colors">
-              support@betweenusapp.io
-            </a>
-            <div className="text-xs text-zinc-600 mt-2">
+            <div className="text-xs text-zinc-400 font-medium">
               <p>Between Us</p>
             </div>
-            <span className="mt-2 text-xs">&copy; 2026 Between Us. All rights reserved.</span>
+            <span className="text-xs text-zinc-600">&copy; 2026 Between Us. All rights reserved.</span>
           </div>
         </div>
       </div>
