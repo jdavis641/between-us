@@ -62,7 +62,6 @@ export default function LandingPage() {
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-medium tracking-tight mb-8 leading-tight text-zinc-100 flex flex-col gap-1.5 md:gap-2">
           <span>Deepen Your Connection</span>
           <span>Explore Boundaries</span>
-          <span>Anonymously Reignite</span>
           <span className="text-zinc-400">All on Your Terms</span>
         </h1>
         
