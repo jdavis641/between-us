@@ -3,49 +3,11 @@
 import { useState, useEffect, Suspense, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
+import preferenceMatrix from '../lib/taxonomy/preference-matrix.json'
 
 const supabase = createClient()
 
 type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme'
-
-const TIER_CHECKLIST: Record<Tier, { description: string; items: string[] }> = {
-  Sensory: {
-    description: 'Romantic pacing, light sensory deprivation, massage, slow burn',
-    items: [
-      'Romantic pacing',
-      'Light sensory deprivation',
-      'Massage',
-      'Slow burn'
-    ]
-  },
-  Playful: {
-    description: 'Light bondage, exhibitionism, role reversal, toys, teasing',
-    items: [
-      'Light bondage',
-      'Exhibitionism',
-      'Role reversal',
-      'Toys',
-      'Teasing'
-    ]
-  },
-  Intense: {
-    description: 'Strict power dynamics, heavy BDSM, group dynamics, impact play',
-    items: [
-      'Strict power dynamics',
-      'Heavy BDSM',
-      'Group dynamics',
-      'Impact play'
-    ]
-  },
-  Extreme: {
-    description: 'Highly taboo, surreal, non-standard environments',
-    items: [
-      'Highly taboo',
-      'Surreal',
-      'Non-standard environments'
-    ]
-  }
-}
 
 function OnboardingContent() {
   const router = useRouter()
@@ -161,17 +123,28 @@ function OnboardingContent() {
 
   // Highest selected tier calculation
   const calculatedTier: Tier = useMemo(() => {
-    const hasExtreme = selectedListItems.some(i => TIER_CHECKLIST.Extreme.items.includes(i))
-    if (hasExtreme) return 'Extreme'
+    const matrix = preferenceMatrix as Record<string, string[]>
 
-    const hasIntense = selectedListItems.some(i => TIER_CHECKLIST.Intense.items.includes(i))
-    if (hasIntense) return 'Intense'
-
-    const hasPlayful = selectedListItems.some(i => TIER_CHECKLIST.Playful.items.includes(i))
-    if (hasPlayful) return 'Playful'
-
-    const hasSensory = selectedListItems.some(i => TIER_CHECKLIST.Sensory.items.includes(i))
-    if (hasSensory) return 'Sensory'
+    for (const [key, items] of Object.entries(matrix)) {
+      if (key.includes('Extreme') && selectedListItems.some(i => items.includes(i))) {
+        return 'Extreme'
+      }
+    }
+    for (const [key, items] of Object.entries(matrix)) {
+      if (key.includes('Intense') && selectedListItems.some(i => items.includes(i))) {
+        return 'Intense'
+      }
+    }
+    for (const [key, items] of Object.entries(matrix)) {
+      if (key.includes('Playful') && selectedListItems.some(i => items.includes(i))) {
+        return 'Playful'
+      }
+    }
+    for (const [key, items] of Object.entries(matrix)) {
+      if (key.includes('Sensory') && selectedListItems.some(i => items.includes(i))) {
+        return 'Sensory'
+      }
+    }
 
     // If no checkbox selected, scan general preferences text
     const text = generalPreferences.toLowerCase()
@@ -636,22 +609,21 @@ function OnboardingContent() {
                       Categorized Boundary Matrix (Select all that interest you)
                     </p>
 
-                    {(Object.keys(TIER_CHECKLIST) as Tier[]).map((tierKey) => {
-                      const tier = TIER_CHECKLIST[tierKey]
+                    {Object.entries(preferenceMatrix as Record<string, string[]>).map(([tierKey, items]) => {
+                      const displayName = tierKey.replace(/_/g, ' ')
+                      let flame = '🔥'
+                      if (tierKey.includes('Playful')) flame = '🔥🔥'
+                      else if (tierKey.includes('Intense')) flame = '🔥🔥🔥'
+                      else if (tierKey.includes('Extreme')) flame = '🔥🔥🔥🔥'
+
                       return (
                         <div key={tierKey} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <h4 className="text-sm font-semibold text-zinc-200">{tierKey} Tier</h4>
-                            <span className="text-xs text-zinc-500 font-mono">
-                              {tierKey === 'Sensory' && '🔥'}
-                              {tierKey === 'Playful' && '🔥🔥'}
-                              {tierKey === 'Intense' && '🔥🔥🔥'}
-                              {tierKey === 'Extreme' && '🔥🔥🔥🔥'}
-                            </span>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-zinc-200">{displayName}</h4>
+                            <span className="text-xs text-zinc-500 font-mono">{flame}</span>
                           </div>
-                          <p className="text-xs text-zinc-400 mb-3 font-light">{tier.description}</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {tier.items.map((item) => {
+                            {items.map((item: string) => {
                               const isChecked = selectedListItems.includes(item)
                               return (
                                 <label
