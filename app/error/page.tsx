@@ -10,7 +10,7 @@ export default function ErrorPage() {
         </p>
       </div>
       <Link 
-        href="/onboarding" 
+        href="/login" 
         className="bg-blue-600 px-6 py-3 rounded font-bold hover:bg-blue-500 transition-colors inline-block"
       >
         Return to Login

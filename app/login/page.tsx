@@ -55,7 +55,31 @@ function SignInContent() {
         setAuthMessage(data.error || 'Verification failed');
         setLoading(false);
       } else {
-        window.location.href = data.destination;
+        // Query profiles table for user's onboarding_completed or nickname status
+        let target = data.destination || '/onboarding';
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            const isComplete = Boolean(
+              profile && (profile.onboarding_completed === true || !!profile.nickname || !!profile.anonymous_alias)
+            );
+
+            if (!isComplete) {
+              target = '/onboarding';
+            }
+          }
+        } catch (profileErr) {
+          console.error('Error checking profile status post-OTP:', profileErr);
+        }
+
+        // Hard navigation to guarantee session hydration and prevent defaulting to dashboard
+        window.location.href = target;
       }
     } catch (err: any) {
       setAuthMessage('Network error: ' + err.message);

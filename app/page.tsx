@@ -41,12 +41,20 @@ export default function LandingPage() {
             Between Us
           </span>
         </div>
-        <Link 
-          href="/login" 
-          className="border border-zinc-800 text-zinc-300 px-6 py-3 rounded-lg font-medium hover:bg-zinc-900 transition-colors"
-        >
-          Sign In
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/login" 
+            className="border border-zinc-800 text-zinc-300 px-5 py-2.5 rounded-lg font-medium hover:bg-zinc-900 transition-colors"
+          >
+            Sign In
+          </Link>
+          <a 
+            href="https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00"
+            className="bg-zinc-100 text-zinc-950 px-5 py-2.5 rounded-lg font-medium hover:bg-white transition-colors"
+          >
+            Sign Up
+          </a>
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -62,13 +70,13 @@ export default function LandingPage() {
           An evolving intimacy communication tool designed to enhance relationship connections and elevate first-time encounters. It learns your preferences, adapts to your boundaries, and ensures you never run out of ways to spark passion. Fresh games and content—always ready when you are.
         </p>
 
-        <Link 
-          href="/onboarding" 
+        <a 
+          href="https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00" 
           className="group relative inline-flex items-center justify-center px-8 py-4 font-medium text-white transition-all duration-300 bg-zinc-100 text-zinc-950 border border-transparent rounded-full hover:bg-white hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.1)]"
         >
           $0.99 7-day trial (required for age verification)
           <svg className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-        </Link>
+        </a>
         <p className="mt-5 text-sm text-zinc-400 font-light tracking-wide max-w-md">
           All of this for just $3/month. Cheaper than a single board game, with your price locked in for the life of your account.
         </p>
@@ -119,13 +127,13 @@ export default function LandingPage() {
                 All of this for just $3/month. Cheaper than a single board game, with your price locked in for the life of your account.
               </p>
             </div>
-            <Link 
-              href="/onboarding" 
+            <a 
+              href="https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00" 
               className="inline-flex items-center text-sm font-medium text-rose-400 hover:text-rose-300 transition-colors pt-4 group"
             >
               Start 7-day trial for $0.99 
               <span className="ml-1.5 transition-transform group-hover:translate-x-1">&rarr;</span>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -159,12 +167,12 @@ export default function LandingPage() {
       {/* Bottom CTA */}
       <section className="py-24 px-6 text-center bg-zinc-900/30 border-t border-zinc-900/50 flex flex-col items-center">
         <h2 className="text-3xl font-serif font-medium mb-8 text-zinc-100">Ready to explore?</h2>
-        <Link 
-          href="/onboarding" 
+        <a 
+          href="https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00" 
           className="inline-flex items-center justify-center px-8 py-4 font-medium transition-all duration-300 bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-full hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zinc-600 focus:ring-offset-zinc-950"
         >
           $0.99 7-day trial (required for age verification)
-        </Link>
+        </a>
         <p className="mt-5 text-sm text-zinc-400 font-light tracking-wide max-w-md">
           All of this for just $3/month. Cheaper than a single board game, with your price locked in for the life of your account.
         </p>

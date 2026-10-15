@@ -59,26 +59,30 @@ export async function POST(req: Request) {
       'crystalbrndt3+spark@gmail.com'
     ];
 
-    if (email && adminEmails.includes(email.toLowerCase())) {
+    const isAdmin = Boolean(email && adminEmails.includes(email.toLowerCase()));
+    if (isAdmin) {
       await supabase.from('profiles').upsert({ id: data.user.id, is_active: true }, { onConflict: 'id' });
-      const response = NextResponse.json({ destination: '/dashboard' });
-      cookiesToSetBuffer.forEach(({ name, value, options }) => {
-        response.cookies.set(name, value, options);
-      });
-      return response;
     }
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_active, nickname')
+      .select('*')
       .eq('id', data.user.id)
       .maybeSingle();
 
+    // Check if profile exists and has completed onboarding
+    const isProfileComplete = Boolean(
+      profile && (profile.onboarding_completed === true || !!profile.nickname || !!profile.anonymous_alias)
+    );
+
     let destination = '/dashboard';
-    if (!profile?.is_active) {
-      destination = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}&prefilled_email=${encodeURIComponent(email)}`;
-    } else if (!profile?.nickname) {
+    if (!isProfileComplete) {
+      // New or incomplete user: ensure profile is active and route to onboarding welcome
+      await supabase.from('profiles').upsert({ id: data.user.id, is_active: true }, { onConflict: 'id' });
       destination = '/onboarding';
+    } else if (profile && profile.is_active === false && !isAdmin) {
+      // Existing user whose subscription lapsed
+      destination = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}&prefilled_email=${encodeURIComponent(email)}`;
     }
 
     const response = NextResponse.json({ destination });

@@ -92,11 +92,11 @@ function OnboardingContent() {
           setPronouns(data.pronouns)
         }
 
-        if (sessionId || data?.is_active) {
-          setStep(1)
-        } else {
-          setStep(0)
+        // Ensure profile is active and route seamlessly to the onboarding welcome sequence
+        if (!data?.is_active && currentSession.user.id) {
+          await supabase.from('profiles').update({ is_active: true }).eq('id', currentSession.user.id)
         }
+        setStep(1)
       } else {
         router.push('/login')
       }
