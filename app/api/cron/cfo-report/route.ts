@@ -1,7 +1,8 @@
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { runCfoEngine } from '@/../scripts/cfo-engine';
-
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

@@ -50,7 +50,7 @@ export default function LiteratureClient() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        alert('Session is still hydrating. Please wait a second and click Continue again.');
+        setError('Session is still hydrating or expired. Please wait a second and click Continue again.');
         setIsContinuing(false);
         return;
       }
@@ -74,10 +74,22 @@ export default function LiteratureClient() {
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Auth Rejected: Session expired or missing.");
+        let errorMsg = `Failed to continue literature (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            errorMsg = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+          }
+        } catch {
+          try {
+            const errText = await res.text();
+            if (errText) errorMsg = errText;
+          } catch {}
         }
-        throw new Error("Failed to continue literature.");
+        if (res.status === 401) {
+          errorMsg = "Auth Rejected: Session expired or missing.";
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = res.body?.getReader();
@@ -96,28 +108,32 @@ export default function LiteratureClient() {
         rawText = await res.text();
       }
 
-      let newText = rawText;
+      let newText = "";
       try {
         const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
         const parsed = JSON.parse(cleaned);
-        if (parsed.body) {
-          newText = parsed.body;
-        }
+        newText = parsed.body || parsed.text || parsed.content || parsed.continuation || parsed.story || "";
       } catch (parseErr) {
         console.warn("JSON parse fallback for continuation:", parseErr);
+        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        newText = cleaned;
+      }
+
+      if (!newText || !newText.trim()) {
+        throw new Error("No continuation text was received. Please try again.");
       }
 
       setScenario(prev => {
         if (!prev) return prev;
-        const existingBody = prev.body || "";
+        const existingBody = prev.body || prev.overview || "";
         return {
           ...prev,
           body: existingBody ? `${existingBody}\n\n${newText}` : newText
         };
       });
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Our AI engine encountered an issue continuing your story. Please try again.");
+      console.error("Continue Story Error:", err);
+      setError(err?.message || "Our AI engine encountered an issue continuing your story. Please try again.");
     } finally {
       setIsContinuing(false);
     }
@@ -387,7 +403,7 @@ export default function LiteratureClient() {
             </>
           )}
 
-          {error && !loading && (
+          {error && (
             <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
               {error}
             </div>

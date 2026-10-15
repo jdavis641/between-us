@@ -53,7 +53,7 @@ export default function RolePlayClient() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        alert('Session is still hydrating. Please wait a second and click Continue again.');
+        setError('Session is still hydrating or expired. Please wait a second and click Continue again.');
         setIsContinuing(false);
         return;
       }
@@ -77,10 +77,22 @@ export default function RolePlayClient() {
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Auth Rejected: Session expired or missing.");
+        let errorMsg = `Failed to continue scenario (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            errorMsg = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+          }
+        } catch {
+          try {
+            const errText = await res.text();
+            if (errText) errorMsg = errText;
+          } catch {}
         }
-        throw new Error("Failed to continue scenario.");
+        if (res.status === 401) {
+          errorMsg = "Auth Rejected: Session expired or missing.";
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = res.body?.getReader();
@@ -100,39 +112,40 @@ export default function RolePlayClient() {
       }
 
       let parsedData: any = null;
+      let newText = "";
       try {
         const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
         parsedData = JSON.parse(cleaned);
+        newText = parsedData?.fullScript || parsedData?.text || parsedData?.body || parsedData?.content || parsedData?.overview || "";
       } catch (parseErr) {
         try {
           parsedData = JSON.parse(rawText);
+          newText = parsedData?.fullScript || parsedData?.text || parsedData?.body || parsedData?.content || parsedData?.overview || "";
         } catch {
           console.warn("JSON parse fallback for roleplay continuation:", parseErr);
+          const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          newText = cleaned;
         }
+      }
+
+      if (!newText || !newText.trim()) {
+        throw new Error("No continuation text was received. Please try again.");
       }
 
       setScenario(prev => {
         if (!prev) return prev;
-        if (parsedData?.fullScript) {
-          return {
-            ...prev,
-            fullScript: prev.fullScript ? `${prev.fullScript}\n\n${parsedData.fullScript}` : parsedData.fullScript
-          };
-        } else if (parsedData?.overview) {
-          return {
-            ...prev,
-            overview: prev.overview ? `${prev.overview}\n\n${parsedData.overview}` : parsedData.overview
-          };
-        } else {
-          return {
-            ...prev,
-            fullScript: prev.fullScript ? `${prev.fullScript}\n\n${rawText}` : (prev.overview ? `${prev.overview}\n\n${rawText}` : rawText)
-          };
-        }
+        const existingScript = prev.fullScript || prev.overview || "";
+        return {
+          ...prev,
+          fullScript: existingScript ? `${existingScript}\n\n${newText}` : newText
+        };
       });
+
+      // Visibly switch to the Action Script tab so the user sees the updated continuation immediately
+      setActiveMode("weekend-script");
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Our AI engine encountered an issue continuing your scenario. Please try again.");
+      console.error("Continue Scenario Error:", err);
+      setError(err?.message || "Our AI engine encountered an issue continuing your scenario. Please try again.");
     } finally {
       setIsContinuing(false);
     }
@@ -183,7 +196,9 @@ export default function RolePlayClient() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          rawText += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          rawText += chunk;
+          setStreamProgress(prev => prev + chunk);
         }
       } else {
         rawText = await res.text();
@@ -191,10 +206,21 @@ export default function RolePlayClient() {
 
       let data: ScenarioPayload;
       try {
-        const cleaned = rawText.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
+        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
         data = JSON.parse(cleaned);
       } catch (parseErr) {
-        data = JSON.parse(rawText);
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = {
+            title: theme || "Roleplay Experience",
+            overview: rawText,
+            preExperienceTasks: [],
+            partnerAPerspective: rawText,
+            partnerBPerspective: rawText,
+            fullScript: rawText
+          };
+        }
       }
       setScenario(data);
     } catch (err: any) {
@@ -402,7 +428,7 @@ export default function RolePlayClient() {
             </div>
           </div>
 
-          {error && !loading && (
+          {error && (
             <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
               {error}
             </div>

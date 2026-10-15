@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import RolePlayClient from "./RolePlayClient";
 import ReactMarkdown from "react-markdown";
 
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 export const sanitizeContent = (content: string) => (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
