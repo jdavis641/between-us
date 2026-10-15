@@ -6,17 +6,17 @@ const audiences = [
   {
     title: 'Singles',
     icon: '🔥',
-    content: 'Skip the trial-and-error of casual dating. Generate a temporary, easily modifiable "Guest Pass" before a hookup to safely connect and discover an intersection of mutual boundaries. This guarantees a mutually beneficial first experience without ever exposing your rejected or "Off-Limits" topics. Grant limited-time access to your current desires, preferred activities, and a "how-to" guide for satisfying your needs, virtually eliminating disappointing encounters.'
+    content: "Skip the trial-and-error of casual dating. Generate a temporary, easily modifiable 'Guest Pass' before a hookup to safely connect and discover where your mutual boundaries intersect. Grant limited-time access to your current desires and a 'how-to' guide for satisfying your needs—without ever exposing your rejected or 'Off-Limits' topics."
   },
   {
     title: 'Couples',
     icon: '🥂',
-    content: 'Effective communication is the foundation of any passionate relationship. Share your deepest desires and intimate interests in a completely judgment-free space. Step into customized, serialized erotic fantasy literature (romantasy) tailored for solo exploration, dual-perspective couple storylines, or group dynamics, allowing everyone to play a role in a shared narrative.'
+    content: "Eliminate awkward boundary conversations. Share your deepest desires in a completely judgment-free space. Step into customized games and serialized romantasy tailored for solo exploration, dual-perspective storylines, or group dynamics, allowing everyone to play a role in a shared narrative."
   },
   {
     title: 'Married Couples',
     icon: '💍',
-    content: "A lack of open, judgment-free communication is a leading cause of relationship disconnect. Maintain a spicy marriage by linking your profiles to safely share evolving boundaries and desires. By discovering the safe intersection of your mutual interests, you can effortlessly understand your partner's intimate triggers and preferences without the anxiety of rejection or awkwardness."
+    content: "A lack of open, judgment-free communication is a leading cause of relationship disconnect. Maintain a spicy marriage by linking your profiles to safely share evolving boundaries and desires. By discovering the safe intersection of your mutual interests, you can effortlessly understand your partner's intimate triggers without the anxiety of rejection. Cross a boundary? No problem—just blame the app!"
   }
 ]
 

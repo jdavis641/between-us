@@ -13,24 +13,28 @@ interface FaqAccordionProps {
 
 const defaultFaqs: FaqItem[] = [
   {
+    question: "Can I delete my account and retain my preferences?",
+    answer: "No. For total anonymity, your preferences are strictly tied to your active account. If you delete it, everything is permanently erased."
+  },
+  {
+    question: "Why isn't this in the app stores?",
+    answer: "Apple and Android enforce strict puritanical censorship. Operating as a PWA allows us to deliver an unrestricted, inclusive experience that elevates your intimacy."
+  },
+  {
+    question: "How do you curate content?",
+    answer: "Our conversational onboarding assessment lets you rate themes as definitely interested, curious, or off-limits. This generates an endless supply of games and literature incorporating your unique interests while explicitly filtering out no-go topics."
+  },
+  {
+    question: "How does the system evolve?",
+    answer: "The system anonymously gathers ratings, delivering the 'greatest hits' from the user base so you always experience top-rated, fresh scenarios."
+  },
+  {
+    question: "How is my anonymity protected?",
+    answer: "We never collect identifying information. We encourage burner emails, never store payment data on our system, and assign randomized IDs so you can fully express your desires without fear of data breaches."
+  },
+  {
     question: "Is this an inclusive app?",
     answer: "Absolutely. We firmly believe that mind-blowing intimate encounters are a right for everyone. We work diligently to ensure that our system is universally inclusive, intuitively capturing diverse pronouns, genders, and sexual orientations to generate something for everyone. If you do not see your preference, suggest a theme, trope, or category, and our team will include it in the system for everyone to enjoy."
-  },
-  {
-    question: "How does Between Us ensure complete anonymity?",
-    answer: "Built from the ground up with security and absolute privacy as our primary focus. Verification codes are sent directly to your email—we explicitly encourage using a burner account. No identifying personal information is ever stored. You control exactly who sees your profile and boundaries."
-  },
-  {
-    question: "What is the difference between a Between Us Pass and a Guest Pass?",
-    answer: "The Between Us Pass is for couples linking accounts to unlock an endless supply of intimacy games, stories, and roleplay scenarios securely curated to mutual interests, strictly avoiding your 'Off-Limits' topics (revoke access anytime). The Guest Pass lets you set desired preferences and temporarily share a customized 'how-to' guide for first-time encounters to safely align mutual boundaries."
-  },
-  {
-    question: "Why is Between Us built as a Progressive Web App (PWA)?",
-    answer: "Built exclusively as a Progressive Web App (PWA) to bypass puritanical app store restrictions. Enjoy a premium, uncensored experience free from arbitrary corporate guidelines directly from your mobile browser or added to your home screen."
-  },
-  {
-    question: "Can I cancel my subscription at any time?",
-    answer: "Yes. Cancel anytime with no hassle. Following the $0.99 7-day trial (required for age verification), ongoing access is an affordable subscription for under $3 a month per user via Stripe."
   }
 ]
 
