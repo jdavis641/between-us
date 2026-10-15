@@ -14,7 +14,10 @@ function buildSystemInstruction({
   activeCommunityScenarios = [],
   category,
   hasScripts,
-  previousContent
+  previousContent,
+  pacing,
+  storyLength,
+  activeTrope
 }: {
   preferences: any[];
   playMode: string;
@@ -25,6 +28,9 @@ function buildSystemInstruction({
   category?: string;
   hasScripts?: boolean;
   previousContent?: string;
+  pacing?: string;
+  storyLength?: string;
+  activeTrope?: any;
 }) {
   const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
@@ -72,7 +78,34 @@ You are continuing an ongoing narrative. Read the previous content and write the
   }
 
   if (contentType === 'literature') {
-    sys += `You are a master of serialized erotic fantasy. You MUST generate a full, multi-chapter story (minimum 3 chapters, 1500+ words). You must establish a slow-burn narrative buildup in Chapter 1, escalating tension in Chapter 2, and a highly explicit, detailed climax in Chapter 3. Use Markdown headers (e.g., '## Chapter 1') to separate sections. Do not summarize; write the full scenes.\n\n`;
+    let wordCountInstruction = `Target Length: Short Story (~1,500 - 2,500 words). You MUST generate a full multi-chapter story (minimum 3 chapters, 1,500+ words). Establish narrative buildup in Chapter 1, escalating tension in Chapter 2, and a highly explicit, detailed climax in Chapter 3.`;
+
+    const isNovella = storyLength === 'Novella' || (typeof storyLength === 'string' && storyLength.includes('Novella'));
+    const isNovel = (storyLength === 'Novel' || (typeof storyLength === 'string' && storyLength.includes('Novel'))) && !isNovella;
+
+    if (isNovella) {
+      wordCountInstruction = `Target Length: Novella (~2,250 - 3,750 words, a 50% length increase over the baseline). You MUST generate an expansive, multi-chapter novella (minimum 4-5 chapters, 2,250 - 3,750 words). Develop deeper narrative arcs, protracted tension, layered interactions, and a fully expansive, explicit climax.`;
+    } else if (isNovel) {
+      wordCountInstruction = `Target Length: Novel (~13,500+ words, a 500% length increase over the novella). CRITICAL NOVEL INSTRUCTION: You are generating a comprehensive, epic Novel (~13,500+ words). Utilize your MAXIMUM output token limit. Write richly descriptive, expansive chapters with extensive dialogue, micro-actions, psychological depth, and granular sensual progression. Write as much expansive content as possible up to your maximum output token capacity. Do NOT rush, summarize, or truncate. If you reach token capacity before the story concludes, conclude cleanly at the end of a scene; the user will utilize the 'Continue Existing Story' button to generate subsequent chapters.`;
+    }
+
+    let pacingInstruction = `Pacing: ${pacing || 'Slow Burn'}.`;
+    if (pacing === 'Slow Burn') {
+      pacingInstruction += ` Deliberate, high-friction anticipation with delayed physical gratification, intense emotional friction, unhurried buildup, and deep psychological tension before physical escalation.`;
+    } else if (pacing === 'Medium Burn') {
+      pacingInstruction += ` Balanced narrative momentum with steady escalating chemistry, engaging emotional intimacy, and responsive sensual escalation leading dynamically to the climax.`;
+    } else if (pacing === 'Quick Burn') {
+      pacingInstruction += ` Immediate electric chemistry, urgent physical temptation, rapid romantic escalation, and high-stakes passion right from the opening scene.`;
+    }
+
+    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\nUse Markdown headers (e.g., '## Chapter 1') to separate sections. Do not summarize; write the full scenes.\n\n`;
+
+    if (activeTrope) {
+      const tropeTitle = typeof activeTrope === 'object' ? activeTrope.title : '';
+      const tropeName = typeof activeTrope === 'object' ? activeTrope.trope : '';
+      const tropePremise = typeof activeTrope === 'object' ? activeTrope.premise : String(activeTrope);
+      sys += `CHOSEN STORY PREVIEW & TROPE:\n${tropeTitle ? `Title: ${tropeTitle}\n` : ''}${tropeName ? `Trope: ${tropeName}\n` : ''}Premise: ${tropePremise}\nYou MUST ground this entire story narrative in this selected premise and core trope.\n\n`;
+    }
   } else if (contentType === 'roleplay') {
     sys += `Generate a complete, highly detailed roleplay script. Include 'Pre-Experience Tasks', 'The Storyboard', and explicit 'Dialogue/Action Scripts'. Do not stall or summarize.\n\n`;
   } else if (contentType === 'game') {
@@ -165,6 +198,9 @@ export async function POST(req: Request) {
     const theme = body.theme;
     const targetBoundary = body.targetBoundary;
     const previousContent = body.previousContent;
+    const pacing = body.pacing;
+    const storyLength = body.storyLength;
+    const activeTrope = body.activeTrope;
     const validModes = ["solo", "couple", "group"];
     const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
     
@@ -221,8 +257,8 @@ export async function POST(req: Request) {
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
     
-    // Check Inventory First (skip if continuing an ongoing story)
-    if (theme && !previousContent) {
+    // Check Inventory First (skip if continuing an ongoing story or generating a specific trope)
+    if (theme && !previousContent && !activeTrope) {
       const { data: existingData } = await supabase
         .from('generated_content')
         .select('*')
@@ -298,7 +334,10 @@ export async function POST(req: Request) {
       activeCommunityScenarios,
       category,
       hasScripts,
-      previousContent
+      previousContent,
+      pacing,
+      storyLength,
+      activeTrope
     });
 
     let userPrompt = (theme && typeof theme === 'string' && theme.trim().length > 0)
@@ -309,8 +348,24 @@ export async function POST(req: Request) {
             ? "An intimate exploratory roleplay scenario."
             : "An intimate challenge for couples.");
 
+    if (contentType === 'literature') {
+      const tropeDetails = activeTrope
+        ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
+        : '';
+      userPrompt = `Write the story according to: Pacing: ${pacing || 'Slow Burn'}. Length: ${storyLength || 'Short Story'}.${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+    }
+
     if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {
       userPrompt = `PREVIOUS CONTENT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the ongoing narrative from where it left off, matching pacing and tone. ${userPrompt}`;
+    }
+
+    let maxTokens = 2500;
+    const isNovellaToken = storyLength === 'Novella' || (typeof storyLength === 'string' && storyLength.includes('Novella'));
+    const isNovelToken = (storyLength === 'Novel' || (typeof storyLength === 'string' && storyLength.includes('Novel'))) && !isNovellaToken;
+    if (isNovellaToken) {
+      maxTokens = 4500;
+    } else if (isNovelToken) {
+      maxTokens = 8192;
     }
 
     let streamResult;
@@ -323,7 +378,7 @@ export async function POST(req: Request) {
         ],
         temperature: 0.85,
         top_p: 0.9,
-        max_tokens: 2500,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         stream: true,
         extra_body: {

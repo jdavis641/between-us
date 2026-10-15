@@ -17,6 +17,13 @@ interface LiteraturePayload {
   partnerBPerspective?: string;
 }
 
+interface StoryPreview {
+  id: string;
+  title: string;
+  trope: string;
+  premise: string;
+}
+
 export default function LiteratureClient() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") || "couple";
@@ -24,6 +31,13 @@ export default function LiteratureClient() {
   const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
+  const [pacing, setPacing] = useState("Slow Burn");
+  const [storyLength, setStoryLength] = useState("Short Story (Under 1 Minute Load Time)");
+  const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
+  const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +50,11 @@ export default function LiteratureClient() {
     setLoading(false);
     setIsContinuing(false);
     setScenario(null);
+    setPreviews(null);
+    setActiveTrope(null);
     setStreamProgress("");
+    setError(null);
+    setPreviewError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -69,7 +87,10 @@ export default function LiteratureClient() {
           hasScripts: false,
           theme: theme,
           targetBoundary: targetBoundary,
-          previousContent: currentStoryText
+          previousContent: currentStoryText,
+          pacing: pacing,
+          storyLength: storyLength,
+          activeTrope: activeTrope
         })
       });
 
@@ -139,7 +160,76 @@ export default function LiteratureClient() {
     }
   };
 
+  const handleGeneratePreviews = async () => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setError(null);
+    setActiveTrope(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setPreviewError('Session is still hydrating or expired. Please wait a second and try again.');
+        setPreviewLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/generate/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          playMode,
+          targetBoundary,
+          theme,
+          pacing,
+          storyLength
+        })
+      });
+
+      if (!res.ok) {
+        let errorMsg = `Failed to generate previews (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            errorMsg = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+          }
+        } catch {
+          try {
+            const errText = await res.text();
+            if (errText) errorMsg = errText;
+          } catch {}
+        }
+        if (res.status === 401) {
+          errorMsg = "Auth Rejected: Session expired or missing.";
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await res.json();
+      if (data.previews && Array.isArray(data.previews) && data.previews.length > 0) {
+        setPreviews(data.previews);
+      } else {
+        throw new Error("No story previews returned from engine.");
+      }
+    } catch (err: any) {
+      console.error("Preview Generation Error:", err);
+      setPreviewError(err?.message || "Our AI engine encountered an issue shaping story previews. Please try again.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleGenerate = async () => {
+    if (!activeTrope) {
+      setError("Please select a story trope preview to continue.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setScenario(null);
@@ -148,7 +238,7 @@ export default function LiteratureClient() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        alert('Session is still hydrating. Please wait a second and click Generate again.');
+        setError('Session is still hydrating. Please wait a second and click Generate again.');
         setLoading(false);
         return;
       }
@@ -166,15 +256,30 @@ export default function LiteratureClient() {
           playMode: playMode,
           hasScripts: false,
           theme: theme,
-          targetBoundary: targetBoundary
+          targetBoundary: targetBoundary,
+          pacing: pacing,
+          storyLength: storyLength,
+          activeTrope: activeTrope
         })
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Auth Rejected: Session expired or missing.");
+        let errorMsg = `Failed to generate literature (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            errorMsg = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+          }
+        } catch {
+          try {
+            const errText = await res.text();
+            if (errText) errorMsg = errText;
+          } catch {}
         }
-        throw new Error("Failed to generate literature.");
+        if (res.status === 401) {
+          errorMsg = "Auth Rejected: Session expired or missing.";
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = res.body?.getReader();
@@ -200,7 +305,7 @@ export default function LiteratureClient() {
       } catch (parseErr) {
         console.warn("JSON parse fallback for literature:", parseErr);
         data = {
-          title: theme || "Romantic Literature",
+          title: (activeTrope && activeTrope.title) || theme || "Romantic Literature",
           body: rawText
         };
       }
@@ -208,7 +313,7 @@ export default function LiteratureClient() {
       setScenario(data);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Our AI engine encountered an issue shaping your literature. Please try again.");
+      setError(err?.message || "Our AI engine encountered an issue shaping your literature. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -261,7 +366,7 @@ export default function LiteratureClient() {
             </label>
           </div>
 
-          <div className="mb-6 space-y-4">
+          <div className="mb-6 space-y-5">
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">Target Boundary Level (Optional)</label>
               <select 
@@ -286,28 +391,170 @@ export default function LiteratureClient() {
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 h-24 focus:outline-none focus:border-red-900"
               />
             </div>
+
+            {/* Pacing Radio Button Group */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Pacing</label>
+              <div className="flex flex-wrap gap-4">
+                {["Slow Burn", "Medium Burn", "Quick Burn"].map((pace) => (
+                  <label key={pace} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="pacing" 
+                      value={pace} 
+                      checked={pacing === pace} 
+                      onChange={(e) => setPacing(e.target.value)}
+                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm text-zinc-300 font-medium">{pace}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Story Length Radio Button Group */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Story Length</label>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                {[
+                  "Short Story (Under 1 Minute Load Time)",
+                  "Novella (1-3 Minute Load Time)",
+                  "Novel (3+ Minute Load Time)"
+                ].map((len) => (
+                  <label key={len} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="storyLength" 
+                      value={len} 
+                      checked={storyLength === len} 
+                      onChange={(e) => setStoryLength(e.target.value)}
+                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm text-zinc-300 font-medium">{len}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
           
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-          >
-            {loading ? "Drafting Story..." : "Generate Story"}
-          </button>
+          {!previews ? (
+            <div>
+              <button
+                onClick={handleGeneratePreviews}
+                disabled={previewLoading}
+                className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              >
+                {previewLoading ? "Crafting Previews..." : "Generate Preview"}
+              </button>
 
-          {loading && (
-            <div className="mt-6">
-              <FlameLoader 
-                isGenerating={loading} 
-                progressText={streamProgress.length > 0 ? "Streaming story chapters..." : "Connecting to story engine..."} 
-              />
+              {previewLoading && (
+                <div className="mt-6">
+                  <FlameLoader 
+                    isGenerating={previewLoading} 
+                    progressText="Crafting story premises & tropes..." 
+                  />
+                </div>
+              )}
+
+              {previewError && (
+                <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+                  {previewError}
+                </div>
+              )}
             </div>
-          )}
+          ) : (
+            <div className="pt-6 border-t border-zinc-800 space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-zinc-100 mb-1">Select a Story Trope & Premise</h3>
+                <p className="text-sm text-zinc-400">
+                  Choose one of the 3 generated concepts below to enable full story generation.
+                </p>
+              </div>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
-              {error}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {previews.map((preview, idx) => {
+                  const isSelected = activeTrope?.id === preview.id;
+                  return (
+                    <div
+                      key={preview.id || idx}
+                      onClick={() => setActiveTrope(preview)}
+                      className={`cursor-pointer rounded-xl p-5 border transition-all flex flex-col justify-between ${
+                        isSelected
+                          ? "bg-red-950/30 border-red-600 ring-2 ring-red-600/40 shadow-lg text-white"
+                          : "bg-zinc-950/70 border-zinc-800 hover:border-zinc-700 text-zinc-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className={`text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full ${
+                            isSelected ? "bg-red-900/80 text-red-200 border border-red-700" : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                          }`}>
+                            {preview.trope || "Core Trope"}
+                          </span>
+                          {isSelected && (
+                            <span className="text-xs font-semibold text-red-400 flex items-center gap-1">
+                              ✓ Selected
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-base font-serif font-medium text-zinc-100 mb-2">{preview.title}</h4>
+                        <p className="text-sm text-zinc-400 leading-relaxed font-sans">{preview.premise}</p>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-zinc-800/60 text-xs text-zinc-500">
+                        {isSelected ? "Selected for generation" : "Click to select trope"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Action Buttons: Generate Story (disabled until trope selected) & Generate New Previews */}
+              <div className="flex flex-wrap items-center gap-4">
+                <button
+                  onClick={handleGenerate}
+                  disabled={!activeTrope || loading}
+                  className="px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                >
+                  {loading ? "Drafting Story..." : "Generate Story"}
+                </button>
+                <button
+                  onClick={handleGeneratePreviews}
+                  disabled={previewLoading || loading}
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed border border-zinc-700 text-zinc-200 rounded-lg font-medium transition-colors"
+                >
+                  {previewLoading ? "Crafting New Previews..." : "Generate New Previews"}
+                </button>
+              </div>
+
+              {loading && (
+                <div className="mt-6">
+                  <FlameLoader 
+                    isGenerating={loading} 
+                    progressText={streamProgress.length > 0 ? "Streaming story chapters..." : "Connecting to story engine..."} 
+                  />
+                </div>
+              )}
+
+              {previewLoading && (
+                <div className="mt-6">
+                  <FlameLoader 
+                    isGenerating={previewLoading} 
+                    progressText="Crafting 3 new story previews..." 
+                  />
+                </div>
+              )}
+
+              {previewError && (
+                <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+                  {previewError}
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
+                  {error}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -343,6 +590,18 @@ export default function LiteratureClient() {
             </button>
           </div>
           
+          {activeTrope && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full bg-red-950/60 text-red-200 border border-red-800">
+                {activeTrope.trope}
+              </span>
+              <span className="text-xs text-zinc-500">•</span>
+              <span className="text-xs text-zinc-400">{pacing}</span>
+              <span className="text-xs text-zinc-500">•</span>
+              <span className="text-xs text-zinc-400">{storyLength}</span>
+            </div>
+          )}
+
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
           {scenario.body ? (
