@@ -28,9 +28,32 @@ const WEIGHT_TIER_MAP: Record<number, Tier> = {
   4: 'Extreme'
 }
 
+const TIER_OPTIONS: { name: Tier; description: string; badge: string }[] = [
+  {
+    name: 'Sensory',
+    badge: 'Level 1',
+    description: 'Gentle touch, romantic intimacy, deep emotional connection, and slow sensual exploration.'
+  },
+  {
+    name: 'Playful',
+    badge: 'Level 2',
+    description: 'Adventurous teasing, light bondage, roleplay games, toy exploration, and humorous banter.'
+  },
+  {
+    name: 'Intense',
+    badge: 'Level 3',
+    description: 'Heavy sensations, power dynamics, impact play, BDSM themes, and uninhibited physical exploration.'
+  },
+  {
+    name: 'Extreme',
+    badge: 'Level 4',
+    description: 'Edge play, taboo scenarios, psychological roleplay, surreal fantasies, and heavy boundary pushes.'
+  }
+]
+
 // Mathematical sorting function evaluating array of selected weights to find highest point value
-const calculateBaseToleranceTier = (weights: number[]): Tier => {
-  if (!weights || weights.length === 0) return 'Sensory'
+const calculateBaseToleranceTier = (weights: number[]): Tier | null => {
+  if (!weights || weights.length === 0) return null
   const sorted = [...weights].sort((a, b) => b - a)
   const highestWeight = sorted[0]
   return WEIGHT_TIER_MAP[highestWeight] || (highestWeight >= 4 ? 'Extreme' : 'Sensory')
@@ -57,12 +80,11 @@ function OnboardingContent() {
   const [consentAge, setConsentAge] = useState(false)
   const [consentTerms, setConsentTerms] = useState(false)
 
-  // Step 3: Preferences & Boundary Matrix state
+  // Step 3: Preferences & Boundary Matrix state (begins as null / unselected)
   const [generalPreferences, setGeneralPreferences] = useState('')
   const [showChecklist, setShowChecklist] = useState(false)
   const [selectedItems, setSelectedItems] = useState<TaxonomyOption[]>([])
-  const [tierDecision, setTierDecision] = useState<'yes' | 'no' | null>(null)
-  const [manualTier, setManualTier] = useState<Tier | null>(null)
+  const [selectedTier, setSelectedTier] = useState<Tier | null>(null)
 
   // Step 4: Final Details state
   const [specificActivities, setSpecificActivities] = useState('')
@@ -190,39 +212,41 @@ function OnboardingContent() {
   }, [categoriesList])
 
   // Mathematical sorting function to determine the base tolerance tier from extracted weights
-  const calculatedTier: Tier = useMemo(() => {
+  const calculatedTier: Tier | null = useMemo(() => {
     const selectedWeights = selectedItems.map(item => item.weight)
     if (selectedWeights.length > 0) {
       return calculateBaseToleranceTier(selectedWeights)
     }
 
-    // If no checkbox selected, scan general preferences text
+    // If no checkbox selected, scan general preferences text if provided
     const text = generalPreferences.toLowerCase()
     if (/extreme|taboo|surreal|non-standard/i.test(text)) return 'Extreme'
     if (/intense|bdsm|power dynamic|impact|group dynamic|heavy/i.test(text)) return 'Intense'
     if (/bondage|toys|teas|exhibit|reversal|playful/i.test(text)) return 'Playful'
 
-    return 'Sensory'
+    return null
   }, [selectedItems, generalPreferences])
 
-  // Final confirmed tier
-  const confirmedTier: Tier = manualTier || calculatedTier
+  // Final confirmed tier: starts as null (unselected), updated when user picks an option or matrix assigns it
+  const confirmedTier: Tier | null = selectedTier || calculatedTier || null
 
-  // Handlers - Extracts the weight property of each selected item
+  // Handlers - Extracts the weight property of each selected item and auto-assigns tier based on point weights
   const handleToggleOption = (option: TaxonomyOption) => {
     setSelectedItems(prev => {
       const exists = prev.some(item => item.label === option.label)
-      if (exists) {
-        return prev.filter(item => item.label !== option.label)
+      const next = exists
+        ? prev.filter(item => item.label !== option.label)
+        : [...prev, { label: option.label, weight: option.weight }]
+
+      const newWeights = next.map(i => i.weight)
+      const newCalculatedTier = calculateBaseToleranceTier(newWeights)
+      if (newCalculatedTier) {
+        setSelectedTier(newCalculatedTier)
       } else {
-        // Extract the weight and label property
-        const { label, weight } = option
-        return [...prev, { label, weight }]
+        setSelectedTier(null)
       }
+      return next
     })
-    // Reset manual tier when checklist changes so recalculated tier takes effect
-    setTierDecision(null)
-    setManualTier(null)
   }
 
   const handleStep1Submit = async (e: React.FormEvent) => {
@@ -627,150 +651,144 @@ function OnboardingContent() {
         {/* STEP 3: PREFERENCES & BOUNDARY MATRIX */}
         {step === 3 && (
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
-            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 3: Boundaries & Desires</span>
-            <h2 className="text-3xl font-serif font-medium text-zinc-100 mt-1">What are you into?</h2>
+            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 3: Boundaries &amp; Desires</span>
+            <h2 className="text-3xl font-serif font-medium text-zinc-100 mt-1">Select Your Tolerance Tier</h2>
             <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
-              Describe your interests in your own words, or choose from our categorized boundary matrix.
+              Choose your baseline tolerance level to help curate games, literature, and scenarios tailored to your comfort.
             </p>
 
             <div className="space-y-6 mt-6">
+              {/* 4 Explicit Tolerance Options */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-3">
+                  Tolerance Options
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {TIER_OPTIONS.map((t) => {
+                    const isSelected = confirmedTier === t.name
+                    return (
+                      <button
+                        key={t.name}
+                        type="button"
+                        onClick={() => setSelectedTier(t.name)}
+                        className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-red-950/50 border-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)] ring-1 ring-red-500'
+                            : 'bg-zinc-950/70 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full mb-1.5">
+                          <span className="font-serif font-medium text-lg text-zinc-100">{t.name}</span>
+                          <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">{t.badge}</span>
+                        </div>
+                        <p className="text-xs text-zinc-400 font-light leading-relaxed">
+                          {t.description}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Helper Text and Recommendation Link */}
+              <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-2">
+                <p className="text-sm text-zinc-300 leading-relaxed font-light">
+                  Not sure?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChecklist(prev => !prev)
+                    }}
+                    className="text-red-400 hover:text-red-300 underline underline-offset-4 font-medium transition-colors"
+                  >
+                    Click the link
+                  </button>{' '}
+                  to choose interests and we will make a recommendation.
+                </p>
+
+                {confirmedTier && (
+                  <p className="text-xs text-green-400 font-medium flex items-center gap-1.5 pt-1">
+                    <span>✓</span> Current selection: <strong className="text-white font-semibold">{confirmedTier}</strong>
+                  </p>
+                )}
+              </div>
+
+              {/* Categorized Boundary Matrix */}
+              {showChecklist && (
+                <div className="space-y-6 p-5 bg-zinc-950/80 border border-zinc-800 rounded-xl animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
+                        Categorized Boundary Matrix
+                      </p>
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        Select specific interests or boundaries below to calculate your tolerance tier based on point weights.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowChecklist(false)}
+                      className="text-xs text-zinc-400 hover:text-white"
+                    >
+                      Hide ▲
+                    </button>
+                  </div>
+
+                  {categoriesList.map((cat) => {
+                    if (!cat.items || cat.items.length === 0) return null
+
+                    return (
+                      <div key={cat.category} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
+                        <div className="mb-2">
+                          <h4 className="text-sm font-semibold text-zinc-200">{cat.category}</h4>
+                          {cat.description && (
+                            <p className="text-xs text-zinc-400 mt-0.5 font-light">{cat.description}</p>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {cat.items.map((opt) => {
+                            const isChecked = selectedItems.some(i => i.label === opt.label)
+                            return (
+                              <label
+                                key={opt.label}
+                                className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                  isChecked
+                                    ? 'bg-red-950/40 border-red-700 text-white'
+                                    : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:border-zinc-700'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleOption(opt)}
+                                  className="w-4 h-4 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                                />
+                                <span>{opt.label}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* General preferences textarea */}
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  What are you into? Please provide details.
+                  Additional interests or boundary notes (optional)
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={generalPreferences}
-                  onChange={(e) => {
-                    setGeneralPreferences(e.target.value)
-                    setTierDecision(null)
-                    setManualTier(null)
-                  }}
+                  onChange={(e) => setGeneralPreferences(e.target.value)}
                   placeholder="e.g., Deep romantic connection, slow sensual touch, light teasing, exploration of playful power dynamics, role reversals..."
                   className="w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
                 />
               </div>
 
-              {/* Toggle to choose from list */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowChecklist(prev => !prev)}
-                  className="text-sm text-red-400 hover:text-red-300 flex items-center gap-2 font-medium transition-colors"
-                >
-                  <span>{showChecklist ? '▲ Hide categorized list' : '▼ Prefer to choose from a list?'}</span>
-                </button>
-
-                {showChecklist && (
-                  <div className="mt-4 space-y-6 p-5 bg-zinc-950/80 border border-zinc-800 rounded-xl animate-in fade-in duration-200">
-                    <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
-                      Categorized Boundary Matrix (Select all that interest you)
-                    </p>
-
-                    {categoriesList.map((cat) => {
-                      if (!cat.items || cat.items.length === 0) return null
-
-                      return (
-                        <div key={cat.category} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
-                          <div className="mb-2">
-                            <h4 className="text-sm font-semibold text-zinc-200">{cat.category}</h4>
-                            {cat.description && (
-                              <p className="text-xs text-zinc-400 mt-0.5 font-light">{cat.description}</p>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {cat.items.map((opt) => {
-                              const isChecked = selectedItems.some(i => i.label === opt.label)
-                              return (
-                                <label
-                                  key={opt.label}
-                                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
-                                    isChecked
-                                      ? 'bg-red-950/40 border-red-700 text-white'
-                                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:border-zinc-700'
-                                  }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => handleToggleOption(opt)}
-                                    className="w-4 h-4 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
-                                  />
-                                  <span>{opt.label}</span>
-                                </label>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Calculated Tier Recommendation */}
-              <div className="p-5 bg-zinc-950/90 border border-zinc-800 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Tier Recommendation</span>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-800">
-                    {confirmedTier}
-                  </span>
-                </div>
-                <p className="text-sm text-zinc-200 leading-relaxed">
-                  Based on our system, we think that <strong className="text-red-400 font-semibold">{calculatedTier}</strong> is the best fit for you. Sound good?
-                </p>
-
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTierDecision('yes')
-                      setManualTier(null)
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      tierDecision === 'yes'
-                        ? 'bg-green-900/60 text-green-300 border border-green-700'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700'
-                    }`}
-                  >
-                    ✓ Yes, perfect
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTierDecision('no')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      tierDecision === 'no'
-                        ? 'bg-zinc-700 text-white border border-zinc-500'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700'
-                    }`}
-                  >
-                    No, let me choose
-                  </button>
-                </div>
-
-                {tierDecision === 'no' && (
-                  <div className="pt-3 border-t border-zinc-800/80">
-                    <p className="text-xs text-zinc-400 mb-2">Select your preferred baseline tier:</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(['Sensory', 'Playful', 'Intense', 'Extreme'] as Tier[]).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setManualTier(t)}
-                          className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
-                            confirmedTier === t
-                              ? 'bg-red-900/60 border-red-600 text-white shadow-sm'
-                              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
+              {/* Navigation */}
               <div className="flex items-center gap-4 pt-2">
                 <button
                   type="button"
@@ -781,8 +799,9 @@ function OnboardingContent() {
                 </button>
                 <button
                   type="button"
+                  disabled={!confirmedTier}
                   onClick={() => setStep(4)}
-                  className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base"
+                  className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base"
                 >
                   Next: Final Details →
                 </button>
