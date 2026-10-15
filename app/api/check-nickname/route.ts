@@ -3,11 +3,14 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
   try {
-    const { nickname } = await request.json()
+    const body = await request.json()
+    const rawName = body.nickname || body.username || body.anonymous_alias
     
-    if (!nickname) {
-      return NextResponse.json({ error: 'Nickname is required' }, { status: 400 })
+    if (!rawName || typeof rawName !== 'string' || rawName.trim() === '') {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 })
     }
+
+    const cleanName = rawName.trim()
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,11 +23,11 @@ export async function POST(request: Request) {
       }
     )
 
-    // Check if the requested nickname is already taken
+    // Check if the requested nickname or anonymous_alias is already taken
     const { data: existingProfiles, error } = await supabaseAdmin
       .from('profiles')
-      .select('nickname')
-      .ilike('nickname', nickname)
+      .select('nickname, anonymous_alias')
+      .or(`nickname.ilike.${cleanName},anonymous_alias.ilike.${cleanName}`)
       .limit(1)
 
     if (error) {
@@ -32,29 +35,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
-    const isAvailable = existingProfiles.length === 0
+    const isAvailable = !existingProfiles || existingProfiles.length === 0
 
     if (isAvailable) {
       return NextResponse.json({ available: true })
     }
 
-    // If taken, generate suggestions
+    // If taken, generate 3 suggestions
     const suggestions: string[] = []
     let counter = 1
     
     while (suggestions.length < 3) {
-      const suggestion = `${nickname}${counter}`
+      const suggestion = `${cleanName}${counter}`
       const { data: check } = await supabaseAdmin
         .from('profiles')
-        .select('nickname')
-        .ilike('nickname', suggestion)
+        .select('nickname, anonymous_alias')
+        .or(`nickname.ilike.${suggestion},anonymous_alias.ilike.${suggestion}`)
         .limit(1)
         
       if (check && check.length === 0) {
         suggestions.push(suggestion)
       }
       counter++
-      // Safety limit
       if (counter > 50) break;
     }
 

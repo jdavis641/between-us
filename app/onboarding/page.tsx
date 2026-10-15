@@ -1,35 +1,86 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+
+import { useState, useEffect, Suspense, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { boundaryMatrix } from '../lib/boundaryData'
 
 const supabase = createClient()
 
+type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme'
+
+const TIER_CHECKLIST: Record<Tier, { description: string; items: string[] }> = {
+  Sensory: {
+    description: 'Romantic pacing, light sensory deprivation, massage, slow burn',
+    items: [
+      'Romantic pacing',
+      'Light sensory deprivation',
+      'Massage',
+      'Slow burn'
+    ]
+  },
+  Playful: {
+    description: 'Light bondage, exhibitionism, role reversal, toys, teasing',
+    items: [
+      'Light bondage',
+      'Exhibitionism',
+      'Role reversal',
+      'Toys',
+      'Teasing'
+    ]
+  },
+  Intense: {
+    description: 'Strict power dynamics, heavy BDSM, group dynamics, impact play',
+    items: [
+      'Strict power dynamics',
+      'Heavy BDSM',
+      'Group dynamics',
+      'Impact play'
+    ]
+  },
+  Extreme: {
+    description: 'Highly taboo, surreal, non-standard environments',
+    items: [
+      'Highly taboo',
+      'Surreal',
+      'Non-standard environments'
+    ]
+  }
+}
+
 function OnboardingContent() {
-  const [step, setStep] = useState<number | null>(null) // null = loading
-  const [session, setSession] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
-  
-  const [formData, setFormData] = useState({
-    nickname: '',
-    pronouns: '',
-    tolerance: 'Playful'
-  })
-  
-  const [nicknameError, setNicknameError] = useState('')
-  const [nicknameSuggestions, setNicknameSuggestions] = useState<string[]>([])
+
+  // Step state: null (loading), 0 (payment), 1 (username), 2 (assessment gate & consent), 3 (preferences & boundary matrix), 4 (final details & completion)
+  const [step, setStep] = useState<number | null>(null)
+  const [session, setSession] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+
+  // Step 1: Username selection state
+  const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [pronouns, setPronouns] = useState('')
+
+  // Step 2: Assessment Gate & Consent state
+  const [assessmentAnswer, setAssessmentAnswer] = useState<'undecided' | 'yes' | 'no'>('undecided')
+  const [consentAge, setConsentAge] = useState(false)
+  const [consentTerms, setConsentTerms] = useState(false)
+
+  // Step 3: Preferences & Boundary Matrix state
+  const [generalPreferences, setGeneralPreferences] = useState('')
+  const [showChecklist, setShowChecklist] = useState(false)
+  const [selectedListItems, setSelectedListItems] = useState<string[]>([])
+  const [tierDecision, setTierDecision] = useState<'yes' | 'no' | null>(null)
+  const [manualTier, setManualTier] = useState<Tier | null>(null)
+
+  // Step 4: Final Details state
+  const [specificActivities, setSpecificActivities] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [boundaries, setBoundaries] = useState<Record<string, string>>({})
-  const [quizPage, setQuizPage] = useState(1)
+  const [isCompleted, setIsCompleted] = useState(false)
 
-  const handleBoundarySelect = (id: string, value: string) => {
-    setBoundaries(prev => ({...prev, [id]: value}))
-  }
-
+  // Fetch session & profile
   useEffect(() => {
     async function fetchSession() {
       const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -40,16 +91,21 @@ function OnboardingContent() {
           .select('*')
           .eq('id', currentSession.user.id)
           .maybeSingle()
+        
         setProfile(data)
 
-        if (sessionId) {
-          // Returning from Stripe success
-          setStep(1)
-        } else if (data?.is_active) {
-          // Already paid
+        if (data?.anonymous_alias || data?.nickname) {
+          const existingName = data.anonymous_alias || data.nickname || ''
+          setUsername(existingName)
+          setUsernameStatus('available')
+        }
+        if (data?.pronouns) {
+          setPronouns(data.pronouns)
+        }
+
+        if (sessionId || data?.is_active) {
           setStep(1)
         } else {
-          // Not paid, render payment step
           setStep(0)
         }
       } else {
@@ -59,17 +115,231 @@ function OnboardingContent() {
     fetchSession()
   }, [router, sessionId])
 
-  if (step === null) {
-    return <div className="min-h-screen bg-zinc-950 text-zinc-500 flex items-center justify-center font-sans">Loading...</div>
+  // Live-search debounce for username (anonymous_alias)
+  useEffect(() => {
+    const trimmed = username.trim()
+    if (!trimmed) {
+      setUsernameStatus('idle')
+      setSuggestions([])
+      return
+    }
+
+    if (profile && (trimmed === profile.anonymous_alias || trimmed === profile.nickname)) {
+      setUsernameStatus('available')
+      setSuggestions([])
+      return
+    }
+
+    setUsernameStatus('checking')
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/check-nickname', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anonymous_alias: trimmed })
+        })
+        const data = await res.json()
+        if (data.available) {
+          setUsernameStatus('available')
+          setSuggestions([])
+        } else {
+          setUsernameStatus('taken')
+          setSuggestions(
+            data.suggestions && data.suggestions.length > 0
+              ? data.suggestions
+              : [`${trimmed}_1`, `${trimmed}99`, `real_${trimmed}`]
+          )
+        }
+      } catch (err) {
+        console.error('Username check error:', err)
+        setUsernameStatus('idle')
+      }
+    }, 350)
+
+    return () => clearTimeout(timer)
+  }, [username, profile])
+
+  // Highest selected tier calculation
+  const calculatedTier: Tier = useMemo(() => {
+    const hasExtreme = selectedListItems.some(i => TIER_CHECKLIST.Extreme.items.includes(i))
+    if (hasExtreme) return 'Extreme'
+
+    const hasIntense = selectedListItems.some(i => TIER_CHECKLIST.Intense.items.includes(i))
+    if (hasIntense) return 'Intense'
+
+    const hasPlayful = selectedListItems.some(i => TIER_CHECKLIST.Playful.items.includes(i))
+    if (hasPlayful) return 'Playful'
+
+    const hasSensory = selectedListItems.some(i => TIER_CHECKLIST.Sensory.items.includes(i))
+    if (hasSensory) return 'Sensory'
+
+    // If no checkbox selected, scan general preferences text
+    const text = generalPreferences.toLowerCase()
+    if (/extreme|taboo|surreal|non-standard/i.test(text)) return 'Extreme'
+    if (/intense|bdsm|power dynamic|impact|group dynamic|heavy/i.test(text)) return 'Intense'
+    if (/bondage|toys|teas|exhibit|reversal|playful/i.test(text)) return 'Playful'
+
+    return 'Sensory'
+  }, [selectedListItems, generalPreferences])
+
+  // Final confirmed tier
+  const confirmedTier: Tier = manualTier || calculatedTier
+
+  // Handlers
+  const handleToggleChecklistItem = (item: string) => {
+    setSelectedListItems(prev =>
+      prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
+    )
+    // Reset manual tier when checklist changes so recalculated tier takes effect
+    setTierDecision(null)
+    setManualTier(null)
   }
 
-  // STEP 0: PAYMENT
+  const handleStep1Submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (usernameStatus !== 'available' || !username.trim()) return
+
+    if (session?.user?.id) {
+      await supabase
+        .from('profiles')
+        .update({
+          nickname: username.trim(),
+          anonymous_alias: username.trim(),
+          pronouns: pronouns.trim()
+        })
+        .eq('id', session.user.id)
+    }
+    setStep(2)
+  }
+
+  const handleStep4Submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.user?.id) return
+    setIsSubmitting(true)
+
+    try {
+      const userId = session.user.id
+      const finalAlias = username.trim()
+
+      // 1. Save to profiles table
+      await supabase
+        .from('profiles')
+        .update({
+          nickname: finalAlias,
+          anonymous_alias: finalAlias,
+          base_tolerance: confirmedTier,
+          pronouns: pronouns.trim(),
+          is_active: true
+        })
+        .eq('id', userId)
+
+      // 2. Save Base Tolerance to intimacy_preferences
+      const { data: existingTolerance } = await supabase
+        .from('intimacy_preferences')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category_tag', 'Base Tolerance')
+        .maybeSingle()
+
+      if (existingTolerance) {
+        await supabase
+          .from('intimacy_preferences')
+          .update({ preference_level: confirmedTier })
+          .eq('id', existingTolerance.id)
+      } else {
+        await supabase
+          .from('intimacy_preferences')
+          .insert({
+            user_id: userId,
+            category_tag: 'Base Tolerance',
+            preference_level: confirmedTier
+          })
+      }
+
+      // 3. Save Primary Directive with consolidated desires & kinks
+      const consolidatedKinks: string[] = []
+      if (generalPreferences.trim()) consolidatedKinks.push(`General Interests: ${generalPreferences.trim()}`)
+      if (selectedListItems.length > 0) consolidatedKinks.push(`Specific Elements: ${selectedListItems.join(', ')}`)
+      if (specificActivities.trim()) consolidatedKinks.push(`Scenarios & Tropes: ${specificActivities.trim()}`)
+
+      const kinksFormatted = consolidatedKinks.map((k, idx) => ({
+        id: `${Date.now()}-${idx}`,
+        text: k
+      }))
+
+      const { data: existingDirective } = await supabase
+        .from('intimacy_preferences')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category_tag', 'Primary Directive')
+        .maybeSingle()
+
+      if (existingDirective) {
+        await supabase
+          .from('intimacy_preferences')
+          .update({
+            preference_level: confirmedTier,
+            kinks_override: JSON.stringify(kinksFormatted)
+          })
+          .eq('id', existingDirective.id)
+      } else {
+        await supabase
+          .from('intimacy_preferences')
+          .insert({
+            user_id: userId,
+            category_tag: 'Primary Directive',
+            preference_level: confirmedTier,
+            kinks_override: JSON.stringify(kinksFormatted)
+          })
+      }
+
+      // 4. Save individual category tags for selected items if any
+      for (const item of selectedListItems) {
+        await supabase
+          .from('intimacy_preferences')
+          .upsert({
+            user_id: userId,
+            category_tag: item,
+            preference_level: 'Definitely'
+          })
+      }
+
+      setIsCompleted(true)
+      // Strictly route to /dashboard?tour=true after brief celebration
+      setTimeout(() => {
+        window.location.href = '/dashboard?tour=true'
+      }, 1800)
+    } catch (err) {
+      console.error('Error saving onboarding data:', err)
+      alert('There was an issue saving your preferences. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (step === null) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-500 flex items-center justify-center font-sans">
+        <div className="flex items-center gap-3 text-zinc-400">
+          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+          <span>Loading onboarding engine...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // STEP 0: STRIPE PAYMENT
   if (step === 0) {
     return (
       <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 items-center justify-center font-sans">
-        <div className="max-w-md w-full space-y-8 bg-zinc-900/50 p-8 rounded-2xl border border-zinc-800 text-center">
+        <div className="max-w-md w-full space-y-8 bg-zinc-900/60 p-8 rounded-2xl border border-zinc-800 text-center shadow-2xl">
+          <div className="w-16 h-16 mx-auto bg-red-950/60 border border-red-900/50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">
+            ✨
+          </div>
           <h2 className="text-3xl font-serif font-medium text-zinc-100">Activate Account</h2>
-          <p className="text-zinc-400 mt-2 font-light">Complete your payment to access the platform and set up your profile.</p>
+          <p className="text-zinc-400 mt-2 font-light leading-relaxed">
+            Complete your subscription to access personalized games, literature, roleplay scenarios, and your Between Us Pass.
+          </p>
           <a
             href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}`}
             className="block w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors mt-6 shadow-lg shadow-red-900/20"
@@ -81,243 +351,513 @@ function OnboardingContent() {
     )
   }
 
-  // STEP 1: IDENTITY
-  if (step === 1) {
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault()
-      
-      if (!formData.nickname) {
-        setNicknameError('Nickname is required')
-        return
-      }
-      
-      setNicknameError('')
-      setNicknameSuggestions([])
-      setIsSubmitting(true)
-      
-      try {
-        const response = await fetch('/api/check-nickname', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname: formData.nickname })
-        })
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-6 md:p-12 flex flex-col items-center justify-center selection:bg-red-500/30">
+      <div className="max-w-xl w-full">
         
-        const data = await response.json()
-        
-        if (!data.available) {
-          setNicknameError('This nickname is already taken.')
-          setNicknameSuggestions(data.suggestions || [])
-          setIsSubmitting(false)
-          return
-        }
-        
-        if (session) {
-          if (!formData.nickname) {
-            setNicknameError('Nickname cannot be empty.')
-            setIsSubmitting(false)
-            return
-          }
-          await supabase.from('profiles').upsert({
-            id: session.user.id,
-            nickname: formData.nickname,
-            pronouns: formData.pronouns,
-            is_active: true
-          })
-        }
-        
-        setStep(2)
-      } catch (err) {
-        setNicknameError('An error occurred checking availability.')
-      } finally {
-        setIsSubmitting(false)
-      }
-    }
-
-    return (
-      <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 items-center justify-center font-sans">
-        <form onSubmit={handleSubmit} className="max-w-md w-full space-y-8">
-          <div>
-            <h2 className="text-3xl font-serif font-medium text-zinc-100">Who are you here?</h2>
-            <p className="text-zinc-400 mt-2 font-light">Set your anonymous identity for the platform.</p>
+        {/* Progress Bar Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-2">
+            <span>Onboarding Journey</span>
+            <span>Step {step} of 4</span>
           </div>
-          
-          <div className="space-y-4">
-            <div>
-              <input 
-                type="text" 
-                placeholder="Unique Nickname" 
-                className="w-full p-4 bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl focus:outline-none focus:border-red-900/50" 
-                value={formData.nickname}
-                onChange={(e) => {
-                  setFormData({...formData, nickname: e.target.value})
-                  setNicknameError('')
-                  setNicknameSuggestions([])
-                }} 
-              />
-              {nicknameError && (
-                <div className="mt-2 text-sm text-red-400">
-                  <p>{nicknameError}</p>
-                  {nicknameSuggestions.length > 0 && (
-                    <div className="mt-2">
-                      <span className="text-zinc-400">Available alternatives: </span>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {nicknameSuggestions.map(sug => (
-                          <button
-                            type="button"
-                            key={sug}
-                            onClick={() => setFormData({...formData, nickname: sug})}
-                            className="bg-zinc-800 px-3 py-1 rounded text-zinc-300 hover:bg-zinc-700 transition-colors"
-                          >
-                            {sug}
-                          </button>
-                        ))}
-                      </div>
+          <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden border border-zinc-800">
+            <div 
+              className="bg-gradient-to-r from-red-700 to-red-500 h-full transition-all duration-500"
+              style={{ width: `${(step / 4) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* STEP 1: USERNAME SELECTION */}
+        {step === 1 && (
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="mb-8">
+              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 1: Identity</span>
+              <h2 className="text-3xl font-serif font-medium text-zinc-100 mt-1">Choose Your Anonymous Alias</h2>
+              <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
+                Your username is completely anonymous. It identifies you on the platform and lets partners connect with you without exposing real identities.
+              </p>
+            </div>
+
+            <form onSubmit={handleStep1Submit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Username (Anonymous Alias)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., MidnightWanderer, VelvetEcho"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ''))}
+                    className={`w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border rounded-xl text-base focus:outline-none transition-colors ${
+                      usernameStatus === 'available'
+                        ? 'border-green-600/80 focus:border-green-500'
+                        : usernameStatus === 'taken'
+                          ? 'border-red-600/80 focus:border-red-500'
+                          : 'border-zinc-800 focus:border-zinc-600'
+                    }`}
+                  />
+                  {usernameStatus === 'checking' && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-            <input 
-              type="text" 
-              placeholder="Pronouns (e.g., they/them, she/her)" 
-              className="w-full p-4 bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl focus:outline-none focus:border-red-900/50" 
-              value={formData.pronouns}
-              onChange={(e) => setFormData({...formData, pronouns: e.target.value})} 
-            />
-          </div>
-          
-          <button 
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium hover:bg-white transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? 'Checking...' : 'Next: Boundary Quiz'}
-          </button>
-        </form>
-      </div>
-    )
-  }
 
-    const handleSubmitBoundaries = async () => {
-      // In a real app, save boundaries to supabase here
-      router.push('/dashboard')
-    }
+                {/* Real-time status feedback */}
+                <div className="mt-2.5 min-h-[24px]">
+                  {usernameStatus === 'checking' && (
+                    <p className="text-xs text-yellow-400 font-medium flex items-center gap-1.5">
+                      Checking availability...
+                    </p>
+                  )}
+                  {usernameStatus === 'available' && (
+                    <p className="text-xs text-green-400 font-semibold flex items-center gap-1.5">
+                      <span>✓</span> Username available
+                    </p>
+                  )}
+                  {usernameStatus === 'taken' && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-red-400 font-semibold flex items-center gap-1.5">
+                        <span>✕</span> Taken
+                      </p>
+                      {suggestions.length > 0 && (
+                        <div className="p-3 bg-zinc-950/80 border border-zinc-800 rounded-xl">
+                          <p className="text-xs text-zinc-400 mb-2 font-medium">Available variations you can use:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestions.map((sug) => (
+                              <button
+                                type="button"
+                                key={sug}
+                                onClick={() => setUsername(sug)}
+                                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                              >
+                                {sug}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-  // STEP 2: BOUNDARY QUIZ (The Kink Selection)
-  if (step === 2) {
-    const renderMatrix = (matrixKey: keyof typeof boundaryMatrix) => {
-      const currentMatrix = boundaryMatrix[matrixKey] || [];
-      return currentMatrix.map((item) => (
-        <div key={item.id} className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div>
-            <p className="font-medium text-zinc-200">{item.label}</p>
-            <p className="text-xs text-zinc-500">{item.category}</p>
-          </div>
-          <div className="flex bg-zinc-950 rounded-lg border border-zinc-800 p-1 shrink-0">
-            {['Definitely', 'Curious', 'Off-Limits'].map(opt => (
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Pronouns (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., they/them, she/her, he/him"
+                  value={pronouns}
+                  onChange={(e) => setPronouns(e.target.value)}
+                  className="w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
+                />
+              </div>
+
               <button
-                key={opt}
-                onClick={() => handleBoundarySelect(item.id, opt)}
-                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  boundaries[item.id] === opt 
-                    ? opt === 'Definitely' ? 'bg-green-900/40 text-green-400' 
-                    : opt === 'Curious' ? 'bg-yellow-900/40 text-yellow-400' 
-                    : 'bg-red-900/40 text-red-400'
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
-                }`}
+                type="submit"
+                disabled={usernameStatus !== 'available' || !username.trim()}
+                className="w-full py-4 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base"
               >
-                {opt}
+                Continue to Assessment Gate →
               </button>
-            ))}
+            </form>
           </div>
-        </div>
-      ))
-    }
+        )}
 
-    return (
-      <div className="flex flex-col space-y-6 min-h-screen bg-zinc-950 text-white p-8 font-sans max-w-2xl mx-auto py-24">
-        <h2 className="text-3xl font-serif font-medium text-zinc-100">Set Your Boundaries</h2>
-        <p className="text-zinc-400 font-light mb-8">Select definitely, curious, or off-limits.</p>
-        
-        <div className="border-t border-zinc-900 pt-8">
-          {quizPage === 1 && (
-            <>
-              <h3 className="text-xl font-medium text-zinc-200 mb-6">Sensory and Romantic</h3>
-              {renderMatrix('Sensory')}
-              <button onClick={() => setQuizPage(2)} className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium mt-8 hover:bg-white transition-colors">
-                Continue to Playful & Adventurous
-              </button>
-            </>
-          )}
+        {/* STEP 2: ASSESSMENT GATE & CONSENT */}
+        {step === 2 && (
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
+            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 2: Assessment Gate</span>
 
-          {quizPage === 2 && (
-            <>
-              <h3 className="text-xl font-medium text-zinc-200 mb-6">Playful and Adventurous</h3>
-              {renderMatrix('Playful')}
-              <button onClick={() => setQuizPage(3)} className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium mt-8 hover:bg-white transition-colors">
-                Next
-              </button>
-            </>
-          )}
+            {assessmentAnswer === 'undecided' && (
+              <div className="space-y-6 mt-2">
+                <h2 className="text-3xl font-serif font-medium text-zinc-100">
+                  Would you like to complete the onboarding assessment now?
+                </h2>
 
-          {quizPage === 3 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-xl text-center space-y-6 mt-4">
-              <p className="text-lg text-zinc-300">Would you like to view and complete the survey options for Intense and Uninhibited scenarios?</p>
-              <div className="flex flex-col gap-4">
-                <button onClick={() => setQuizPage(4)} className="w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors">
-                  Yes, show me
+                <div className="p-5 bg-zinc-950/70 border border-zinc-800/80 rounded-xl">
+                  <p className="text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">Platform Notice</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed font-light">
+                    Betweenusapp.io will anonymously assign your preferences and interests to your username, allowing the system to curate games, stories, and roleplay scenarios to your exact preferences. If you choose to invite a partner using the Between Us Pass, both users' preferences will be curated into the system for mutual satisfaction.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAssessmentAnswer('yes')}
+                    className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-colors shadow-lg shadow-red-950 text-base text-center"
+                  >
+                    Yes, take assessment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssessmentAnswer('no')}
+                    className="flex-1 py-4 px-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium rounded-xl transition-colors border border-zinc-700 text-base text-center"
+                  >
+                    No, skip for now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {assessmentAnswer === 'no' && (
+              <div className="space-y-6 mt-2">
+                <h2 className="text-2xl font-serif font-medium text-zinc-100">Assessment Deferred</h2>
+                <div className="p-5 bg-red-950/30 border border-red-900/60 rounded-xl text-red-300 text-sm leading-relaxed">
+                  You will be required to complete the assessment after 24 hours to continue using premium features.
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/dashboard')}
+                    className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-colors text-base text-center shadow-lg shadow-red-950"
+                  >
+                    Proceed to Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssessmentAnswer('yes')}
+                    className="py-4 px-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium rounded-xl transition-colors border border-zinc-700 text-base text-center"
+                  >
+                    ← Complete it now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {assessmentAnswer === 'yes' && (
+              <div className="space-y-6 mt-2">
+                <div>
+                  <h2 className="text-3xl font-serif font-medium text-zinc-100">Consent & Age Verification</h2>
+                  <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
+                    Please review and acknowledge the two legal consent statements below to proceed.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <label className={`flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer transition-colors ${
+                    consentAge ? 'bg-red-950/20 border-red-700/80 text-zinc-100' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={consentAge}
+                      onChange={(e) => setConsentAge(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded text-red-600 bg-zinc-900 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm leading-relaxed">
+                      I am over 18 years of age, and myself and any partner are above the legal age of consent in our jurisdiction.
+                    </span>
+                  </label>
+
+                  <label className={`flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer transition-colors ${
+                    consentTerms ? 'bg-red-950/20 border-red-700/80 text-zinc-100' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={consentTerms}
+                      onChange={(e) => setConsentTerms(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded text-red-600 bg-zinc-900 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm leading-relaxed">
+                      Betweenusapp.io contains adult themes but is an intimacy communication tool designed to encourage mutually beneficial intimate communication, not a porn site.
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAssessmentAnswer('undecided')}
+                    className="py-4 px-5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-xl text-sm"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!consentAge || !consentTerms}
+                    onClick={() => setStep(3)}
+                    className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base"
+                  >
+                    Continue to Preferences →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP 3: PREFERENCES & BOUNDARY MATRIX */}
+        {step === 3 && (
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
+            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 3: Boundaries & Desires</span>
+            <h2 className="text-3xl font-serif font-medium text-zinc-100 mt-1">What are you into?</h2>
+            <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
+              Describe your interests in your own words, or choose from our categorized boundary matrix.
+            </p>
+
+            <div className="space-y-6 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  What are you into? Please provide details.
+                </label>
+                <textarea
+                  rows={4}
+                  value={generalPreferences}
+                  onChange={(e) => {
+                    setGeneralPreferences(e.target.value)
+                    setTierDecision(null)
+                    setManualTier(null)
+                  }}
+                  placeholder="e.g., Deep romantic connection, slow sensual touch, light teasing, exploration of playful power dynamics, role reversals..."
+                  className="w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
+                />
+              </div>
+
+              {/* Toggle to choose from list */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowChecklist(prev => !prev)}
+                  className="text-sm text-red-400 hover:text-red-300 flex items-center gap-2 font-medium transition-colors"
+                >
+                  <span>{showChecklist ? '▲ Hide categorized list' : '▼ Prefer to choose from a list?'}</span>
                 </button>
-                <button onClick={handleSubmitBoundaries} className="w-full bg-zinc-800 text-zinc-300 p-4 rounded-xl font-medium hover:bg-zinc-700 transition-colors">
-                  No, finish and enter dashboard
+
+                {showChecklist && (
+                  <div className="mt-4 space-y-6 p-5 bg-zinc-950/80 border border-zinc-800 rounded-xl animate-in fade-in duration-200">
+                    <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
+                      Categorized Boundary Matrix (Select all that interest you)
+                    </p>
+
+                    {(Object.keys(TIER_CHECKLIST) as Tier[]).map((tierKey) => {
+                      const tier = TIER_CHECKLIST[tierKey]
+                      return (
+                        <div key={tierKey} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <h4 className="text-sm font-semibold text-zinc-200">{tierKey} Tier</h4>
+                            <span className="text-xs text-zinc-500 font-mono">
+                              {tierKey === 'Sensory' && '🔥'}
+                              {tierKey === 'Playful' && '🔥🔥'}
+                              {tierKey === 'Intense' && '🔥🔥🔥'}
+                              {tierKey === 'Extreme' && '🔥🔥🔥🔥'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-400 mb-3 font-light">{tier.description}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {tier.items.map((item) => {
+                              const isChecked = selectedListItems.includes(item)
+                              return (
+                                <label
+                                  key={item}
+                                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                    isChecked
+                                      ? 'bg-red-950/40 border-red-700 text-white'
+                                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:border-zinc-700'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleChecklistItem(item)}
+                                    className="w-4 h-4 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                                  />
+                                  <span>{item}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Calculated Tier Recommendation */}
+              <div className="p-5 bg-zinc-950/90 border border-zinc-800 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">Tier Recommendation</span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-800">
+                    {confirmedTier}
+                  </span>
+                </div>
+                <p className="text-sm text-zinc-200 leading-relaxed">
+                  Based on our system, we think that <strong className="text-red-400 font-semibold">{calculatedTier}</strong> is the best fit for you. Sound good?
+                </p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTierDecision('yes')
+                      setManualTier(null)
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      tierDecision === 'yes'
+                        ? 'bg-green-900/60 text-green-300 border border-green-700'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700'
+                    }`}
+                  >
+                    ✓ Yes, perfect
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTierDecision('no')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      tierDecision === 'no'
+                        ? 'bg-zinc-700 text-white border border-zinc-500'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700'
+                    }`}
+                  >
+                    No, let me choose
+                  </button>
+                </div>
+
+                {tierDecision === 'no' && (
+                  <div className="pt-3 border-t border-zinc-800/80">
+                    <p className="text-xs text-zinc-400 mb-2">Select your preferred baseline tier:</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(['Sensory', 'Playful', 'Intense', 'Extreme'] as Tier[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setManualTier(t)}
+                          className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
+                            confirmedTier === t
+                              ? 'bg-red-900/60 border-red-600 text-white shadow-sm'
+                              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="py-4 px-5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-xl text-sm"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(4)}
+                  className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base"
+                >
+                  Next: Final Details →
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {quizPage === 4 && (
-            <>
-              <h3 className="text-xl font-medium text-zinc-200 mb-6">Intense and Uninhibited</h3>
-              {renderMatrix('Intense')}
-              <button onClick={() => setQuizPage(5)} className="w-full bg-zinc-100 text-zinc-950 p-4 rounded-xl font-medium mt-8 hover:bg-white transition-colors">
-                Next
-              </button>
-            </>
-          )}
+        {/* STEP 4: FINAL DETAILS & DASHBOARD ROUTING */}
+        {step === 4 && (
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
+            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Step 4: Final Details</span>
+            <h2 className="text-3xl font-serif font-medium text-zinc-100 mt-1">Almost Done</h2>
+            <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
+              Add any specific scenarios, tropes, or fantasies you'd like our game master and literature engine to incorporate.
+            </p>
 
-          {quizPage === 5 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-xl text-center space-y-6 mt-4">
-              <p className="text-lg text-zinc-300">Would you like to view and complete the survey options for Extreme and Taboo scenarios? (Warning: Contains highly sensitive themes).</p>
-              <div className="flex flex-col gap-4">
-                <button onClick={() => setQuizPage(6)} className="w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors">
-                  Yes, show me
-                </button>
-                <button onClick={handleSubmitBoundaries} className="w-full bg-zinc-800 text-zinc-300 p-4 rounded-xl font-medium hover:bg-zinc-700 transition-colors">
-                  No, finish and enter dashboard
-                </button>
+            {!isCompleted ? (
+              <form onSubmit={handleStep4Submit} className="space-y-6 mt-6">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                    To finish your profile, please include any specific activities, scenarios, or tropes you would like to include.
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={specificActivities}
+                    onChange={(e) => setSpecificActivities(e.target.value)}
+                    placeholder="e.g., A rainy secluded cabin night, masked encounter, enemies to lovers, slow burn tension, praise, sensory games..."
+                    className="w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
+                  />
+                </div>
+
+                <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl text-xs text-zinc-400 leading-relaxed">
+                  💡 You can update your tolerance levels, specific kinks, and preferences anytime in your <strong className="text-zinc-300 font-medium">Settings</strong>.
+                </div>
+
+                <div className="flex items-center gap-4 pt-2">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setStep(3)}
+                    className="py-4 px-5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-xl text-sm"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-base flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving Profile...</span>
+                      </>
+                    ) : (
+                      <span>Complete Profile & Enter Dashboard →</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="py-8 text-center space-y-4 animate-in fade-in duration-500">
+                <div className="w-16 h-16 mx-auto bg-green-950/60 border border-green-800/80 rounded-2xl flex items-center justify-center text-3xl shadow-inner text-green-400">
+                  ✓
+                </div>
+                <h3 className="text-2xl font-serif font-medium text-zinc-100">Profile Complete!</h3>
+                <p className="text-sm text-zinc-300 max-w-md mx-auto leading-relaxed">
+                  Your preferences have been saved. You can update these anytime in Settings.
+                </p>
+                <p className="text-xs text-zinc-500 animate-pulse">
+                  Redirecting to your personalized dashboard tour...
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = '/dashboard?tour=true' }}
+                    className="px-6 py-3 bg-red-900 hover:bg-red-800 text-white rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Enter Dashboard Now →
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {quizPage === 6 && (
-            <>
-              <h3 className="text-xl font-medium text-zinc-200 mb-6">Extreme and Taboo</h3>
-              {renderMatrix('Extreme')}
-              <button onClick={handleSubmitBoundaries} className="w-full bg-red-900 text-white p-4 rounded-xl font-medium mt-8 hover:bg-red-800 transition-colors shadow-lg shadow-red-900/20">
-                Complete Profile & Enter Dashboard
-              </button>
-            </>
-          )}
-        </div>
       </div>
-    )
-  }
+    </div>
+  )
 }
 
 export default function OnboardingSurvey() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500 font-sans">
+        <div className="flex items-center gap-3 text-zinc-400">
+          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+          <span>Loading onboarding engine...</span>
+        </div>
+      </div>
+    }>
       <OnboardingContent />
     </Suspense>
   )
 }
-

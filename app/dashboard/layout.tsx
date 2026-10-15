@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import Sidebar from "./Sidebar";
 import TolerancePromptManager from "../components/TolerancePromptManager";
+import TourModal from "./components/TourModal";
+import { Suspense } from "react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +26,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </div>
       <TolerancePromptManager />
+      <Suspense fallback={null}>
+        <TourModal />
+      </Suspense>
     </div>
   );
 }
