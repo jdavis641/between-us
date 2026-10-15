@@ -1,6 +1,30 @@
 import Link from "next/link";
 import Image from "next/image";
 import AudienceAccordion from "@/components/AudienceAccordion";
+import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
+
+const faqs: FaqItem[] = [
+  {
+    question: "Is this an inclusive app?",
+    answer: "Absolutely. We firmly believe that mind-blowing intimate encounters are a right for everyone. We work diligently to ensure that our system is universally inclusive, intuitively capturing diverse pronouns, genders, and sexual orientations to generate something for everyone. If you do not see your preference, suggest a theme, trope, or category, and our team will include it in the system for everyone to enjoy."
+  },
+  {
+    question: "How does Between Us ensure complete anonymity?",
+    answer: "Built from the ground up with security and absolute privacy as our primary focus. Verification codes are sent directly to your email—we explicitly encourage using a burner account. No identifying personal information is ever stored. You control exactly who sees your profile and boundaries."
+  },
+  {
+    question: "What is the difference between a Between Us Pass and a Guest Pass?",
+    answer: "The Between Us Pass is for couples linking accounts to unlock an endless supply of intimacy games, stories, and roleplay scenarios securely curated to mutual interests, strictly avoiding your 'Off-Limits' topics (revoke access anytime). The Guest Pass lets you set desired preferences and temporarily share a customized 'how-to' guide for first-time encounters to safely align mutual boundaries."
+  },
+  {
+    question: "Why is Between Us built as a Progressive Web App (PWA)?",
+    answer: "Built exclusively as a Progressive Web App (PWA) to bypass puritanical app store restrictions. Enjoy a premium, uncensored experience free from arbitrary corporate guidelines directly from your mobile browser or added to your home screen."
+  },
+  {
+    question: "Can I cancel my subscription at any time?",
+    answer: "Yes. Cancel anytime with no hassle. Following the $0.99 7-day trial (required for age verification), ongoing access is an affordable subscription for under $3 a month per user via Stripe."
+  }
+];
 
 export default function LandingPage() {
   return (
@@ -80,6 +104,19 @@ export default function LandingPage() {
           </p>
         </div>
         <AudienceAccordion />
+      </section>
+
+      {/* FAQ Accordion Section */}
+      <section className="py-24 px-6 border-t border-zinc-900/50">
+        <div className="max-w-4xl mx-auto text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4 text-zinc-100">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-lg text-zinc-400 font-light">
+            Everything you need to know about Between Us and our commitment to you.
+          </p>
+        </div>
+        <FaqAccordion faqs={faqs} />
       </section>
 
       {/* Bottom CTA */}

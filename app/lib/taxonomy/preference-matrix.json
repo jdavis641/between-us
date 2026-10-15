@@ -15,47 +15,74 @@
         { "label": "Light sensory deprivation", "category": "Sensory", "weight": 1 },
         { "label": "Massage", "category": "Sensory", "weight": 1 },
         { "label": "Slow burn", "category": "Sensory", "weight": 1 },
-        { "label": "Placeholder A", "category": "Sensory", "weight": 1 },
-        { "label": "Placeholder B", "category": "Sensory", "weight": 1 }
+        { "label": "Amateur", "category": "Sensory", "weight": 1 },
+        { "label": "Exclusive", "category": "Sensory", "weight": 1 },
+	{ "label": "Female Orgasm", "category": "Sensory", "weight": 1 },
+        { "label": "Funny", "category": "Sensory", "weight": 1 },
+	{ "label": "Popular with Women", "category": "Sensory", "weight": 1 },
+        { "label": "Romantic", "category": "Sensory", "weight": 1 }
       ]
     },
     {
       "category": "Playful",
       "weight": 2,
-      "description": "Light bondage, exhibitionism, role reversal, toys, teasing",
+      "description": "role play, striptease, role reversal, toys, teasing",
       "items": [
         { "label": "Light bondage", "category": "Playful", "weight": 2 },
         { "label": "Exhibitionism", "category": "Playful", "weight": 2 },
         { "label": "Role reversal", "category": "Playful", "weight": 2 },
         { "label": "Toys", "category": "Playful", "weight": 2 },
         { "label": "Teasing", "category": "Playful", "weight": 2 },
-        { "label": "Placeholder C", "category": "Playful", "weight": 2 },
-        { "label": "Placeholder D", "category": "Playful", "weight": 2 }
+        { "label": "Oral Sex", "category": "Playful", "weight": 2 },
+        { "label": "Handjob", "category": "Playful", "weight": 2 },
+	{ "label": "Roleplay", "category": "Playful", "weight": 2 },
+	{ "label": "Striptease", "category": "Playful", "weight": 2 }
       ]
     },
     {
       "category": "Intense",
       "weight": 3,
-      "description": "Strict power dynamics, heavy BDSM, group dynamics, impact play",
+      "description": "Strict power dynamics, anal, creampie, double penetration",
       "items": [
         { "label": "Strict power dynamics", "category": "Intense", "weight": 3 },
-        { "label": "Heavy BDSM", "category": "Intense", "weight": 3 },
-        { "label": "Group dynamics", "category": "Intense", "weight": 3 },
-        { "label": "Impact play", "category": "Intense", "weight": 3 },
-        { "label": "Placeholder E", "category": "Intense", "weight": 3 },
-        { "label": "Placeholder F", "category": "Intense", "weight": 3 }
+        { "label": "Anal", "category": "Intense", "weight": 3 },
+        { "label": "Creampie", "category": "Intense", "weight": 3 },
+        { "label": "Cumshot", "category": "Intense", "weight": 3 },
+        { "label": "Rimming", "category": "Intense", "weight": 3 },
+        { "label": "Deepthroat", "category": "Intense", "weight": 3 },
+	{ "label": "Submissive", "category": "Intense", "weight": 3 },
+	{ "label": "Dominant", "category": "Intense", "weight": 3 },
+	{ "label": "Double Penetration", "category": "Intense", "weight":3 }, 
+	{ "label": "Prostate Massage", "category": "Intense", "weight": 3 },
+	{ "label": "Prostate Blowjob", "category": "Intense", "weight": 3 },
+	{ "label": "Hardcore", "category": "Intense", "weight": 3 },
+	{ "label": "Consensual Nonconsent", "category": "Intense", "weight": 3 },
+	{ "label": "Cuckold", "category": "Intense", "weight": 3 },
+	{ "label": "Feet", "category": "Intense", "weight": 3 },
+	{ "label": "Exhibitionism", "category": "Intense", "weight": 3 },
+	{ "label": "Rough Sex", "category": "Intense", "weight": 3 },
+	{ "label": "Squirt", "category": "Intense", "weight": 3 },
+	{ "label": "Voyeur", "category": "Intense", "weight": 3 },
+	{ "label": "Threesome", "category": "Intense", "weight": 3 }
       ]
     },
     {
       "category": "Extreme",
       "weight": 4,
-      "description": "Highly taboo, surreal, non-standard environments",
+      "description": "Fetish, bondage, fisting",
       "items": [
         { "label": "Highly taboo", "category": "Extreme", "weight": 4 },
-        { "label": "Surreal", "category": "Extreme", "weight": 4 },
-        { "label": "Non-standard environments", "category": "Extreme", "weight": 4 },
-        { "label": "Placeholder G", "category": "Extreme", "weight": 4 },
-        { "label": "Placeholder H", "category": "Extreme", "weight": 4 }
+        { "label": "Fetish", "category": "Extreme", "weight": 4 },
+        { "label": "Fisting", "category": "Extreme", "weight": 4 },
+        { "label": "Bukkake", "category": "Extreme", "weight": 4 },
+        { "label": "Gangbang", "category": "Extreme", "weight": 4 },
+	{ "label": "Pissing", "category": "Extreme", "weight": 4 },
+	{ "label": "Body Fluid Play", "category": "Extreme", "weight": 4 },
+	{ "label": "Blood Play", "category": "Extreme", "weight": 4 },
+	{ "label": "Pain Play", "category": "Extreme", "weight": 4 },
+	{ "label": "S&M", "category": "Extreme", "weight": 4 },
+	{ "label": "Bondage", "category": "Extreme", "weight": 4 },
+	{ "label": "Breath Play", "category": "Extreme", "weight": 4 }
       ]
     }
   ],
