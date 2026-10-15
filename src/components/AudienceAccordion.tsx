@@ -38,23 +38,23 @@ export default function AudienceAccordion() {
           >
             <button
               onClick={() => toggle(index)}
-              className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus:bg-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
+              className="w-full flex items-center justify-between p-4 sm:p-6 text-left focus:outline-none focus:bg-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-2xl">{audience.icon}</span>
-                <span className="text-xl font-bold text-zinc-100">{audience.title}</span>
+              <div className="flex items-center gap-3 sm:gap-4">
+                <span className="text-xl sm:text-2xl">{audience.icon}</span>
+                <span className="text-lg sm:text-xl font-bold text-zinc-100">{audience.title}</span>
               </div>
-              <span className={`text-zinc-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <span className={`text-zinc-500 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180' : ''}`}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </span>
             </button>
             
             <div 
-              className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}
             >
-              <div className="p-6 pt-0 text-zinc-400 leading-relaxed text-lg border-t border-zinc-800/50 mt-2">
+              <div className="p-4 sm:p-6 pt-0 text-zinc-400 leading-relaxed text-sm sm:text-base border-t border-zinc-800/50 mt-2 font-light">
                 {audience.content}
               </div>
             </div>

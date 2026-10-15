@@ -56,23 +56,23 @@ export default function FaqAccordion({ faqs = defaultFaqs }: FaqAccordionProps) 
           >
             <button
               onClick={() => toggle(index)}
-              className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus:bg-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
+              className="w-full flex items-center justify-between p-4 sm:p-6 text-left focus:outline-none focus:bg-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
               aria-expanded={isOpen}
             >
-              <span className="text-lg md:text-xl font-medium text-zinc-100 pr-4">
+              <span className="text-base sm:text-lg md:text-xl font-medium text-zinc-100 pr-3">
                 {faq.question}
               </span>
-              <span className={`text-zinc-500 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <span className={`text-zinc-500 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180' : ''}`}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </span>
             </button>
             
             <div 
-              className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}
             >
-              <div className="p-6 pt-0 text-zinc-400 leading-relaxed text-base md:text-lg border-t border-zinc-800/50 mt-2 font-light">
+              <div className="p-4 sm:p-6 pt-0 text-zinc-400 leading-relaxed text-sm sm:text-base md:text-lg border-t border-zinc-800/50 mt-2 font-light">
                 {faq.answer}
               </div>
             </div>
