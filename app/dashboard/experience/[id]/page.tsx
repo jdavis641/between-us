@@ -1,15 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const supabase = createClient()
 
 type ReaderMode = "partner-a" | "partner-b" | "script";
 

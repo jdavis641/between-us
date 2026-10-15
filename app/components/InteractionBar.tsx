@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/client'
 
 export default function InteractionBar({ contentId, contentType }: { contentId: string, contentType: string }) {
   const [rating, setRating] = useState<number>(0)
@@ -9,10 +9,7 @@ export default function InteractionBar({ contentId, contentType }: { contentId: 
   const [hasRated, setHasRated] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     async function loadFavoriteStatus() {
