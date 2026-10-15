@@ -72,7 +72,8 @@ export default function RolePlayClient() {
           hasScripts: true,
           theme: theme,
           targetBoundary: targetBoundary,
-          previousContent: currentStoryText
+          previousContent: currentStoryText,
+          existingStory: currentStoryText
         })
       });
 

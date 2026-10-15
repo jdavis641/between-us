@@ -32,7 +32,7 @@ export default function LiteratureClient() {
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
   const [pacing, setPacing] = useState("Slow Burn");
-  const [storyLength, setStoryLength] = useState("Short Story (Under 1 Minute Load Time)");
+  const [storyLength, setStoryLength] = useState("Novella (1-3 Minute Load Time)");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
   const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -88,6 +88,7 @@ export default function LiteratureClient() {
           theme: theme,
           targetBoundary: targetBoundary,
           previousContent: currentStoryText,
+          existingStory: currentStoryText,
           pacing: pacing,
           storyLength: storyLength,
           activeTrope: activeTrope
@@ -129,15 +130,51 @@ export default function LiteratureClient() {
         rawText = await res.text();
       }
 
+      if (!rawText || !rawText.trim()) {
+        throw new Error("No response received from the server. Please try again.");
+      }
+
       let newText = "";
       try {
-        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const cleaned = rawText.trim()
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```\s*$/i, '')
+          .trim();
         const parsed = JSON.parse(cleaned);
-        newText = parsed.body || parsed.text || parsed.content || parsed.continuation || parsed.story || "";
-      } catch (parseErr) {
+
+        if (parsed.error) {
+          throw new Error(typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error));
+        }
+
+        newText = parsed.text || parsed.body || parsed.content || parsed.continuation || parsed.story || parsed.data?.text || parsed.data?.body || "";
+
+        if (!newText && typeof parsed === 'object' && parsed !== null) {
+          for (const key of Object.keys(parsed)) {
+            if (typeof parsed[key] === 'string' && parsed[key].length > 20) {
+              newText = parsed[key];
+              break;
+            }
+          }
+        }
+      } catch (parseErr: any) {
+        if (parseErr?.message && !parseErr.message.includes("JSON")) {
+          throw parseErr;
+        }
         console.warn("JSON parse fallback for continuation:", parseErr);
-        const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-        newText = cleaned;
+        const matchBody = rawText.match(/"(?:text|body|content|continuation)"\s*:\s*"([\s\S]*)/i);
+        if (matchBody && matchBody[1]) {
+          let extracted = matchBody[1];
+          extracted = extracted.replace(/"\s*}\s*$/, '').replace(/"\s*,\s*"[^"]+"\s*:\s*[\s\S]*$/, '');
+          newText = extracted.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+        } else {
+          newText = rawText.trim()
+            .replace(/^```json\s*/i, '')
+            .replace(/^```markdown\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/```\s*$/i, '')
+            .trim();
+        }
       }
 
       if (!newText || !newText.trim()) {
@@ -149,7 +186,7 @@ export default function LiteratureClient() {
         const existingBody = prev.body || prev.overview || "";
         return {
           ...prev,
-          body: existingBody ? `${existingBody}\n\n${newText}` : newText
+          body: existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim()
         };
       });
     } catch (err: any) {
@@ -403,7 +440,13 @@ export default function LiteratureClient() {
                       name="pacing" 
                       value={pace} 
                       checked={pacing === pace} 
-                      onChange={(e) => setPacing(e.target.value)}
+                      onChange={(e) => {
+                        const newPacing = e.target.value;
+                        setPacing(newPacing);
+                        if (newPacing === "Slow Burn" && storyLength.includes("Short Story")) {
+                          setStoryLength("Novella (1-3 Minute Load Time)");
+                        }
+                      }}
                       className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
                     />
                     <span className="text-sm text-zinc-300 font-medium">{pace}</span>
@@ -420,19 +463,39 @@ export default function LiteratureClient() {
                   "Short Story (Under 1 Minute Load Time)",
                   "Novella (1-3 Minute Load Time)",
                   "Novel (3+ Minute Load Time)"
-                ].map((len) => (
-                  <label key={len} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="storyLength" 
-                      value={len} 
-                      checked={storyLength === len} 
-                      onChange={(e) => setStoryLength(e.target.value)}
-                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
-                    />
-                    <span className="text-sm text-zinc-300 font-medium">{len}</span>
-                  </label>
-                ))}
+                ].map((len) => {
+                  const isShortStory = len.includes("Short Story");
+                  const isOptionDisabled = isShortStory && pacing === "Slow Burn";
+
+                  return (
+                    <label 
+                      key={len} 
+                      className={`flex items-center gap-2 rounded-lg px-4 py-2.5 transition-colors ${
+                        isOptionDisabled 
+                          ? "opacity-50 cursor-not-allowed bg-zinc-950/40 border border-zinc-900 text-zinc-500" 
+                          : "cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 text-zinc-300"
+                      }`}
+                    >
+                      <input 
+                        type="radio" 
+                        name="storyLength" 
+                        value={len} 
+                        disabled={isOptionDisabled}
+                        checked={storyLength === len} 
+                        onChange={(e) => setStoryLength(e.target.value)}
+                        className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <span className="text-sm font-medium">
+                        {len}
+                        {isOptionDisabled && (
+                          <span className="block sm:inline sm:ml-2 text-xs text-zinc-500 font-normal">
+                            (Unavailable for Slow Burn)
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>

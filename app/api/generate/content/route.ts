@@ -74,7 +74,7 @@ function buildSystemInstruction({
 
   if (previousContent) {
     sys += `STORY CONTINUATION DIRECTIVE:
-You are continuing an ongoing narrative. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
+You are continuing an ongoing narrative. Continue the narrative seamlessly from the provided text. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
   }
 
   if (contentType === 'literature') {
@@ -121,6 +121,8 @@ Use explicit anatomical vocabulary, visceral imagery, and evocative descriptions
   sys += `STYLISTIC & PROSE CONSTRAINTS:
 Climax Execution: You must make the climax portion of the story highly detailed and expansive. Do not rush or summarize the peak of the scene. You must explicitly explain the granular physiological reactions and the overwhelming emotional responses of the characters in detail.\n\n`;
 
+  sys += `Critical Narrative Rule: Regardless of the selected pacing (Quick Burn, Medium Burn, or Slow Burn), ALL stories MUST culminate in an explicit, highly detailed erotic climax. The pacing only dictates how much time is spent building anticipation before the physical escalation occurs.\n\n`;
+
   sys += `BOUNDARY ENFORCEMENT & INTENSITY:
 - Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}
 - Mandatory Included Themes: ${mandatoryThemes}
@@ -160,7 +162,8 @@ The user message contains only the scenario theme or concept. Incorporate the us
 You must return a valid JSON object matching this schema exactly:
 {
   "title": "A catchy title for the story",
-  "body": "The full markdown text of the multi-chapter story as requested. Do not summarize, write the full scenes."
+  "body": "The full markdown text of the multi-chapter story or continuation as requested. Do not summarize, write the full scenes.",
+  "text": "The full markdown text of the multi-chapter story or continuation as requested. Do not summarize, write the full scenes."
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
   } else if (contentType === "roleplay") {
@@ -197,7 +200,7 @@ export async function POST(req: Request) {
     const hasScripts = body.hasScripts;
     const theme = body.theme;
     const targetBoundary = body.targetBoundary;
-    const previousContent = body.previousContent;
+    const previousContent = body.previousContent || body.existingStory;
     const pacing = body.pacing;
     const storyLength = body.storyLength;
     const activeTrope = body.activeTrope;
@@ -356,7 +359,7 @@ export async function POST(req: Request) {
     }
 
     if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {
-      userPrompt = `PREVIOUS CONTENT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the ongoing narrative from where it left off, matching pacing and tone. ${userPrompt}`;
+      userPrompt = `PREVIOUS STORY TEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the narrative seamlessly from the provided text. Do not summarize or repeat the previous text. Return valid JSON containing the new continuation text in the "body" and "text" fields. ${userPrompt}`;
     }
 
     let maxTokens = 2500;
