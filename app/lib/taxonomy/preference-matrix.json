@@ -1,6 +1,8 @@
 {
-  "Tier_1_Sensory": ["Placeholder A", "Placeholder B"],
-  "Tier_2_Playful": ["Placeholder C", "Placeholder D"],
-  "Tier_3_Intense": ["Placeholder E", "Placeholder F"],
-  "Tier_4_Extreme": ["Placeholder G", "Placeholder H"]
+  "options": [
+    { "label": "Placeholder A", "weight": 1 },
+    { "label": "Placeholder B", "weight": 2 },
+    { "label": "Placeholder C", "weight": 3 },
+    { "label": "Placeholder D", "weight": 4 }
+  ]
 }

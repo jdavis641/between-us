@@ -9,6 +9,26 @@ const supabase = createClient()
 
 type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme'
 
+interface TaxonomyOption {
+  label: string
+  weight: number
+}
+
+const WEIGHT_TIER_MAP: Record<number, Tier> = {
+  1: 'Sensory',
+  2: 'Playful',
+  3: 'Intense',
+  4: 'Extreme'
+}
+
+// Mathematical sorting function evaluating array of selected weights to find highest point value
+const calculateBaseToleranceTier = (weights: number[]): Tier => {
+  if (!weights || weights.length === 0) return 'Sensory'
+  const sorted = [...weights].sort((a, b) => b - a)
+  const highestWeight = sorted[0]
+  return WEIGHT_TIER_MAP[highestWeight] || (highestWeight >= 4 ? 'Extreme' : 'Sensory')
+}
+
 function OnboardingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -33,7 +53,7 @@ function OnboardingContent() {
   // Step 3: Preferences & Boundary Matrix state
   const [generalPreferences, setGeneralPreferences] = useState('')
   const [showChecklist, setShowChecklist] = useState(false)
-  const [selectedListItems, setSelectedListItems] = useState<string[]>([])
+  const [selectedItems, setSelectedItems] = useState<TaxonomyOption[]>([])
   const [tierDecision, setTierDecision] = useState<'yes' | 'no' | null>(null)
   const [manualTier, setManualTier] = useState<Tier | null>(null)
 
@@ -121,29 +141,18 @@ function OnboardingContent() {
     return () => clearTimeout(timer)
   }, [username, profile])
 
-  // Highest selected tier calculation
-  const calculatedTier: Tier = useMemo(() => {
-    const matrix = preferenceMatrix as Record<string, string[]>
+  const optionsList: TaxonomyOption[] = useMemo(() => {
+    if (Array.isArray((preferenceMatrix as any)?.options)) {
+      return (preferenceMatrix as any).options as TaxonomyOption[]
+    }
+    return []
+  }, [])
 
-    for (const [key, items] of Object.entries(matrix)) {
-      if (key.includes('Extreme') && selectedListItems.some(i => items.includes(i))) {
-        return 'Extreme'
-      }
-    }
-    for (const [key, items] of Object.entries(matrix)) {
-      if (key.includes('Intense') && selectedListItems.some(i => items.includes(i))) {
-        return 'Intense'
-      }
-    }
-    for (const [key, items] of Object.entries(matrix)) {
-      if (key.includes('Playful') && selectedListItems.some(i => items.includes(i))) {
-        return 'Playful'
-      }
-    }
-    for (const [key, items] of Object.entries(matrix)) {
-      if (key.includes('Sensory') && selectedListItems.some(i => items.includes(i))) {
-        return 'Sensory'
-      }
+  // Mathematical sorting function to determine the base tolerance tier from extracted weights
+  const calculatedTier: Tier = useMemo(() => {
+    const selectedWeights = selectedItems.map(item => item.weight)
+    if (selectedWeights.length > 0) {
+      return calculateBaseToleranceTier(selectedWeights)
     }
 
     // If no checkbox selected, scan general preferences text
@@ -153,16 +162,23 @@ function OnboardingContent() {
     if (/bondage|toys|teas|exhibit|reversal|playful/i.test(text)) return 'Playful'
 
     return 'Sensory'
-  }, [selectedListItems, generalPreferences])
+  }, [selectedItems, generalPreferences])
 
   // Final confirmed tier
   const confirmedTier: Tier = manualTier || calculatedTier
 
-  // Handlers
-  const handleToggleChecklistItem = (item: string) => {
-    setSelectedListItems(prev =>
-      prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
-    )
+  // Handlers - Extracts the weight property of each selected item
+  const handleToggleOption = (option: TaxonomyOption) => {
+    setSelectedItems(prev => {
+      const exists = prev.some(item => item.label === option.label)
+      if (exists) {
+        return prev.filter(item => item.label !== option.label)
+      } else {
+        // Extract the weight and label property
+        const { label, weight } = option
+        return [...prev, { label, weight }]
+      }
+    })
     // Reset manual tier when checklist changes so recalculated tier takes effect
     setTierDecision(null)
     setManualTier(null)
@@ -230,9 +246,10 @@ function OnboardingContent() {
       }
 
       // 3. Save Primary Directive with consolidated desires & kinks
+      const selectedLabels = selectedItems.map(item => item.label)
       const consolidatedKinks: string[] = []
       if (generalPreferences.trim()) consolidatedKinks.push(`General Interests: ${generalPreferences.trim()}`)
-      if (selectedListItems.length > 0) consolidatedKinks.push(`Specific Elements: ${selectedListItems.join(', ')}`)
+      if (selectedLabels.length > 0) consolidatedKinks.push(`Selected Boundaries: ${selectedLabels.join(', ')}`)
       if (specificActivities.trim()) consolidatedKinks.push(`Scenarios & Tropes: ${specificActivities.trim()}`)
 
       const kinksFormatted = consolidatedKinks.map((k, idx) => ({
@@ -266,13 +283,13 @@ function OnboardingContent() {
           })
       }
 
-      // 4. Save individual category tags for selected items if any
-      for (const item of selectedListItems) {
+      // 4. Save individual category tags for selected string labels
+      for (const label of selectedLabels) {
         await supabase
           .from('intimacy_preferences')
           .upsert({
             user_id: userId,
-            category_tag: item,
+            category_tag: label,
             preference_level: 'Definitely'
           })
       }
@@ -609,25 +626,26 @@ function OnboardingContent() {
                       Categorized Boundary Matrix (Select all that interest you)
                     </p>
 
-                    {Object.entries(preferenceMatrix as Record<string, string[]>).map(([tierKey, items]) => {
-                      const displayName = tierKey.replace(/_/g, ' ')
-                      let flame = '🔥'
-                      if (tierKey.includes('Playful')) flame = '🔥🔥'
-                      else if (tierKey.includes('Intense')) flame = '🔥🔥🔥'
-                      else if (tierKey.includes('Extreme')) flame = '🔥🔥🔥🔥'
+                    {[1, 2, 3, 4].map((tierWeight) => {
+                      const tierName = WEIGHT_TIER_MAP[tierWeight] || 'Sensory'
+                      const tierLabel = `Tier ${tierWeight}: ${tierName}`
+                      const flame = tierWeight === 1 ? '🔥' : tierWeight === 2 ? '🔥🔥' : tierWeight === 3 ? '🔥🔥🔥' : '🔥🔥🔥🔥'
+                      const tierOptions = optionsList.filter(o => o.weight === tierWeight)
+
+                      if (tierOptions.length === 0) return null
 
                       return (
-                        <div key={tierKey} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
+                        <div key={tierWeight} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-zinc-200">{displayName}</h4>
+                            <h4 className="text-sm font-semibold text-zinc-200">{tierLabel}</h4>
                             <span className="text-xs text-zinc-500 font-mono">{flame}</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {items.map((item: string) => {
-                              const isChecked = selectedListItems.includes(item)
+                            {tierOptions.map((opt) => {
+                              const isChecked = selectedItems.some(i => i.label === opt.label)
                               return (
                                 <label
-                                  key={item}
+                                  key={opt.label}
                                   className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
                                     isChecked
                                       ? 'bg-red-950/40 border-red-700 text-white'
@@ -637,10 +655,10 @@ function OnboardingContent() {
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
-                                    onChange={() => handleToggleChecklistItem(item)}
+                                    onChange={() => handleToggleOption(opt)}
                                     className="w-4 h-4 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
                                   />
-                                  <span>{item}</span>
+                                  <span>{opt.label}</span>
                                 </label>
                               )
                             })}
