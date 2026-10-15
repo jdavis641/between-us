@@ -1,8 +1,88 @@
 {
+  "weight_system": {
+    "Sensory": 1,
+    "Playful": 2,
+    "Intense": 3,
+    "Extreme": 4
+  },
+  "categories": [
+    {
+      "category": "Sensory",
+      "weight": 1,
+      "description": "Romantic pacing, light sensory deprivation, massage, slow burn",
+      "items": [
+        { "label": "Romantic pacing", "category": "Sensory", "weight": 1 },
+        { "label": "Light sensory deprivation", "category": "Sensory", "weight": 1 },
+        { "label": "Massage", "category": "Sensory", "weight": 1 },
+        { "label": "Slow burn", "category": "Sensory", "weight": 1 },
+        { "label": "Placeholder A", "category": "Sensory", "weight": 1 },
+        { "label": "Placeholder B", "category": "Sensory", "weight": 1 }
+      ]
+    },
+    {
+      "category": "Playful",
+      "weight": 2,
+      "description": "Light bondage, exhibitionism, role reversal, toys, teasing",
+      "items": [
+        { "label": "Light bondage", "category": "Playful", "weight": 2 },
+        { "label": "Exhibitionism", "category": "Playful", "weight": 2 },
+        { "label": "Role reversal", "category": "Playful", "weight": 2 },
+        { "label": "Toys", "category": "Playful", "weight": 2 },
+        { "label": "Teasing", "category": "Playful", "weight": 2 },
+        { "label": "Placeholder C", "category": "Playful", "weight": 2 },
+        { "label": "Placeholder D", "category": "Playful", "weight": 2 }
+      ]
+    },
+    {
+      "category": "Intense",
+      "weight": 3,
+      "description": "Strict power dynamics, heavy BDSM, group dynamics, impact play",
+      "items": [
+        { "label": "Strict power dynamics", "category": "Intense", "weight": 3 },
+        { "label": "Heavy BDSM", "category": "Intense", "weight": 3 },
+        { "label": "Group dynamics", "category": "Intense", "weight": 3 },
+        { "label": "Impact play", "category": "Intense", "weight": 3 },
+        { "label": "Placeholder E", "category": "Intense", "weight": 3 },
+        { "label": "Placeholder F", "category": "Intense", "weight": 3 }
+      ]
+    },
+    {
+      "category": "Extreme",
+      "weight": 4,
+      "description": "Highly taboo, surreal, non-standard environments",
+      "items": [
+        { "label": "Highly taboo", "category": "Extreme", "weight": 4 },
+        { "label": "Surreal", "category": "Extreme", "weight": 4 },
+        { "label": "Non-standard environments", "category": "Extreme", "weight": 4 },
+        { "label": "Placeholder G", "category": "Extreme", "weight": 4 },
+        { "label": "Placeholder H", "category": "Extreme", "weight": 4 }
+      ]
+    }
+  ],
   "options": [
-    { "label": "Placeholder A", "weight": 1 },
-    { "label": "Placeholder B", "weight": 2 },
-    { "label": "Placeholder C", "weight": 3 },
-    { "label": "Placeholder D", "weight": 4 }
+    { "label": "Romantic pacing", "category": "Sensory", "weight": 1 },
+    { "label": "Light sensory deprivation", "category": "Sensory", "weight": 1 },
+    { "label": "Massage", "category": "Sensory", "weight": 1 },
+    { "label": "Slow burn", "category": "Sensory", "weight": 1 },
+    { "label": "Placeholder A", "category": "Sensory", "weight": 1 },
+    { "label": "Placeholder B", "category": "Sensory", "weight": 1 },
+    { "label": "Light bondage", "category": "Playful", "weight": 2 },
+    { "label": "Exhibitionism", "category": "Playful", "weight": 2 },
+    { "label": "Role reversal", "category": "Playful", "weight": 2 },
+    { "label": "Toys", "category": "Playful", "weight": 2 },
+    { "label": "Teasing", "category": "Playful", "weight": 2 },
+    { "label": "Placeholder C", "category": "Playful", "weight": 2 },
+    { "label": "Placeholder D", "category": "Playful", "weight": 2 },
+    { "label": "Strict power dynamics", "category": "Intense", "weight": 3 },
+    { "label": "Heavy BDSM", "category": "Intense", "weight": 3 },
+    { "label": "Group dynamics", "category": "Intense", "weight": 3 },
+    { "label": "Impact play", "category": "Intense", "weight": 3 },
+    { "label": "Placeholder E", "category": "Intense", "weight": 3 },
+    { "label": "Placeholder F", "category": "Intense", "weight": 3 },
+    { "label": "Highly taboo", "category": "Extreme", "weight": 4 },
+    { "label": "Surreal", "category": "Extreme", "weight": 4 },
+    { "label": "Non-standard environments", "category": "Extreme", "weight": 4 },
+    { "label": "Placeholder G", "category": "Extreme", "weight": 4 },
+    { "label": "Placeholder H", "category": "Extreme", "weight": 4 }
   ]
 }

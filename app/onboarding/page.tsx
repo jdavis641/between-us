@@ -14,6 +14,13 @@ interface TaxonomyOption {
   weight: number
 }
 
+interface CategoryData {
+  category: string
+  weight?: number
+  description?: string
+  items: TaxonomyOption[]
+}
+
 const WEIGHT_TIER_MAP: Record<number, Tier> = {
   1: 'Sensory',
   2: 'Playful',
@@ -141,12 +148,46 @@ function OnboardingContent() {
     return () => clearTimeout(timer)
   }, [username, profile])
 
+  const categoriesList: CategoryData[] = useMemo(() => {
+    const rawMatrix = preferenceMatrix as any
+    const weightSystem: Record<string, number> = rawMatrix?.weight_system || {
+      Sensory: 1,
+      Playful: 2,
+      Intense: 3,
+      Extreme: 4
+    }
+
+    if (Array.isArray(rawMatrix?.categories)) {
+      return rawMatrix.categories.map((c: any) => {
+        const catName = c.category || c.name || ''
+        const catWeight = c.weight ?? weightSystem[catName] ?? 1
+        return {
+          category: catName,
+          weight: catWeight,
+          description: c.description || '',
+          items: Array.isArray(c.items)
+            ? c.items.map((it: any) => {
+                if (typeof it === 'string') {
+                  return { label: it, weight: catWeight }
+                }
+                return {
+                  label: it.label || it.name || '',
+                  weight: it.weight ?? catWeight
+                }
+              })
+            : []
+        }
+      })
+    }
+    return []
+  }, [])
+
   const optionsList: TaxonomyOption[] = useMemo(() => {
     if (Array.isArray((preferenceMatrix as any)?.options)) {
       return (preferenceMatrix as any).options as TaxonomyOption[]
     }
-    return []
-  }, [])
+    return categoriesList.flatMap(c => c.items)
+  }, [categoriesList])
 
   // Mathematical sorting function to determine the base tolerance tier from extracted weights
   const calculatedTier: Tier = useMemo(() => {
@@ -626,22 +667,19 @@ function OnboardingContent() {
                       Categorized Boundary Matrix (Select all that interest you)
                     </p>
 
-                    {[1, 2, 3, 4].map((tierWeight) => {
-                      const tierName = WEIGHT_TIER_MAP[tierWeight] || 'Sensory'
-                      const tierLabel = `Tier ${tierWeight}: ${tierName}`
-                      const flame = tierWeight === 1 ? '🔥' : tierWeight === 2 ? '🔥🔥' : tierWeight === 3 ? '🔥🔥🔥' : '🔥🔥🔥🔥'
-                      const tierOptions = optionsList.filter(o => o.weight === tierWeight)
-
-                      if (tierOptions.length === 0) return null
+                    {categoriesList.map((cat) => {
+                      if (!cat.items || cat.items.length === 0) return null
 
                       return (
-                        <div key={tierWeight} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-zinc-200">{tierLabel}</h4>
-                            <span className="text-xs text-zinc-500 font-mono">{flame}</span>
+                        <div key={cat.category} className="border-t border-zinc-800/80 pt-4 first:border-t-0 first:pt-0">
+                          <div className="mb-2">
+                            <h4 className="text-sm font-semibold text-zinc-200">{cat.category}</h4>
+                            {cat.description && (
+                              <p className="text-xs text-zinc-400 mt-0.5 font-light">{cat.description}</p>
+                            )}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {tierOptions.map((opt) => {
+                            {cat.items.map((opt) => {
                               const isChecked = selectedItems.some(i => i.label === opt.label)
                               return (
                                 <label
