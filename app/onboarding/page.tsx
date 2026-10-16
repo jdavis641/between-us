@@ -74,6 +74,7 @@ function OnboardingContent() {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [pronouns, setPronouns] = useState('')
+  const [shareId, setShareId] = useState<string | null>(null)
 
   // Step 2: Assessment Gate & Consent state
   const [assessmentAnswer, setAssessmentAnswer] = useState<'undecided' | 'yes' | 'no'>('undecided')
@@ -90,6 +91,32 @@ function OnboardingContent() {
   const [specificActivities, setSpecificActivities] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+
+  // Track and persist share_id parameter
+  useEffect(() => {
+    const paramShareId = searchParams.get('share_id')
+    if (paramShareId) {
+      setShareId(paramShareId)
+      try {
+        sessionStorage.setItem('share_id', paramShareId)
+        document.cookie = `share_id=${encodeURIComponent(paramShareId)}; path=/; max-age=86400; SameSite=Lax`
+      } catch (e) {
+        console.warn('Could not persist share_id in onboarding:', e)
+      }
+    } else {
+      try {
+        const stored = sessionStorage.getItem('share_id')
+        if (stored) {
+          setShareId(stored)
+        } else {
+          const match = document.cookie.match(/(?:^|;\s*)share_id=([^;]+)/)
+          if (match && match[1]) {
+            setShareId(decodeURIComponent(match[1]))
+          }
+        }
+      } catch (e) {}
+    }
+  }, [searchParams])
 
   // Fetch session & profile
   useEffect(() => {
@@ -114,11 +141,29 @@ function OnboardingContent() {
           setPronouns(data.pronouns)
         }
 
-        // Ensure profile is active and route seamlessly to the onboarding welcome sequence
-        if (!data?.is_active && currentSession.user.id) {
-          await supabase.from('profiles').update({ is_active: true }).eq('id', currentSession.user.id)
+        const effectiveShareId = searchParams.get('share_id') || (() => {
+          try { return sessionStorage.getItem('share_id') } catch(e) { return null }
+        })() || (() => {
+          const match = typeof document !== 'undefined' ? document.cookie.match(/(?:^|;\s*)share_id=([^;]+)/) : null
+          return match ? decodeURIComponent(match[1]) : null
+        })()
+
+        // If user has an active subscription and arrived via a share link, suspend onboarding survey
+        if (data?.is_active && effectiveShareId) {
+          try {
+            sessionStorage.removeItem('share_id')
+            document.cookie = 'share_id=; path=/; max-age=0'
+          } catch(e) {}
+          window.location.href = `/dashboard/experience/${effectiveShareId}`
+          return
         }
-        setStep(1)
+
+        // Inactive users hit the Stripe payment step
+        if (!data?.is_active) {
+          setStep(0)
+        } else {
+          setStep(1)
+        }
       } else {
         router.push('/login')
       }
@@ -395,7 +440,7 @@ function OnboardingContent() {
             Complete your subscription to access personalized games, literature, roleplay scenarios, and your Between Us Pass.
           </p>
           <a
-            href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}`}
+            href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}&prefilled_email=${encodeURIComponent(session?.user?.email || '')}${shareId ? `&share_id=${encodeURIComponent(shareId)}` : ''}`}
             className="block w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors mt-6 shadow-lg shadow-red-900/20"
           >
             Pay with Stripe

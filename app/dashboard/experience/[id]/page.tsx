@@ -29,6 +29,33 @@ export default function ExperienceReader({ params }: { params: any }) {
       if (!id) return;
       setStoryId(id);
 
+      // Verify user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        try {
+          sessionStorage.setItem('share_id', id);
+          document.cookie = `share_id=${encodeURIComponent(id)}; path=/; max-age=86400; SameSite=Lax`;
+        } catch (e) {}
+        window.location.href = `/login?share_id=${id}`;
+        return;
+      }
+
+      // Check if user is active
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_active')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profile && profile.is_active === false) {
+        try {
+          sessionStorage.setItem('share_id', id);
+          document.cookie = `share_id=${encodeURIComponent(id)}; path=/; max-age=86400; SameSite=Lax`;
+        } catch (e) {}
+        window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}&prefilled_email=${encodeURIComponent(session.user.email || '')}&share_id=${id}`;
+        return;
+      }
+
       const { data } = await supabase
         .from('generated_content')
         .select('*')

@@ -17,8 +17,39 @@ function SignInContent() {
   const [loading, setLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resendMessage, setResendMessage] = useState('')
+  const [shareId, setShareId] = useState<string | null>(null)
 
   const router = useRouter()
+
+  useEffect(() => {
+    const urlShareId = searchParams.get('share_id')
+    if (urlShareId) {
+      setShareId(urlShareId)
+      try {
+        sessionStorage.setItem('share_id', urlShareId)
+        document.cookie = `share_id=${encodeURIComponent(urlShareId)}; path=/; max-age=86400; SameSite=Lax`
+      } catch (e) {
+        console.warn('Could not store share_id in login:', e)
+      }
+    } else {
+      try {
+        const stored = sessionStorage.getItem('share_id')
+        if (stored) {
+          setShareId(stored)
+          document.cookie = `share_id=${encodeURIComponent(stored)}; path=/; max-age=86400; SameSite=Lax`
+        } else {
+          const match = document.cookie.match(/(?:^|;\s*)share_id=([^;]+)/)
+          if (match && match[1]) {
+            const cookieVal = decodeURIComponent(match[1])
+            setShareId(cookieVal)
+            sessionStorage.setItem('share_id', cookieVal)
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read stored share_id in login:', e)
+      }
+    }
+  }, [searchParams])
   
   const handleSendOtp = async () => {
     if (!email) return
@@ -43,10 +74,18 @@ function SignInContent() {
     setAuthMessage('Verifying code...')
 
     try {
+      const effectiveShareId = shareId || searchParams.get('share_id') || (() => {
+        try { return sessionStorage.getItem('share_id') } catch(e) { return null }
+      })()
+
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otp })
+        body: JSON.stringify({ 
+          email, 
+          code: otp,
+          share_id: effectiveShareId
+        })
       });
 
       const data = await res.json();
@@ -55,8 +94,26 @@ function SignInContent() {
         setAuthMessage(data.error || 'Verification failed');
         setLoading(false);
       } else {
-        // Query profiles table for user's onboarding_completed or nickname status
-        let target = data.destination || '/onboarding';
+        const target = data.destination || '/onboarding';
+
+        // If destination routes directly to shared experience, clear storage and route directly
+        if (target.includes('/dashboard/experience/')) {
+          try {
+            sessionStorage.removeItem('share_id');
+            document.cookie = 'share_id=; path=/; max-age=0';
+          } catch(e) {}
+          window.location.href = target;
+          return;
+        }
+
+        // If routing to Stripe checkout, preserve share context and route
+        if (target.includes('buy.stripe.com')) {
+          window.location.href = target;
+          return;
+        }
+
+        // Standard profile check if not routing to shared content or Stripe
+        let finalTarget = target;
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -71,7 +128,7 @@ function SignInContent() {
             );
 
             if (!isComplete) {
-              target = '/onboarding';
+              finalTarget = '/onboarding';
             }
           }
         } catch (profileErr) {
@@ -79,7 +136,7 @@ function SignInContent() {
         }
 
         // Hard navigation to guarantee session hydration and prevent defaulting to dashboard
-        window.location.href = target;
+        window.location.href = finalTarget;
       }
     } catch (err: any) {
       setAuthMessage('Network error: ' + err.message);

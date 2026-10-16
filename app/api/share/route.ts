@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
@@ -38,6 +39,29 @@ export async function POST(req: Request) {
       user = res.data?.user || null;
     }
 
+    // Record shared access in DB
+    try {
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const supabaseAdmin = createSupabaseClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
+        await supabaseAdmin
+          .from('generated_content')
+          .update({ is_shared: true })
+          .eq('id', storyId);
+
+        await supabaseAdmin
+          .from('shared_content_access')
+          .upsert(
+            { content_id: storyId, shared_by: user?.id || null },
+            { onConflict: 'content_id' }
+          );
+      }
+    } catch (shareDbErr) {
+      console.warn('Could not record shared access in DB:', shareDbErr);
+    }
+
     // Determine story title if not provided
     let title = storyTitle || 'Intimate Experience';
     if (!storyTitle) {
@@ -53,7 +77,7 @@ export async function POST(req: Request) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenus.app';
-    const storyLink = `${baseUrl}/dashboard/experience/${storyId}`;
+    const storyLink = `${baseUrl}/dashboard/experience/${storyId}?share_id=${storyId}`;
 
     if (isEmail) {
       // Dispatch via Resend
