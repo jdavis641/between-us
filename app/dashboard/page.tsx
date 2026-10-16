@@ -62,12 +62,12 @@ export default function DashboardHome() {
         {/* Settings Notification Banner */}
         <section>
           <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
-            <p className="text-gray-300 text-sm">
+            <h2 className="text-lg md:text-xl font-bold text-zinc-100">
               Change your tolerance level and contribute to the community, anonymously, in the{' '}
-              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline font-medium transition-colors">
+              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline font-bold transition-colors">
                 settings menu
               </Link>
-            </p>
+            </h2>
           </div>
         </section>
 
@@ -123,11 +123,11 @@ export default function DashboardHome() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Intimacy Games Hub Link */}
             <Link href="/dashboard/games">
-              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
                 <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
                   <span className="text-4xl">🎲</span>
                 </div>
@@ -140,13 +140,26 @@ export default function DashboardHome() {
 
             {/* Role Play Hub Link */}
             <Link href="/dashboard/roleplay">
-              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-red-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-red-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
                 <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
                   <span className="text-4xl">🎭</span>
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">Role Play Scenarios</h3>
                   <p className="text-gray-400 text-sm">Explore scenarios categorized by Sensory (🔥), Playful (🔥🔥), and Intense (🔥🔥🔥).</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Your Favorites Hub Link */}
+            <Link href="/dashboard/favorites">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-rose-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
+                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
+                  <span className="text-4xl">❤️</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Your Favorites</h3>
+                  <p className="text-gray-400 text-sm">Quickly revisit and replay your saved scenarios, stories, and preferred intimacy experiences.</p>
                 </div>
               </div>
             </Link>

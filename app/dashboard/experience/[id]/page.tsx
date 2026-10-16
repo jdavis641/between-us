@@ -21,6 +21,9 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [isSharing, setIsSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
   const [shareToast, setShareToast] = useState<string | null>(null)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [isFavoriting, setIsFavoriting] = useState(false)
+  const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchContent() {
@@ -63,6 +66,21 @@ export default function ExperienceReader({ params }: { params: any }) {
         .maybeSingle()
 
       if (data) {
+        if (data.is_favorite === true || (typeof data.theme_tags === 'string' && data.theme_tags.includes('[favorite]'))) {
+          setIsFavorite(true);
+        } else {
+          // Check user_favorites via API
+          try {
+            const favRes = await fetch(`/api/favorites/toggle?contentId=${id}`);
+            if (favRes.ok) {
+              const favJson = await favRes.json();
+              if (favJson.isFavorite) {
+                setIsFavorite(true);
+              }
+            }
+          } catch {}
+        }
+
         // Try to parse the body as JSON if it was stored as JSON from Gemini
         try {
            const parsedBody = JSON.parse(data.body.replace(/```json|```/g, '').trim());
@@ -225,6 +243,45 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (isFavoriting || !storyId) return;
+    const nextFavorite = !isFavorite;
+    setIsFavorite(nextFavorite);
+    setIsFavoriting(true);
+    setFavoriteToast(nextFavorite ? 'Added to favorites' : 'Removed from favorites');
+    setTimeout(() => setFavoriteToast(null), 3500);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          contentId: storyId,
+          isFavorite: nextFavorite
+        })
+      });
+
+      const resJson = await res.json();
+      if (!res.ok) {
+        throw new Error(resJson.error || 'Failed to update favorite status');
+      }
+      if (typeof resJson.isFavorite === 'boolean') {
+        setIsFavorite(resJson.isFavorite);
+      }
+    } catch (err: any) {
+      console.error('Error toggling favorite:', err);
+      setIsFavorite(!nextFavorite); // Revert on failure
+      setFavoriteToast('Failed to update favorite status');
+      setTimeout(() => setFavoriteToast(null), 3500);
+    } finally {
+      setIsFavoriting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white p-8 flex items-center justify-center">
@@ -268,10 +325,28 @@ export default function ExperienceReader({ params }: { params: any }) {
             &larr; Back to Dashboard
           </Link>
 
-          <div className="flex items-center gap-4 bg-zinc-900/50 p-1.5 rounded-lg border border-zinc-800/50 self-start sm:self-auto">
-             <button onClick={() => setTextSize("text-lg")} className={`px-3 py-1 rounded text-sm transition-colors ${textSize === 'text-lg' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
-             <button onClick={() => setTextSize("text-xl")} className={`px-3 py-1 rounded text-base transition-colors ${textSize === 'text-xl' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
-             <button onClick={() => setTextSize("text-2xl")} className={`px-3 py-1 rounded text-lg font-bold transition-colors ${textSize === 'text-2xl' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            <button
+              onClick={handleToggleFavorite}
+              disabled={isFavoriting}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all cursor-pointer shadow-sm active:scale-95 ${
+                isFavorite
+                  ? "bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/60 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                  : "bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700"
+              }`}
+              title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <span className={`text-base transition-transform ${isFavorite ? "scale-110" : "grayscale opacity-70"}`}>
+                {isFavorite ? '❤️' : '🤍'}
+              </span>
+              <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
+            </button>
+
+            <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-lg border border-zinc-800/50">
+              <button onClick={() => setTextSize("text-lg")} className={`px-3 py-1 rounded text-sm transition-colors ${textSize === 'text-lg' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
+              <button onClick={() => setTextSize("text-xl")} className={`px-3 py-1 rounded text-base transition-colors ${textSize === 'text-xl' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
+              <button onClick={() => setTextSize("text-2xl")} className={`px-3 py-1 rounded text-lg font-bold transition-colors ${textSize === 'text-2xl' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>A</button>
+            </div>
           </div>
         </div>
         
@@ -384,7 +459,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
         </article>
 
-        {/* Story Actions (Download & Share) */}
+        {/* Story Actions (Download, Share, & Favorite) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-10 border-t border-zinc-800/80">
           <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <button
@@ -401,9 +476,24 @@ export default function ExperienceReader({ params }: { params: any }) {
               <span className="text-lg group-hover:scale-110 transition-transform">📤</span>
               Share
             </button>
+            <button
+              onClick={handleToggleFavorite}
+              disabled={isFavoriting}
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-medium transition-all shadow-lg active:scale-95 group cursor-pointer border ${
+                isFavorite
+                  ? "bg-rose-950/60 hover:bg-rose-900/80 text-rose-200 border-rose-800/80 shadow-[0_0_25px_rgba(244,63,94,0.35)]"
+                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border-zinc-700/80 hover:border-rose-900/50 hover:shadow-[0_0_20px_rgba(244,63,94,0.2)]"
+              }`}
+              title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <span className={`text-xl transition-transform group-hover:scale-125 ${isFavorite ? "scale-110" : "grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100"}`}>
+                {isFavorite ? '❤️' : '🤍'}
+              </span>
+              <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
+            </button>
           </div>
           <span className="text-xs text-zinc-500 font-light">
-            Export offline or share securely via Email / SMS
+            Export offline, favorite, or share securely via Email / SMS
           </span>
         </div>
 
@@ -478,13 +568,35 @@ export default function ExperienceReader({ params }: { params: any }) {
           </div>
         )}
 
+        {/* Favorite Toast Feedback */}
+        {favoriteToast && (
+          <div className="fixed bottom-6 left-6 z-50 bg-zinc-900 border border-rose-800/80 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+            <span className="text-rose-400 text-lg">❤️</span>
+            <span className="text-sm font-medium text-zinc-200">{favoriteToast}</span>
+          </div>
+        )}
+
         {/* Feedback Loop */}
         <div className="mt-24 pt-16 border-t border-zinc-800/80 space-y-16">
           <div className="text-center">
             <h3 className="text-2xl font-serif font-bold text-zinc-100 mb-2">How was the experience?</h3>
-            <p className="text-zinc-500 text-sm mb-8">Your feedback shapes future generations and learns your desires.</p>
-            <div className="max-w-sm mx-auto">
-               <RatingWidget contentType={isRoleplay ? "roleplay" : "literature"} contentId={params.id} />
+            <p className="text-zinc-500 text-sm mb-6">Your feedback shapes future generations and learns your desires.</p>
+            
+            <div className="flex flex-col items-center justify-center gap-4 mb-8">
+              <div className="w-full max-w-sm">
+                <RatingWidget contentType={isRoleplay ? "roleplay" : "literature"} contentId={params.id} />
+              </div>
+              <button
+                onClick={handleToggleFavorite}
+                disabled={isFavoriting}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all shadow-md active:scale-95 cursor-pointer ${
+                  isFavorite
+                    ? "bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/60 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                    : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700"
+                }`}
+              >
+                <span>{isFavorite ? '❤️ In Your Favorites' : '🤍 Save this to Your Favorites'}</span>
+              </button>
             </div>
           </div>
           

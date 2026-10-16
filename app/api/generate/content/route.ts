@@ -198,6 +198,139 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
   return sys;
 }
 
+async function fetchCuratedSupabaseFallback({
+  supabase,
+  contentType,
+  category,
+  playMode,
+  targetBoundary,
+  theme,
+  hasScripts
+}: {
+  supabase: any;
+  contentType: string;
+  category?: string;
+  playMode: string;
+  targetBoundary?: string;
+  theme?: string;
+  hasScripts?: boolean;
+}) {
+  try {
+    // 1. Try to query generated_content for existing seeded or curated content matching contentType
+    let query = supabase
+      .from('generated_content')
+      .select('*')
+      .eq('content_type', contentType);
+
+    if (targetBoundary) {
+      query = query.ilike('tolerance_tier', `%${targetBoundary}%`);
+    }
+
+    const { data: rows } = await query
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    let selectedRow = null;
+    if (rows && rows.length > 0) {
+      // If a theme was provided, prioritize matching theme
+      if (theme) {
+        selectedRow = rows.find((r: any) => 
+          (r.theme_tags && r.theme_tags.toLowerCase().includes(theme.toLowerCase())) ||
+          (r.title && r.title.toLowerCase().includes(theme.toLowerCase()))
+        );
+      }
+      if (!selectedRow) {
+        // Pick random from the fetched curated pool
+        selectedRow = rows[Math.floor(Math.random() * rows.length)];
+      }
+    }
+
+    // 2. If no generated_content row found and contentType is 'game', query intimacy_games table
+    if (!selectedRow && contentType === 'game') {
+      let gameQuery = supabase.from('intimacy_games').select('*');
+      if (category) {
+        gameQuery = gameQuery.eq('category', category);
+      }
+      const { data: games } = await gameQuery.limit(10);
+      if (games && games.length > 0) {
+        const game = games[Math.floor(Math.random() * games.length)];
+        return {
+          title: game.title,
+          overview: game.description || "Curated Intimacy Challenge",
+          prompts: game.content?.rules || [game.description],
+          fallback: true,
+          source: 'seeded_intimacy_games'
+        };
+      }
+    }
+
+    if (selectedRow) {
+      let parsed: any = {};
+      try {
+        if (typeof selectedRow.body === 'string') {
+          parsed = JSON.parse(selectedRow.body.replace(/```json|```/g, '').trim());
+        } else if (typeof selectedRow.body === 'object') {
+          parsed = selectedRow.body;
+        }
+      } catch {
+        parsed = {
+          title: selectedRow.title,
+          body: selectedRow.body,
+          text: selectedRow.body
+        };
+      }
+
+      parsed.title = parsed.title || selectedRow.title || "Curated Experience";
+      parsed.fallback = true;
+      parsed.source = "seeded_supabase_library";
+      return parsed;
+    }
+  } catch (err) {
+    console.warn("Supabase fallback query error:", err);
+  }
+
+  // 3. High quality safety net curated defaults if Supabase table is empty or inaccessible
+  if (contentType === 'literature') {
+    return {
+      title: "Shadows and Silk",
+      body: `## Chapter 1: Unspoken Desires\n\nThe flickering candlelight cast warm golden amber across the room, deepening the heavy silence between them. Every step closer felt deliberate, electric with weeks of unspoken tension.\n\n## Chapter 2: The Escalation\n\nHis hands found her waist, warm and grounding, dispelling any lingering doubts. As their lips met, the slow burn of anticipation dissolved into an intoxicating wave of breathless passion.\n\n## Chapter 3: The Climax\n\nEvery touch became visceral, urgent yet savored. The boundary between restraint and surrender completely evaporated in an overwhelming, ecstatic release that echoed in the quiet room.`,
+      text: `## Chapter 1: Unspoken Desires\n\nThe flickering candlelight cast warm golden amber across the room, deepening the heavy silence between them. Every step closer felt deliberate, electric with weeks of unspoken tension.\n\n## Chapter 2: The Escalation\n\nHis hands found her waist, warm and grounding, dispelling any lingering doubts. As their lips met, the slow burn of anticipation dissolved into an intoxicating wave of breathless passion.\n\n## Chapter 3: The Climax\n\nEvery touch became visceral, urgent yet savored. The boundary between restraint and surrender completely evaporated in an overwhelming, ecstatic release that echoed in the quiet room.`,
+      fallback: true,
+      source: "curated_library_safety_net"
+    };
+  }
+
+  if (contentType === 'game') {
+    return {
+      title: "Sensory Connection",
+      overview: "A series of escalating sensory prompts designed to break down barriers and heighten mutual desire.",
+      prompts: [
+        "Maintain unbroken eye contact for 60 seconds without speaking.",
+        "Gently massage your partner's neck and shoulders for two uninterrupted minutes.",
+        "Whisper a secret desire into your partner's ear that you haven't shared yet.",
+        "One partner is blindfolded while the other traces featherlight touches along their arms and collarbone."
+      ],
+      fallback: true,
+      source: "curated_library_safety_net"
+    };
+  }
+
+  // Default to roleplay
+  return {
+    title: "Midnight Encounter",
+    overview: "A secluded private lounge after midnight. The atmosphere is quiet, intimate, and charged with anticipation.",
+    preExperienceTasks: [
+      "Set your phone on silent and dim the ambient lights.",
+      "Pour a glass of water or wine and sit facing your partner."
+    ],
+    partnerAPerspective: "Take your time setting the pace. Your partner wants to feel your complete presence and undivided attention tonight.",
+    partnerBPerspective: "Allow yourself to be vulnerable. Let the anticipation guide you rather than rushing to the next step.",
+    fullScript: hasScripts ? "Partner A: 'Take a breath. Tonight, we have nowhere else to be.'\nPartner B: 'I've been thinking about this all day.'" : null,
+    fallback: true,
+    source: "curated_library_safety_net"
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -294,16 +427,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Initialize OpenAI
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error("Missing OPENROUTER_API_KEY in environment variables");
-    }
-    const openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: process.env.OPENROUTER_API_KEY,
-    });
-
-    // Fetch and rotate community scenarios for OpenRouter generation
+    // Fetch and rotate community scenarios for generation
     const { data: rawCommunityScenarios } = await supabase
       .from('scenario_suggestions')
       .select('*')
@@ -379,6 +503,14 @@ export async function POST(req: Request) {
 
     let streamResult;
     try {
+      if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error("Missing OPENROUTER_API_KEY in environment variables");
+      }
+      const openai = new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: process.env.OPENROUTER_API_KEY,
+      });
+
       streamResult = await openai.chat.completions.create({
         model: "sao10k/l3.1-euryale-70b",
         messages: [
@@ -399,8 +531,52 @@ export async function POST(req: Request) {
         }
       } as any);
     } catch (apiError: any) {
-      console.error("OpenRouter API Fetch Error:", apiError);
-      return NextResponse.json({ error: apiError.message || "OpenRouter failed" }, { status: 500 });
+      console.warn("OpenRouter/Euryale endpoint dropped or failed. Initiating Supabase library failover:", apiError?.message || apiError);
+
+      const fallbackContent = await fetchCuratedSupabaseFallback({
+        supabase,
+        contentType,
+        category,
+        playMode,
+        targetBoundary: targetBoundary || baseTolerance,
+        theme,
+        hasScripts
+      });
+
+      // Persist fallback experience into user's generated_content so they can view and favorite it seamlessly
+      try {
+        await supabase.from('generated_content').insert({
+          user_id: user.id,
+          content_type: contentType,
+          title: fallbackContent.title || "Curated Experience",
+          body: JSON.stringify(fallbackContent),
+          status: 'active',
+          tolerance_tier: targetBoundary || baseTolerance || null,
+          play_mode: playMode,
+          theme_tags: theme ? `${theme},[fallback]` : '[fallback]'
+        });
+
+        await supabase.from('activity_history').insert({
+          user_id: user.id,
+          group_id: groupId || null,
+          content_type: contentType,
+          category: category || playMode,
+          content_title: fallbackContent.title || "Curated Experience",
+          tags: [playMode, 'curated_fallback']
+        });
+      } catch (persistErr) {
+        console.warn("Error recording fallback activity:", persistErr);
+      }
+
+      // Return curated content from seeded Supabase library
+      return new Response(JSON.stringify(fallbackContent), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "X-Content-Source": "seeded-library-fallback",
+          "X-Content-Fallback": "true"
+        }
+      });
     }
 
     const encoder = new TextEncoder();
