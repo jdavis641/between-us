@@ -501,8 +501,9 @@ export default function LiteratureClient() {
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  const cleanPartnerB = (scenario?.partnerBPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const streamingStory = extractStreamingMarkdown(streamProgress);
+  const generatedContent = streamingStory.body || streamProgress;
+  const wordCount = (generatedContent || '').trim().split(/\s+/).length;
 
   return (
     <div className="flex flex-col w-full relative">
@@ -731,16 +732,16 @@ export default function LiteratureClient() {
                 </button>
               </div>
 
-              {loading && streamProgress.length === 0 && (
-                <div className="mt-6">
+              {loading && wordCount < 1000 && (
+                <div className="mt-8">
                   <FlameLoader 
                     isGenerating={loading} 
-                    progressText="Connecting to story engine & establishing narrative stream..." 
+                    progressText="Crafting the narrative..." 
                   />
                 </div>
               )}
 
-              {loading && streamProgress.length > 0 && (
+              {loading && wordCount >= 1000 && (
                 <div className="mt-8 space-y-6 animate-in fade-in duration-300">
                   {/* Real-time Streaming Status Bar */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
@@ -754,7 +755,7 @@ export default function LiteratureClient() {
                       </span>
                     </div>
                     <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
-                      ~{Math.round(streamProgress.split(/\s+/).filter(Boolean).length)} words streamed
+                      ~{wordCount} words streamed
                     </span>
                   </div>
 
@@ -767,9 +768,9 @@ export default function LiteratureClient() {
                     )}
 
                     <div className="prose prose-invert max-w-none text-zinc-200 font-serif leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
-                      <ErrorBoundary fallbackContent={streamingStory.body || streamProgress}>
+                      <ErrorBoundary fallbackContent={generatedContent}>
                         <ReactMarkdown>
-                          {safeMarkdownString(streamingStory.body || streamProgress)}
+                          {safeMarkdownString(generatedContent)}
                         </ReactMarkdown>
                       </ErrorBoundary>
                       <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
@@ -959,16 +960,16 @@ export default function LiteratureClient() {
             </button>
           </div>
 
-          {isContinuing && streamProgress.length === 0 && (
+          {isContinuing && wordCount < 1000 && (
             <div className="mt-4 mb-8">
               <FlameLoader
                 isGenerating={isContinuing}
-                progressText="Connecting to story engine to extend..."
+                progressText="Crafting the narrative..."
               />
             </div>
           )}
 
-          {isContinuing && streamProgress.length > 0 && (
+          {isContinuing && wordCount >= 1000 && (
             <div className="mt-4 mb-8 space-y-4">
               <div className="flex items-center gap-2.5 text-xs text-red-300 bg-red-950/40 border border-red-900/50 p-3 rounded-lg">
                 <span className="relative flex h-2.5 w-2.5">
@@ -976,12 +977,12 @@ export default function LiteratureClient() {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                 </span>
                 <span className="font-medium">
-                  Appending new chapters in real-time...
+                  Appending new chapters in real-time... (~{wordCount} words)
                 </span>
               </div>
               <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6 text-zinc-300 font-serif leading-loose whitespace-pre-wrap">
-                <ErrorBoundary fallbackContent={streamingStory.body || streamProgress}>
-                  <ReactMarkdown>{safeMarkdownString(streamingStory.body || streamProgress)}</ReactMarkdown>
+                <ErrorBoundary fallbackContent={generatedContent}>
+                  <ReactMarkdown>{safeMarkdownString(generatedContent)}</ReactMarkdown>
                 </ErrorBoundary>
                 <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
               </div>

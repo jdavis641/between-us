@@ -139,6 +139,8 @@ Climax Execution: You must make the climax portion of the story highly detailed 
 
   sys += `Critical Narrative Rule: Regardless of the selected pacing (Quick Burn, Medium Burn, or Slow Burn), ALL stories MUST culminate in an explicit, highly detailed erotic climax. The pacing only dictates how much time is spent building anticipation before the physical escalation occurs.\n\n`;
 
+  sys += `Critical Dialogue Rule: You must write the actual spoken words inside all quotation marks. NEVER output empty quotes with isolated punctuation (e.g., never output " : " or " , "). Ensure all spoken dialogue is properly constructed and escaped for JSON (e.g., "Look at me," he whispered.).\n\n`;
+
   sys += `BOUNDARY ENFORCEMENT & INTENSITY:
 - Overarching Intensity Parameter (Base Tolerance): ${baseTolerance}
 - Mandatory Included Themes: ${mandatoryThemes}
@@ -209,6 +211,8 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
   if (activeHoliday) {
     sys += `\n\nSEASONAL CONTEXT INSTRUCTION:\nSubtly weave in thematic elements appropriate for ${activeHoliday.name}.\n\n`;
   }
+
+  sys += `Critical Dialogue Rule: You must write the actual spoken words inside all quotation marks. NEVER output empty quotes with isolated punctuation (e.g., never output " : " or " , "). Ensure all spoken dialogue is properly constructed and escaped for JSON (e.g., "Look at me," he whispered.).\n\n`;
 
   return sys;
 }

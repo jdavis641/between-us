@@ -11,8 +11,19 @@ export { RolePlayClient, FlameLoader, ErrorBoundary, extractStreamingRoleplay, S
 
 export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
-export function RolePlayMarkdown({ content }: { content: string }) {
-  const cleanContent = safeMarkdownString(content);
+export function RolePlayMarkdown({ content, isGenerating = false }: { content: string; isGenerating?: boolean }) {
+  const generatedContent = content || '';
+  const wordCount = (generatedContent || '').trim().split(/\s+/).length;
+
+  if (isGenerating && wordCount < 1000) {
+    return (
+      <div className="py-6">
+        <FlameLoader isGenerating={true} progressText="Crafting the narrative..." />
+      </div>
+    );
+  }
+
+  const cleanContent = safeMarkdownString(generatedContent);
   return (
     <ErrorBoundary fallbackContent={cleanContent}>
       <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
