@@ -63,10 +63,11 @@ export default function DashboardHome() {
         <section>
           <div className="bg-gray-800 p-4 md:p-6 rounded-xl border border-gray-700 text-center">
             <p className="text-sm text-zinc-400 font-normal">
-              Change your tolerance level and contribute to the community, anonymously, in the{' '}
+              Choose your tolerance level from Sensory, Playful, Intense or Extreme in the{' '}
               <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline transition-colors">
                 settings menu
               </Link>
+              . You can also contribute to the community anonymously.
             </p>
           </div>
         </section>
@@ -146,7 +147,7 @@ export default function DashboardHome() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">Role Play Scenarios</h3>
-                  <p className="text-gray-400 text-sm">Explore scenarios categorized by Sensory (🔥), Playful (🔥🔥), and Intense (🔥🔥🔥).</p>
+                  <p className="text-gray-400 text-sm">Explore scenarios for couple or group play.</p>
                 </div>
               </div>
             </Link>
