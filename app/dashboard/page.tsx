@@ -61,13 +61,13 @@ export default function DashboardHome() {
         
         {/* Settings Notification Banner */}
         <section>
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
-            <h2 className="text-lg md:text-xl font-bold text-zinc-100">
+          <div className="bg-gray-800 p-4 md:p-6 rounded-xl border border-gray-700 text-center">
+            <p className="text-sm text-zinc-400 font-normal">
               Change your tolerance level and contribute to the community, anonymously, in the{' '}
-              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline font-bold transition-colors">
+              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline transition-colors">
                 settings menu
               </Link>
-            </h2>
+            </p>
           </div>
         </section>
 
