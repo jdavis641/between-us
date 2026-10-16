@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "@/components/FlameLoader";
 import ReactMarkdown from "react-markdown";
@@ -74,15 +73,8 @@ export function extractStreamingMarkdown(raw: string): { title?: string; body: s
 }
 
 export default function LiteratureClient() {
-  const searchParams = useSearchParams();
-  const rawMode = searchParams.get("mode");
-  const initialMode = rawMode === "group" ? "group" : "couple";
-
-  const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
-  const [pacing, setPacing] = useState("Slow Burn");
-  const [storyLength, setStoryLength] = useState("Novella (1-3 Minute Load Time)");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
   const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -134,14 +126,11 @@ export default function LiteratureClient() {
         cache: "no-store",
         body: JSON.stringify({ 
           contentType: "literature",
-          playMode: playMode,
           hasScripts: false,
           theme: theme,
           targetBoundary: targetBoundary,
           previousContent: currentStoryText,
           existingStory: currentStoryText,
-          pacing: pacing,
-          storyLength: storyLength,
           activeTrope: activeTrope
         })
       }).catch((fetchErr) => {
@@ -312,11 +301,8 @@ export default function LiteratureClient() {
         credentials: "include",
         cache: "no-store",
         body: JSON.stringify({
-          playMode,
           targetBoundary,
-          theme,
-          pacing,
-          storyLength
+          theme
         })
       });
 
@@ -383,12 +369,9 @@ export default function LiteratureClient() {
         cache: "no-store",
         body: JSON.stringify({ 
           contentType: "literature",
-          playMode: playMode,
           hasScripts: false,
           theme: theme,
           targetBoundary: targetBoundary,
-          pacing: pacing,
-          storyLength: storyLength,
           activeTrope: activeTrope
         })
       }).catch((fetchErr) => {
@@ -522,30 +505,6 @@ export default function LiteratureClient() {
       {!scenario && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 mb-8">
           <h2 className="text-xl font-medium text-zinc-100 mb-4">Configure Literature</h2>
-          <div className="flex flex-wrap gap-4 mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="couple" 
-                checked={playMode === 'couple'} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Couple</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="group" 
-                checked={playMode === 'group'} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Group</span>
-            </label>
-          </div>
 
           <div className="mb-6 space-y-5">
             <div>
@@ -564,83 +523,15 @@ export default function LiteratureClient() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Theme Suggestions (Optional)</label>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Optional: Include tropes, scenarios, kinks, couples or group dynamics to custom tailor your story
+              </label>
               <textarea 
                 value={theme} 
                 onChange={(e) => setTheme(e.target.value)}
-                placeholder="e.g., A rainy night in a secluded cabin, masquerade ball, enemies to lovers..."
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 h-24 focus:outline-none focus:border-red-900"
+                placeholder="Optional: Include tropes, scenarios, kinks, couples or group dynamics to custom tailor your story"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 h-28 focus:outline-none focus:border-red-900"
               />
-            </div>
-
-            {/* Pacing Radio Button Group */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Pacing</label>
-              <div className="flex flex-wrap gap-4">
-                {["Slow Burn", "Medium Burn", "Quick Burn"].map((pace) => (
-                  <label key={pace} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="pacing" 
-                      value={pace} 
-                      checked={pacing === pace} 
-                      onChange={(e) => {
-                        const newPacing = e.target.value;
-                        setPacing(newPacing);
-                        if (newPacing === "Slow Burn" && storyLength.includes("Short Story")) {
-                          setStoryLength("Novella (1-3 Minute Load Time)");
-                        }
-                      }}
-                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
-                    />
-                    <span className="text-sm text-zinc-300 font-medium">{pace}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Story Length Radio Button Group */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Story Length</label>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                {[
-                  "Short Story (Under 1 Minute Load Time)",
-                  "Novella (1-3 Minute Load Time)",
-                  "Novel (3+ Minute Load Time)"
-                ].map((len) => {
-                  const isShortStory = len.includes("Short Story");
-                  const isOptionDisabled = isShortStory && pacing === "Slow Burn";
-
-                  return (
-                    <label 
-                      key={len} 
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2.5 transition-colors ${
-                        isOptionDisabled 
-                          ? "opacity-50 cursor-not-allowed bg-zinc-950/40 border border-zinc-900 text-zinc-500" 
-                          : "cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 text-zinc-300"
-                      }`}
-                    >
-                      <input 
-                        type="radio" 
-                        name="storyLength" 
-                        value={len} 
-                        disabled={isOptionDisabled}
-                        checked={storyLength === len} 
-                        onChange={(e) => setStoryLength(e.target.value)}
-                        className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <span className="text-sm font-medium">
-                        {len}
-                        {isOptionDisabled && (
-                          <span className="block sm:inline sm:ml-2 text-xs text-zinc-500 font-normal">
-                            (Unavailable for Slow Burn)
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
             </div>
           </div>
           
@@ -854,10 +745,6 @@ export default function LiteratureClient() {
               <span className="text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full bg-red-950/60 text-red-200 border border-red-800">
                 {activeTrope.trope}
               </span>
-              <span className="text-xs text-zinc-500">•</span>
-              <span className="text-xs text-zinc-400">{pacing}</span>
-              <span className="text-xs text-zinc-500">•</span>
-              <span className="text-xs text-zinc-400">{storyLength}</span>
             </div>
           )}
 
