@@ -536,14 +536,7 @@ export async function POST(req: Request) {
       userPrompt = `PREVIOUS STORY TEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the narrative seamlessly from the provided text. Do not summarize or repeat the previous text. Return valid JSON containing the new continuation text in the "body" and "text" fields. ${userPrompt}`;
     }
 
-    let maxTokens = 2500;
-    const isNovellaToken = storyLength === 'Novella' || (typeof storyLength === 'string' && storyLength.includes('Novella'));
-    const isNovelToken = (storyLength === 'Novel' || (typeof storyLength === 'string' && storyLength.includes('Novel'))) && !isNovellaToken;
-    if (isNovellaToken) {
-      maxTokens = 4500;
-    } else if (isNovelToken) {
-      maxTokens = 8192;
-    }
+    const maxTokens = 8000;
 
     let streamResult;
     const abortController = new AbortController();
@@ -568,10 +561,11 @@ export async function POST(req: Request) {
         ],
         temperature: 0.85,
         top_p: 0.9,
-        max_tokens: maxTokens,
+        max_tokens: 8000,
         response_format: { type: "json_object" },
         stream: true,
         extra_body: {
+          max_tokens: 8000,
           models: [
             "sao10k/l3.1-euryale-70b",
             "neversleep/llama-3.1-lumimaid-70b",

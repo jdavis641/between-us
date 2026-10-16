@@ -19,6 +19,15 @@ interface ScenarioPayload {
   fullScript: string | null;
 }
 
+export const STREAM_INTERRUPTED_MESSAGE = "Stream interrupted. Click Continue Story to resume";
+
+export function handleStreamError(error: unknown, onError?: (msg: string) => void): string {
+  console.warn("Stream error intercepted:", error);
+  const msg = STREAM_INTERRUPTED_MESSAGE;
+  if (onError) onError(msg);
+  return msg;
+}
+
 export function extractStreamingRoleplay(raw: string): {
   title?: string;
   overview?: string;
@@ -91,6 +100,7 @@ export default function RolePlayClient() {
     setIsContinuing(true);
     setError(null);
     setStreamProgress("");
+    let isStreamInterrupted = false;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -117,6 +127,10 @@ export default function RolePlayClient() {
           previousContent: currentStoryText,
           existingStory: currentStoryText
         })
+      }).catch((fetchErr) => {
+        console.error("Continuation fetch error:", fetchErr);
+        isStreamInterrupted = true;
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       });
 
       if (!res.ok) {
@@ -143,15 +157,31 @@ export default function RolePlayClient() {
 
       if (reader) {
         const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          rawText += chunk;
-          setStreamProgress(prev => prev + chunk);
+        try {
+          while (true) {
+            const { done, value } = await reader.read().catch((readErr) => {
+              console.warn("Continuation stream interrupted mid-read:", readErr);
+              isStreamInterrupted = true;
+              throw new Error(STREAM_INTERRUPTED_MESSAGE);
+            });
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            rawText += chunk;
+            setStreamProgress(prev => prev + chunk);
+          }
+        } catch (streamErr: any) {
+          console.warn("Continuation stream reading interrupted:", streamErr);
+          isStreamInterrupted = true;
         }
       } else {
-        rawText = await res.text();
+        rawText = await res.text().catch(() => {
+          isStreamInterrupted = true;
+          throw new Error(STREAM_INTERRUPTED_MESSAGE);
+        });
+      }
+
+      if (!rawText || !rawText.trim()) {
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       }
 
       let parsedData: any = null;
@@ -168,11 +198,14 @@ export default function RolePlayClient() {
           console.warn("JSON parse fallback for roleplay continuation:", parseErr);
           const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
           newText = cleaned;
+          if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
+            isStreamInterrupted = true;
+          }
         }
       }
 
       if (!newText || !newText.trim()) {
-        throw new Error("No continuation text was received. Please try again.");
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       }
 
       setScenario(prev => {
@@ -186,9 +219,34 @@ export default function RolePlayClient() {
 
       // Visibly switch to the Action Script tab so the user sees the updated continuation immediately
       setActiveMode("weekend-script");
+
+      if (isStreamInterrupted) {
+        setError(STREAM_INTERRUPTED_MESSAGE);
+      }
     } catch (err: any) {
       console.error("Continue Scenario Error:", err);
-      setError(err?.message || "Our AI engine encountered an issue continuing your scenario. Please try again.");
+      const isInterrupted = isStreamInterrupted ||
+                            err?.message?.includes("Stream interrupted") || 
+                            err?.name === "AbortError" || 
+                            streamProgress.length > 0;
+
+      setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue continuing your scenario. Please try again."));
+
+      if (streamProgress && streamProgress.trim().length > 20) {
+        const partial = extractStreamingRoleplay(streamProgress);
+        const partialText = partial.fullScript || partial.overview || streamProgress;
+        if (partialText) {
+          setScenario(prev => {
+            if (!prev) return prev;
+            const existingScript = prev.fullScript || prev.overview || "";
+            return {
+              ...prev,
+              fullScript: existingScript ? `${existingScript}\n\n${partialText.trim()}` : partialText.trim()
+            };
+          });
+          setActiveMode("weekend-script");
+        }
+      }
     } finally {
       setIsContinuing(false);
     }
@@ -198,6 +256,8 @@ export default function RolePlayClient() {
     setLoading(true);
     setError(null);
     setScenario(null);
+    setStreamProgress("");
+    let isStreamInterrupted = false;
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -222,13 +282,29 @@ export default function RolePlayClient() {
           theme: theme,
           targetBoundary: targetBoundary
         })
+      }).catch((fetchErr) => {
+        console.error("Generate fetch error:", fetchErr);
+        isStreamInterrupted = true;
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Auth Rejected: Session expired or missing.");
+        let errorMsg = "Failed to generate scenario";
+        try {
+          const errData = await res.json();
+          if (errData?.error) {
+            errorMsg = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+          }
+        } catch {
+          try {
+            const errText = await res.text();
+            if (errText) errorMsg = errText;
+          } catch {}
         }
-        throw new Error("Failed to generate scenario");
+        if (res.status === 401) {
+          errorMsg = "Auth Rejected: Session expired or missing.";
+        }
+        throw new Error(errorMsg);
       }
       
       const reader = res.body?.getReader();
@@ -236,15 +312,27 @@ export default function RolePlayClient() {
 
       if (reader) {
         const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          rawText += chunk;
-          setStreamProgress(prev => prev + chunk);
+        try {
+          while (true) {
+            const { done, value } = await reader.read().catch((readErr) => {
+              console.warn("Generate stream interrupted mid-read:", readErr);
+              isStreamInterrupted = true;
+              throw new Error(STREAM_INTERRUPTED_MESSAGE);
+            });
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            rawText += chunk;
+            setStreamProgress(prev => prev + chunk);
+          }
+        } catch (streamErr: any) {
+          console.warn("Generate stream reading interrupted:", streamErr);
+          isStreamInterrupted = true;
         }
       } else {
-        rawText = await res.text();
+        rawText = await res.text().catch(() => {
+          isStreamInterrupted = true;
+          throw new Error(STREAM_INTERRUPTED_MESSAGE);
+        });
       }
 
       let data: ScenarioPayload;
@@ -255,20 +343,45 @@ export default function RolePlayClient() {
         try {
           data = JSON.parse(rawText);
         } catch {
+          console.warn("JSON parse fallback for roleplay generation:", parseErr);
+          const extracted = extractStreamingRoleplay(rawText);
           data = {
-            title: theme || "Roleplay Experience",
-            overview: rawText,
+            title: extracted.title || theme || "Roleplay Experience",
+            overview: extracted.overview || rawText,
             preExperienceTasks: [],
-            partnerAPerspective: rawText,
-            partnerBPerspective: rawText,
-            fullScript: rawText
+            partnerAPerspective: extracted.overview || rawText,
+            partnerBPerspective: extracted.overview || rawText,
+            fullScript: extracted.fullScript || rawText
           };
+          if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
+            isStreamInterrupted = true;
+          }
         }
       }
       setScenario(data);
+
+      if (isStreamInterrupted) {
+        setError(STREAM_INTERRUPTED_MESSAGE);
+      }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Our AI engine encountered an issue shaping your scenario. Please try again.");
+      console.error("Roleplay generation error:", err);
+      const isInterrupted = isStreamInterrupted ||
+                            err?.message?.includes("Stream interrupted") || 
+                            err?.name === "AbortError" || 
+                            streamProgress.length > 0;
+      setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err.message || "Our AI engine encountered an issue shaping your scenario. Please try again."));
+
+      if (streamProgress && streamProgress.trim().length > 20) {
+        const partial = extractStreamingRoleplay(streamProgress);
+        setScenario({
+          title: partial.title || theme || "Roleplay Experience",
+          overview: partial.overview || streamProgress,
+          preExperienceTasks: [],
+          partnerAPerspective: partial.overview || streamProgress,
+          partnerBPerspective: partial.overview || streamProgress,
+          fullScript: partial.fullScript || streamProgress
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -415,8 +528,20 @@ export default function RolePlayClient() {
           )}
 
           {error && (
-            <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
-              {error}
+            <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-xl shrink-0">⚠️</span>
+                <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+              </div>
+              {scenario && (
+                <button
+                  onClick={handleContinueStory}
+                  disabled={isContinuing}
+                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+                >
+                  {isContinuing ? "Resuming..." : "Continue Story"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -528,8 +653,18 @@ export default function RolePlayClient() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
-              {error}
+            <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-xl shrink-0">⚠️</span>
+                <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+              </div>
+              <button
+                onClick={handleContinueStory}
+                disabled={isContinuing}
+                className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+              >
+                {isContinuing ? "Resuming..." : "Continue Story"}
+              </button>
             </div>
           )}
 

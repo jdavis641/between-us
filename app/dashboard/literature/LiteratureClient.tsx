@@ -25,6 +25,15 @@ interface StoryPreview {
   premise: string;
 }
 
+export const STREAM_INTERRUPTED_MESSAGE = "Stream interrupted. Click Continue Story to resume";
+
+export function handleStreamError(error: unknown, onError?: (msg: string) => void): string {
+  console.warn("Stream error intercepted:", error);
+  const msg = STREAM_INTERRUPTED_MESSAGE;
+  if (onError) onError(msg);
+  return msg;
+}
+
 export function extractStreamingMarkdown(raw: string): { title?: string; body: string } {
   if (!raw || !raw.trim()) return { body: "" };
 
@@ -104,6 +113,7 @@ export default function LiteratureClient() {
     setIsContinuing(true);
     setError(null);
     setStreamProgress("");
+    let isStreamInterrupted = false;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,6 +143,10 @@ export default function LiteratureClient() {
           storyLength: storyLength,
           activeTrope: activeTrope
         })
+      }).catch((fetchErr) => {
+        console.error("Continuation fetch error:", fetchErr);
+        isStreamInterrupted = true;
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       });
 
       if (!res.ok) {
@@ -159,19 +173,31 @@ export default function LiteratureClient() {
 
       if (reader) {
         const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          rawText += chunk;
-          setStreamProgress(prev => prev + chunk);
+        try {
+          while (true) {
+            const { done, value } = await reader.read().catch((readErr) => {
+              console.warn("Continuation stream interrupted mid-read:", readErr);
+              isStreamInterrupted = true;
+              throw new Error(STREAM_INTERRUPTED_MESSAGE);
+            });
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            rawText += chunk;
+            setStreamProgress(prev => prev + chunk);
+          }
+        } catch (streamErr: any) {
+          console.warn("Continuation stream reading interrupted:", streamErr);
+          isStreamInterrupted = true;
         }
       } else {
-        rawText = await res.text();
+        rawText = await res.text().catch(() => {
+          isStreamInterrupted = true;
+          throw new Error(STREAM_INTERRUPTED_MESSAGE);
+        });
       }
 
       if (!rawText || !rawText.trim()) {
-        throw new Error("No response received from the server. Please try again.");
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       }
 
       let newText = "";
@@ -215,23 +241,48 @@ export default function LiteratureClient() {
             .replace(/```\s*$/i, '')
             .trim();
         }
+        if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
+          isStreamInterrupted = true;
+        }
       }
 
-      if (!newText || !newText.trim()) {
-        throw new Error("No continuation text was received. Please try again.");
+      if (newText && newText.trim()) {
+        setScenario(prev => {
+          if (!prev) return prev;
+          const existingBody = prev.body || prev.overview || "";
+          return {
+            ...prev,
+            body: existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim()
+          };
+        });
       }
 
-      setScenario(prev => {
-        if (!prev) return prev;
-        const existingBody = prev.body || prev.overview || "";
-        return {
-          ...prev,
-          body: existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim()
-        };
-      });
+      if (isStreamInterrupted) {
+        setError(STREAM_INTERRUPTED_MESSAGE);
+      }
     } catch (err: any) {
       console.error("Continue Story Error:", err);
-      setError(err?.message || "Our AI engine encountered an issue continuing your story. Please try again.");
+      const isInterrupted = isStreamInterrupted ||
+                            err?.message?.includes("Stream interrupted") || 
+                            err?.name === "AbortError" || 
+                            streamProgress.length > 0;
+
+      setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue continuing your story. Please try again."));
+
+      if (streamProgress && streamProgress.trim().length > 20) {
+        const partial = extractStreamingMarkdown(streamProgress);
+        const partialText = partial.body || streamProgress;
+        if (partialText) {
+          setScenario(prev => {
+            if (!prev) return prev;
+            const existingBody = prev.body || prev.overview || "";
+            return {
+              ...prev,
+              body: existingBody ? `${existingBody}\n\n${partialText.trim()}` : partialText.trim()
+            };
+          });
+        }
+      }
     } finally {
       setIsContinuing(false);
     }
@@ -311,6 +362,7 @@ export default function LiteratureClient() {
     setError(null);
     setScenario(null);
     setStreamProgress("");
+    let isStreamInterrupted = false;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -338,6 +390,10 @@ export default function LiteratureClient() {
           storyLength: storyLength,
           activeTrope: activeTrope
         })
+      }).catch((fetchErr) => {
+        console.error("Generate fetch error:", fetchErr);
+        isStreamInterrupted = true;
+        throw new Error(STREAM_INTERRUPTED_MESSAGE);
       });
 
       if (!res.ok) {
@@ -364,33 +420,78 @@ export default function LiteratureClient() {
 
       if (reader) {
         const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          rawText += chunk;
-          setStreamProgress(prev => prev + chunk);
+        try {
+          while (true) {
+            const { done, value } = await reader.read().catch((readErr) => {
+              console.warn("Generate stream interrupted mid-read:", readErr);
+              isStreamInterrupted = true;
+              throw new Error(STREAM_INTERRUPTED_MESSAGE);
+            });
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            rawText += chunk;
+            setStreamProgress(prev => prev + chunk);
+          }
+        } catch (streamErr: any) {
+          console.warn("Generate stream reading interrupted:", streamErr);
+          isStreamInterrupted = true;
         }
       } else {
-        rawText = await res.text();
+        rawText = await res.text().catch(() => {
+          isStreamInterrupted = true;
+          throw new Error(STREAM_INTERRUPTED_MESSAGE);
+        });
       }
 
-      let data: LiteraturePayload;
+      let data: LiteraturePayload | null = null;
       try {
         const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
         data = JSON.parse(cleaned);
       } catch (parseErr) {
         console.warn("JSON parse fallback for literature:", parseErr);
-        data = {
-          title: (activeTrope && activeTrope.title) || theme || "Romantic Literature",
-          body: rawText
-        };
+        const extracted = extractStreamingMarkdown(rawText);
+        if (extracted.body && extracted.body.trim().length > 20) {
+          data = {
+            title: extracted.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+            body: extracted.body.trim()
+          };
+          if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
+            isStreamInterrupted = true;
+          }
+        } else if (rawText.trim().length > 0) {
+          data = {
+            title: (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+            body: rawText
+          };
+          isStreamInterrupted = true;
+        }
       }
 
-      setScenario(data);
+      if (data) {
+        setScenario(data);
+      }
+
+      if (isStreamInterrupted) {
+        setError(STREAM_INTERRUPTED_MESSAGE);
+      }
     } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "Our AI engine encountered an issue shaping your literature. Please try again.");
+      console.error("Literature generation error:", err);
+      const isInterrupted = isStreamInterrupted ||
+                            err?.message?.includes("Stream interrupted") || 
+                            err?.name === "AbortError" || 
+                            streamProgress.length > 0;
+
+      setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue shaping your literature. Please try again."));
+
+      if (streamProgress && streamProgress.trim().length > 20) {
+        const partial = extractStreamingMarkdown(streamProgress);
+        if (partial.body) {
+          setScenario({
+            title: partial.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+            body: partial.body.trim()
+          });
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -693,8 +794,20 @@ export default function LiteratureClient() {
               )}
 
               {error && (
-                <div className="mt-4 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
-                  {error}
+                <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl shrink-0">⚠️</span>
+                    <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+                  </div>
+                  {scenario && (
+                    <button
+                      onClick={handleContinueStory}
+                      disabled={isContinuing}
+                      className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+                    >
+                      {isContinuing ? "Resuming..." : "Continue Story"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -813,8 +926,18 @@ export default function LiteratureClient() {
           )}
 
           {error && (
-            <div className="mb-6 p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400">
-              {error}
+            <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-xl shrink-0">⚠️</span>
+                <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+              </div>
+              <button
+                onClick={handleContinueStory}
+                disabled={isContinuing}
+                className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+              >
+                {isContinuing ? "Resuming..." : "Continue Story"}
+              </button>
             </div>
           )}
 

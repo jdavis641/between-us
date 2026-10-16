@@ -1,17 +1,23 @@
-'use client';
-
-import { Suspense } from "react";
-import RolePlayClient, { extractStreamingRoleplay } from "./RolePlayClient";
-import ReactMarkdown from "react-markdown";
-
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-export const sanitizeContent = (content: string) => (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+import { Suspense } from "react";
+import RolePlayClient, { extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError } from "./RolePlayClient";
+import ReactMarkdown from "react-markdown";
+import FlameLoader from "@/components/FlameLoader";
+import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
+
+export { RolePlayClient, FlameLoader, ErrorBoundary, extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
+
+export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
 export function RolePlayMarkdown({ content }: { content: string }) {
-  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  return <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>;
+  const cleanContent = safeMarkdownString(content);
+  return (
+    <ErrorBoundary fallbackContent={cleanContent}>
+      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
+    </ErrorBoundary>
+  );
 }
 
 export default function RolePlayPage() {
@@ -27,7 +33,7 @@ export default function RolePlayPage() {
 
         <Suspense fallback={
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-pulse text-zinc-500 font-serif">Loading experience engine...</div>
+            <FlameLoader isGenerating={true} progressText="Connecting to experience engine..." />
           </div>
         }>
           <RolePlayClient />

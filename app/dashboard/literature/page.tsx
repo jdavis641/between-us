@@ -2,12 +2,12 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
-import LiteratureClient, { extractStreamingMarkdown } from "./LiteratureClient";
+import LiteratureClient, { extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError } from "./LiteratureClient";
 import ReactMarkdown from "react-markdown";
 import FlameLoader from "@/components/FlameLoader";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
-export { LiteratureClient, FlameLoader, ErrorBoundary, extractStreamingMarkdown };
+export { LiteratureClient, FlameLoader, ErrorBoundary, extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
 
 export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
