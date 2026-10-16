@@ -4,10 +4,12 @@ import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
 import LogoutButton from '../components/LogoutButton'
+import { getActiveHoliday, HolidayConfig } from '@/utils/holidayTheme'
 
 const supabase = createClient()
 
 export default function DashboardHome() {
+  const [activeHoliday, setActiveHoliday] = useState<HolidayConfig | null>(() => getActiveHoliday())
   const [activeStory, setActiveStory] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -72,6 +74,55 @@ export default function DashboardHome() {
         {/* Main Navigation Grid */}
         <section>
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Explore the Library</h2>
+          
+          {/* Holiday Spotlight Action Tile */}
+          {activeHoliday && (
+            <div className="mb-6">
+              <Link href={`/dashboard/games?seasonal_tag=${activeHoliday.seasonal_tag}`}>
+                <div 
+                  className="p-6 md:p-8 rounded-xl border transition-all cursor-pointer group flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg hover:shadow-2xl hover:scale-[1.01]"
+                  style={{
+                    backgroundColor: activeHoliday.bgHex,
+                    borderColor: `${activeHoliday.textHex}80`
+                  }}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div 
+                      className="p-4 rounded-full group-hover:scale-110 transition-transform flex items-center justify-center text-3xl"
+                      style={{ backgroundColor: `${activeHoliday.textHex}25` }}
+                    >
+                      <span>{activeHoliday.icon || '✨'}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span 
+                          className="text-xs uppercase font-extrabold tracking-widest px-2.5 py-0.5 rounded-full"
+                          style={{ 
+                            backgroundColor: `${activeHoliday.textHex}30`,
+                            color: activeHoliday.textHex 
+                          }}
+                        >
+                          Holiday Spotlight
+                        </span>
+                        <span className="text-xs text-gray-400 font-medium">• {activeHoliday.name}</span>
+                      </div>
+                      <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
+                        Holiday Spotlight: {activeHoliday.name}
+                      </h3>
+                      <p className="text-gray-300 text-sm mt-1 max-w-xl">
+                        Explore seasonal intimacy games containing the {activeHoliday.seasonal_tag} theme.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end md:self-center font-bold text-sm" style={{ color: activeHoliday.textHex }}>
+                    <span>Browse Collection</span>
+                    <span className="text-2xl transition-transform group-hover:translate-x-1">→</span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Intimacy Games Hub Link */}

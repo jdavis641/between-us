@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
+import { getActiveHoliday } from "@/utils/holidayTheme";
 
 function buildSystemInstruction({
   preferences,
@@ -187,6 +188,11 @@ You must return a valid JSON object matching this schema exactly:
   "prompts": ["Prompt 1", "Prompt 2", "Prompt 3", "Prompt 4", "Prompt 5"]
 }
 Make the game prompts highly specific to the selected intimacy category. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
+  }
+
+  const activeHoliday = getActiveHoliday();
+  if (activeHoliday) {
+    sys += `\n\nSEASONAL CONTEXT INSTRUCTION:\nSubtly weave in thematic elements appropriate for ${activeHoliday.name}.\n\n`;
   }
 
   return sys;

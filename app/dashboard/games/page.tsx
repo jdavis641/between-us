@@ -6,7 +6,13 @@ export const revalidate = 0
 
 type Game = { id: string, title: string, description: string, category: string, intensity: string }
 
-export default async function GamesHub() {
+export default async function GamesHub({
+  searchParams,
+}: {
+  searchParams?: Promise<{ seasonal_tag?: string; tag?: string }>;
+}) {
+  const params = await searchParams;
+  const seasonalTag = params?.seasonal_tag || params?.tag;
   const supabase = await createClient()
 
   // Fetch authenticated user
@@ -42,12 +48,23 @@ export default async function GamesHub() {
   if (error) console.error("Error fetching games:", error)
 
   // Strictly filter games where intensity matches the user's base_tolerance
-  const filteredGames = userBaseTolerance
+  let filteredGames = userBaseTolerance
     ? (games || []).filter((g: Game) => 
         g.intensity === userBaseTolerance || 
         g.intensity?.toLowerCase() === userBaseTolerance.toLowerCase()
       )
     : (games || [])
+
+  // Filter for matching seasonal_tag if requested
+  if (seasonalTag) {
+    filteredGames = filteredGames.filter((g: any) => 
+      g.seasonal_tag === seasonalTag || 
+      g.content?.seasonal_tag === seasonalTag ||
+      (Array.isArray(g.content?.tags) && g.content.tags.includes(seasonalTag)) ||
+      (typeof g.content?.tags === 'string' && g.content.tags.includes(seasonalTag)) ||
+      (g.title && g.title.toLowerCase().includes(seasonalTag.toLowerCase()))
+    );
+  }
 
   const cardGames = filteredGames.filter((g: Game) => g.category === 'card' || g.category === 'Card Games')
   const movieNightGames = filteredGames.filter((g: Game) => g.category === 'movie' || g.category === 'Movie Night Games')
@@ -80,6 +97,20 @@ export default async function GamesHub() {
             </span>
           )}
         </p>
+
+        {seasonalTag && (
+          <div className="mb-8 p-4 rounded-xl border border-rose-500/40 bg-rose-950/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <span className="text-sm font-medium text-rose-300">
+                Holiday Spotlight Filter: <span className="font-bold text-white capitalize">{seasonalTag.replace(/_/g, ' ')}</span>
+              </span>
+            </div>
+            <Link href="/dashboard/games" className="text-xs text-zinc-400 hover:text-white underline">
+              Clear filter
+            </Link>
+          </div>
+        )}
         
         {error && (
           <div className="p-4 bg-red-950 border border-red-500 text-red-500 rounded-lg mb-6">
@@ -89,9 +120,11 @@ export default async function GamesHub() {
         
         {!error && filteredGames.length === 0 && (
           <div className="p-4 bg-yellow-950 border border-yellow-500 text-yellow-500 rounded-lg mb-6">
-            {userBaseTolerance 
-              ? `No games found matching your current tolerance level (${userBaseTolerance}).`
-              : 'Connection successful, but 0 games found. Seed required.'}
+            {seasonalTag
+              ? `No games found matching the seasonal tag "${seasonalTag}" under your current tolerance level.`
+              : userBaseTolerance 
+                ? `No games found matching your current tolerance level (${userBaseTolerance}).`
+                : 'Connection successful, but 0 games found. Seed required.'}
           </div>
         )}
 
