@@ -99,14 +99,14 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
 You are continuing an ongoing narrative. Continue the narrative seamlessly from the provided text. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
   }
 
-  const currentPacing = pacing || 'Slow Burn';
+  const currentPacing = pacing || 'Medium Burn';
   let pacingRule = '';
   if (currentPacing === 'Quick Burn') {
     pacingRule = 'Get to the explicit climax quickly within the allotted word count.';
-  } else if (currentPacing === 'Medium Burn') {
-    pacingRule = 'Spend more time building desire and intensity with literary detail, steadily building into the climax and orgasms of the participants.';
-  } else {
+  } else if (currentPacing === 'Slow Burn') {
     pacingRule = 'Spend the maximum amount of time building desire and intensity. Include multiple examples of almost-there intimacy before shifting to another chapter without fulfillment. Eventually culminate in an intense and explicit release to ensure the reader is left satisfied.';
+  } else {
+    pacingRule = 'Spend more time building desire and intensity with literary detail, steadily building into the climax and orgasms of the participants.';
   }
 
   if (contentType === 'literature') {
@@ -539,14 +539,14 @@ export async function POST(req: Request) {
       theme
     });
 
-    const currentPacing = pacing || 'Slow Burn';
+    const currentPacing = pacing || 'Medium Burn';
     let pacingRule = '';
     if (currentPacing === 'Quick Burn') {
       pacingRule = 'Get to the explicit climax quickly within the allotted word count.';
-    } else if (currentPacing === 'Medium Burn') {
-      pacingRule = 'Spend more time building desire and intensity with literary detail, steadily building into the climax and orgasms of the participants.';
-    } else {
+    } else if (currentPacing === 'Slow Burn') {
       pacingRule = 'Spend the maximum amount of time building desire and intensity. Include multiple examples of almost-there intimacy before shifting to another chapter without fulfillment. Eventually culminate in an intense and explicit release to ensure the reader is left satisfied.';
+    } else {
+      pacingRule = 'Spend more time building desire and intensity with literary detail, steadily building into the climax and orgasms of the participants.';
     }
 
     let userPrompt = (theme && typeof theme === 'string' && theme.trim().length > 0)
@@ -562,6 +562,8 @@ export async function POST(req: Request) {
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
       userPrompt = `Write the story according to: Pacing: ${currentPacing} (${pacingRule}). Length: ${storyLength || 'Short Story'}.${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+    } else if (contentType === 'roleplay') {
+      userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
     }
 
     if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {

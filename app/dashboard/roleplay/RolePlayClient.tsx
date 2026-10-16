@@ -77,6 +77,7 @@ export default function RolePlayClient() {
   const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
+  const [pacing, setPacing] = useState("Medium Burn");
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -126,7 +127,8 @@ export default function RolePlayClient() {
           theme: theme,
           targetBoundary: targetBoundary,
           previousContent: currentStoryText,
-          existingStory: currentStoryText
+          existingStory: currentStoryText,
+          pacing: pacing
         })
       }).catch((fetchErr) => {
         console.error("Continuation fetch error:", fetchErr);
@@ -281,7 +283,8 @@ export default function RolePlayClient() {
           playMode: playMode,
           hasScripts: true,
           theme: theme,
-          targetBoundary: targetBoundary
+          targetBoundary: targetBoundary,
+          pacing: pacing
         })
       }).catch((fetchErr) => {
         console.error("Generate fetch error:", fetchErr);
@@ -450,6 +453,26 @@ export default function RolePlayClient() {
               </select>
             </div>
             
+            {/* Pacing Radio Button Group */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Pacing</label>
+              <div className="flex flex-wrap gap-4">
+                {["Quick Burn", "Medium Burn", "Slow Burn"].map((pace) => (
+                  <label key={pace} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="pacing" 
+                      value={pace} 
+                      checked={pacing === pace} 
+                      onChange={(e) => setPacing(e.target.value)}
+                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm text-zinc-300 font-medium">{pace}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">Theme Suggestions (Optional)</label>
               <textarea 

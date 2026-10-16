@@ -75,6 +75,7 @@ export function extractStreamingMarkdown(raw: string): { title?: string; body: s
 export default function LiteratureClient() {
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
+  const [pacing, setPacing] = useState("Medium Burn");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
   const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -131,6 +132,7 @@ export default function LiteratureClient() {
           targetBoundary: targetBoundary,
           previousContent: currentStoryText,
           existingStory: currentStoryText,
+          pacing: pacing,
           activeTrope: activeTrope
         })
       }).catch((fetchErr) => {
@@ -302,7 +304,8 @@ export default function LiteratureClient() {
         cache: "no-store",
         body: JSON.stringify({
           targetBoundary,
-          theme
+          theme,
+          pacing
         })
       });
 
@@ -372,6 +375,7 @@ export default function LiteratureClient() {
           hasScripts: false,
           theme: theme,
           targetBoundary: targetBoundary,
+          pacing: pacing,
           activeTrope: activeTrope
         })
       }).catch((fetchErr) => {
@@ -522,6 +526,26 @@ export default function LiteratureClient() {
               </select>
             </div>
             
+            {/* Pacing Radio Button Group */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Pacing</label>
+              <div className="flex flex-wrap gap-4">
+                {["Quick Burn", "Medium Burn", "Slow Burn"].map((pace) => (
+                  <label key={pace} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="pacing" 
+                      value={pace} 
+                      checked={pacing === pace} 
+                      onChange={(e) => setPacing(e.target.value)}
+                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                    />
+                    <span className="text-sm text-zinc-300 font-medium">{pace}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
                 Optional: Include tropes, scenarios, kinks, couples or group dynamics to custom tailor your story
@@ -745,6 +769,8 @@ export default function LiteratureClient() {
               <span className="text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full bg-red-950/60 text-red-200 border border-red-800">
                 {activeTrope.trope}
               </span>
+              <span className="text-xs text-zinc-500">•</span>
+              <span className="text-xs text-zinc-400">{pacing}</span>
             </div>
           )}
 
