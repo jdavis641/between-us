@@ -76,8 +76,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenus.app';
-    const storyLink = `${baseUrl}/dashboard/experience/${storyId}?share_id=${storyId}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenusapp.io';
+    const storyLink = `${baseUrl}/dashboard/experience/${storyId}`;
 
     if (isEmail) {
       // Dispatch via Resend
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: 'Between Us <invites@betweenus.app>',
+            from: 'Between Us <invites@betweenusapp.io>',
             to: cleanRecipient,
             subject: `Shared Experience: "${title}" on Between Us`,
             html: `

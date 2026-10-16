@@ -77,7 +77,7 @@ export default function RolePlayClient() {
   const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
-  const [pacing, setPacing] = useState("Medium Burn");
+  const pacing = "Medium Burn";
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -401,7 +401,20 @@ export default function RolePlayClient() {
   const content = scenario?.fullScript || scenario?.overview || '';
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const rawPartnerA = scenario?.partnerAPerspective;
+  const rawPartnerB = scenario?.partnerBPerspective;
+  const partnerAName = typeof rawPartnerA === 'object' && rawPartnerA !== null ? (rawPartnerA as any)?.nickname || (rawPartnerA as any)?.name : null;
+  const partnerBName = typeof rawPartnerB === 'object' && rawPartnerB !== null ? (rawPartnerB as any)?.nickname || (rawPartnerB as any)?.name : null;
+  const cleanPartnerA = (
+    typeof rawPartnerA === 'string'
+      ? rawPartnerA
+      : ((rawPartnerA as any)?.perspective || (rawPartnerA as any)?.content || (rawPartnerA as any)?.text || (rawPartnerA as any)?.monologue || '')
+  ).replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const cleanPartnerB = (
+    typeof rawPartnerB === 'string'
+      ? rawPartnerB
+      : ((rawPartnerB as any)?.perspective || (rawPartnerB as any)?.content || (rawPartnerB as any)?.text || (rawPartnerB as any)?.monologue || '')
+  ).replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const streamingRoleplay = extractStreamingRoleplay(streamProgress);
   const generatedContent = streamingRoleplay.fullScript || streamProgress;
   const wordCount = (generatedContent || '').trim().split(/\s+/).length;
@@ -452,26 +465,7 @@ export default function RolePlayClient() {
                 <option value="Extreme">Extreme (Boundary Pushing)</option>
               </select>
             </div>
-            
-            {/* Pacing Radio Button Group */}
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Pacing</label>
-              <div className="flex flex-wrap gap-4">
-                {["Quick Burn", "Medium Burn", "Slow Burn"].map((pace) => (
-                  <label key={pace} className="flex items-center gap-2 cursor-pointer bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 rounded-lg px-4 py-2.5 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="pacing" 
-                      value={pace} 
-                      checked={pacing === pace} 
-                      onChange={(e) => setPacing(e.target.value)}
-                      className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
-                    />
-                    <span className="text-sm text-zinc-300 font-medium">{pace}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">Theme Suggestions (Optional)</label>
@@ -599,7 +593,7 @@ export default function RolePlayClient() {
                   activeMode === "partner-a" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
                 }`}
               >
-                Partner A Lens
+                {partnerAName ? `${partnerAName}'s Lens` : "Partner A Lens"}
               </button>
               <button
                 onClick={() => setActiveMode("partner-b")}
@@ -607,7 +601,7 @@ export default function RolePlayClient() {
                   activeMode === "partner-b" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
                 }`}
               >
-                Partner B Lens
+                {partnerBName ? `${partnerBName}'s Lens` : "Partner B Lens"}
               </button>
               {scenario.fullScript && (
                 <button
@@ -624,38 +618,54 @@ export default function RolePlayClient() {
             <div className="p-6 md:p-8">
               {activeMode === "partner-a" && (
                 <div className="animate-in fade-in space-y-6">
-                  {scenario.preExperienceTasks && scenario.preExperienceTasks[0] && (
+                  {scenario?.preExperienceTasks && scenario.preExperienceTasks[0] && (
                     <div className="bg-red-950/10 border border-red-900/20 rounded-lg p-5">
                       <h4 className="text-red-500 font-bold text-sm uppercase tracking-wider mb-2">Pre-Experience Task</h4>
                       <p className="text-zinc-300">{scenario.preExperienceTasks[0]}</p>
                     </div>
                   )}
                   <div>
-                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <ErrorBoundary fallbackContent={cleanPartnerA}>
-                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
-                        {safeMarkdownString(cleanPartnerA)}
-                      </ReactMarkdown>
-                    </ErrorBoundary>
+                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">
+                      Internal Monologue {partnerAName ? `(${partnerAName})` : ''}
+                    </h4>
+                    {cleanPartnerA ? (
+                      <ErrorBoundary fallbackContent={cleanPartnerA}>
+                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                          {safeMarkdownString(cleanPartnerA)}
+                        </ReactMarkdown>
+                      </ErrorBoundary>
+                    ) : (
+                      <div className="py-8 text-center text-zinc-400 font-serif italic bg-zinc-900/40 rounded-xl p-6 border border-zinc-800">
+                        Partner A perspective is temporarily hydrating...
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {activeMode === "partner-b" && (
                 <div className="animate-in fade-in space-y-6">
-                  {scenario.preExperienceTasks && scenario.preExperienceTasks[1] && (
+                  {scenario?.preExperienceTasks && scenario.preExperienceTasks[1] && (
                     <div className="bg-red-950/10 border border-red-900/20 rounded-lg p-5">
                       <h4 className="text-red-500 font-bold text-sm uppercase tracking-wider mb-2">Pre-Experience Task</h4>
                       <p className="text-zinc-300">{scenario.preExperienceTasks[1]}</p>
                     </div>
                   )}
                   <div>
-                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">Internal Monologue</h4>
-                    <ErrorBoundary fallbackContent={cleanPartnerB}>
-                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
-                        {safeMarkdownString(cleanPartnerB)}
-                      </ReactMarkdown>
-                    </ErrorBoundary>
+                    <h4 className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-3">
+                      Internal Monologue {partnerBName ? `(${partnerBName})` : ''}
+                    </h4>
+                    {cleanPartnerB ? (
+                      <ErrorBoundary fallbackContent={cleanPartnerB}>
+                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap text-zinc-300 leading-loose">
+                          {safeMarkdownString(cleanPartnerB)}
+                        </ReactMarkdown>
+                      </ErrorBoundary>
+                    ) : (
+                      <div className="py-8 text-center text-zinc-400 font-serif italic bg-zinc-900/40 rounded-xl p-6 border border-zinc-800">
+                        Partner B perspective is temporarily hydrating or awaiting narrative details...
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

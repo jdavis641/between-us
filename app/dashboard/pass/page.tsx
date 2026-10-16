@@ -67,25 +67,17 @@ export default function GuestPassHub() {
         const { data: invites } = await supabase
           .from('invitations')
           .select('*')
-          .eq('invite_type', 'guest_pass')
+          .eq('sender_id', session.user.id)
           .order('created_at', { ascending: false });
         if (invites && invites.length > 0) {
           setActivePasses(invites.map((inv: any) => ({
             id: inv.id,
             type: "Guest Pass",
-            status: new Date(inv.expires_at) > new Date() ? "Active" : "Expired",
-            expires_at: inv.expires_at
+            recipient: inv.recipient_identifier,
+            status: inv.status === 'revoked' ? "Revoked" : (new Date(inv.expires_at) > new Date() ? "Active" : "Expired"),
+            expires_at: inv.expires_at,
+            token: inv.invite_token
           })));
-          
-          try {
-            const prefs = JSON.parse(invites[0].preferences);
-            if (prefs.selectedBoundaries) setSelectedTags(prefs.selectedBoundaries);
-            if (prefs.kinkSummary) {
-              const loadedKinks = prefs.kinkSummary.split('\n\n').filter((k: string) => k.trim());
-              setSelectedKinks(loadedKinks);
-            }
-            if (prefs.instructions) setInstructions(prefs.instructions);
-          } catch(e) {}
         } else {
           setActivePasses([]);
         }
@@ -121,35 +113,68 @@ export default function GuestPassHub() {
         }, { onConflict: 'user_id, category_tag' });
       }
 
-      const res = await fetch("/api/invite/generate", {
+      const res = await fetch("/api/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({
           selectedBoundaries: selectedTags,
           kinkSummary: selectedKinks.join('\n\n'),
           instructions,
           contactMethod,
-          contactInfo,
-          phoneNumber: contactMethod === 'sms' ? contactInfo : undefined,
-          mobileNumber: contactMethod === 'sms' ? contactInfo : undefined,
+          contactInfo: contactInfo.trim(),
+          phoneNumber: contactMethod === 'sms' ? contactInfo.trim() : undefined,
+          mobileNumber: contactMethod === 'sms' ? contactInfo.trim() : undefined,
           expirationHours
         })
       });
       const data = await res.json();
-      if (data.success || data.token) {
+      if (res.ok && (data.success || data.token)) {
         setInviteToken(data.token);
         setInviteSent(true);
+
+        if (session) {
+          const { data: refreshedInvites } = await supabase
+            .from('invitations')
+            .select('*')
+            .eq('sender_id', session.user.id)
+            .order('created_at', { ascending: false });
+          if (refreshedInvites) {
+            setActivePasses(refreshedInvites.map((inv: any) => ({
+              id: inv.id,
+              type: "Guest Pass",
+              recipient: inv.recipient_identifier,
+              status: inv.status === 'revoked' ? "Revoked" : (new Date(inv.expires_at) > new Date() ? "Active" : "Expired"),
+              expires_at: inv.expires_at,
+              token: inv.invite_token
+            })));
+          }
+        }
       } else {
-        alert("Error sending invite: " + (data.error || "Unknown"));
+        alert(data.error || "Failed to dispatch guest pass. Please try again.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to dispatch pass", e);
+      alert(e.message || "Failed to dispatch guest pass.");
     }
     setLoading(false);
   };
 
-  const handleRevoke = (id: number) => {
+  const handleRevoke = async (id: string, token?: string) => {
     setActivePasses(prev => prev.map(p => p.id === id ? { ...p, status: "Revoked" } : p));
+    try {
+      if (token) {
+        await fetch(`/api/invite/revoke?token=${token}`);
+      }
+      await supabase
+        .from('invitations')
+        .update({ status: 'revoked', expires_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (e) {
+      console.error("Failed to revoke pass:", e);
+    }
   };
 
   return (
@@ -277,7 +302,7 @@ export default function GuestPassHub() {
                   onClick={() => setContactMethod('email')}
                   className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${contactMethod === 'email' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
-                  Email
+                  Email or Nickname
                 </button>
                 <button 
                   onClick={() => setContactMethod('sms')}
@@ -289,20 +314,20 @@ export default function GuestPassHub() {
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  {contactMethod === 'email' ? 'Email Address' : 'Mobile Number (SMS)'}
+                  {contactMethod === 'email' ? 'Recipient Nickname or Email Address' : 'Mobile Number (SMS)'}
                 </label>
                 <input
-                  type={contactMethod === 'email' ? 'email' : 'tel'}
+                  type={contactMethod === 'sms' ? 'tel' : 'text'}
                   value={contactInfo}
                   onChange={(e) => setContactInfo(e.target.value)}
-                  placeholder={contactMethod === 'email' ? 'partner@example.com' : '+1 (555) 000-0000'}
+                  placeholder={contactMethod === 'email' ? 'partner@example.com or Nickname' : '+1 (555) 000-0000'}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
                 />
-                {contactMethod === 'sms' && (
-                  <p className="mt-1.5 text-xs text-zinc-500">
-                    Enter the recipient's mobile number to dispatch the guest pass via SMS.
-                  </p>
-                )}
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  {contactMethod === 'email' 
+                    ? 'Enter a registered user nickname or any email address (for new users).' 
+                    : "Enter the recipient's mobile number to dispatch the guest pass via SMS."}
+                </p>
               </div>
 
               <div className="mb-6">
@@ -389,6 +414,7 @@ export default function GuestPassHub() {
             <thead className="text-xs text-zinc-500 uppercase bg-zinc-950/50 border-b border-zinc-800">
               <tr>
                 <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Recipient</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Expires</th>
                 <th className="px-4 py-3 font-medium text-right">Action</th>
@@ -398,6 +424,9 @@ export default function GuestPassHub() {
               {activePasses.map((pass) => (
                 <tr key={pass.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
                   <td className="px-4 py-4 font-medium text-zinc-200">{pass.type}</td>
+                  <td className="px-4 py-4 text-zinc-300 font-mono text-xs truncate max-w-[160px]" title={pass.recipient}>
+                    {pass.recipient || '—'}
+                  </td>
                   <td className="px-4 py-4">
                     <span className={`px-2 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${
                       pass.status === 'Active' ? 'bg-green-950 text-green-400 border border-green-900/50' : 
@@ -413,8 +442,8 @@ export default function GuestPassHub() {
                   <td className="px-4 py-4 text-right">
                     {pass.status === "Active" && (
                       <button 
-                        onClick={() => handleRevoke(pass.id)}
-                        className="text-red-400 hover:text-red-300 text-xs uppercase tracking-wider font-semibold transition-colors"
+                        onClick={() => handleRevoke(pass.id, pass.token)}
+                        className="text-red-400 hover:text-red-300 text-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer"
                       >
                         Revoke
                       </button>

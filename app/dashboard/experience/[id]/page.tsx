@@ -301,13 +301,25 @@ export default function ExperienceReader({ params }: { params: any }) {
   }
 
   const isRoleplay = experience?.content_type === 'roleplay' || experience?.content_type === 'weekend_scenario';
-  const contentObj = experience.parsedData || {};
+  const contentObj = experience?.parsedData || {};
   
-  const partnerA = contentObj.partnerAPerspective || contentObj.partner_a_perspective || "Your partner is eagerly anticipating what comes next. Lean into the mystery and excitement.";
-  const partnerB = contentObj.partnerBPerspective || contentObj.partner_b_perspective || "The tension is building. Focus on the sensory details and let the moment guide you.";
-  const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
+  const rawPartnerA = contentObj.partnerA || contentObj.partnerAPerspective || contentObj.partner_a_perspective || contentObj.partner_a;
+  const rawPartnerB = contentObj.partnerB || contentObj.partnerBPerspective || contentObj.partner_b_perspective || contentObj.partner_b;
+
+  const partnerANickname = typeof rawPartnerA === 'object' && rawPartnerA !== null ? rawPartnerA?.nickname || rawPartnerA?.name : null;
+  const partnerBNickname = typeof rawPartnerB === 'object' && rawPartnerB !== null ? rawPartnerB?.nickname || rawPartnerB?.name : null;
+
+  const partnerA = typeof rawPartnerA === 'string'
+    ? rawPartnerA
+    : (rawPartnerA?.perspective || rawPartnerA?.content || rawPartnerA?.text || rawPartnerA?.monologue || (rawPartnerA ? JSON.stringify(rawPartnerA) : '')) || "Your partner is eagerly anticipating what comes next. Lean into the mystery and excitement.";
+
+  const partnerB = typeof rawPartnerB === 'string'
+    ? rawPartnerB
+    : (rawPartnerB?.perspective || rawPartnerB?.content || rawPartnerB?.text || rawPartnerB?.monologue || (rawPartnerB ? JSON.stringify(rawPartnerB) : '')) || "The tension is building. Focus on the sensory details and let the moment guide you.";
+
+  const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience?.pre_experience_tasks || [];
   const storyboard = contentObj.overview || contentObj.storyboard || "The stage is set for an intimate encounter.";
-  const scriptBody = contentObj.body || contentObj.text || contentObj.content || contentObj.story || contentObj.fullScript || experience.body || experience.overview || '';
+  const scriptBody = contentObj.body || contentObj.text || contentObj.content || contentObj.story || contentObj.fullScript || experience?.body || experience?.overview || '';
 
   const content = typeof scriptBody === 'string' ? scriptBody : (scriptBody ? JSON.stringify(scriptBody, null, 2) : '');
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
@@ -372,7 +384,7 @@ export default function ExperienceReader({ params }: { params: any }) {
                   : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
               }`}
             >
-              Partner A Lens
+              {partnerANickname ? `${partnerANickname}'s Lens` : "Partner A Lens"}
             </button>
             <button
               onClick={() => setActiveMode("partner-b")}
@@ -382,7 +394,7 @@ export default function ExperienceReader({ params }: { params: any }) {
                   : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
               }`}
             >
-              Partner B Lens
+              {partnerBNickname ? `${partnerBNickname}'s Lens` : "Partner B Lens"}
             </button>
             <button
               onClick={() => setActiveMode("script")}
@@ -402,23 +414,39 @@ export default function ExperienceReader({ params }: { params: any }) {
           {/* Partner Lenses */}
           {activeMode === "partner-a" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
-               <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner A</h2>
-               <ErrorBoundary fallbackContent={cleanPartnerA}>
-                 <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                   {safeMarkdownString(cleanPartnerA)}
-                 </ReactMarkdown>
-               </ErrorBoundary>
+               <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">
+                 Psychological Profile: {partnerANickname || "Partner A"}
+               </h2>
+               {cleanPartnerA ? (
+                 <ErrorBoundary fallbackContent={cleanPartnerA}>
+                   <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                     {safeMarkdownString(cleanPartnerA)}
+                   </ReactMarkdown>
+                 </ErrorBoundary>
+               ) : (
+                 <div className="py-8 text-center text-zinc-400 font-serif italic bg-zinc-950/40 rounded-xl border border-zinc-800">
+                   Partner A perspective is temporarily hydrating...
+                 </div>
+               )}
              </div>
           )}
 
           {activeMode === "partner-b" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
-               <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner B</h2>
-               <ErrorBoundary fallbackContent={cleanPartnerB}>
-                 <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                   {safeMarkdownString(cleanPartnerB)}
-                 </ReactMarkdown>
-               </ErrorBoundary>
+               <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">
+                 Psychological Profile: {partnerBNickname || "Partner B"}
+               </h2>
+               {cleanPartnerB ? (
+                 <ErrorBoundary fallbackContent={cleanPartnerB}>
+                   <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                     {safeMarkdownString(cleanPartnerB)}
+                   </ReactMarkdown>
+                 </ErrorBoundary>
+               ) : (
+                 <div className="py-8 text-center text-zinc-400 font-serif italic bg-zinc-950/40 rounded-xl border border-zinc-800">
+                   Partner B perspective is temporarily hydrating or awaiting narrative details...
+                 </div>
+               )}
              </div>
           )}
 
