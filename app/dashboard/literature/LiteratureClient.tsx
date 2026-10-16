@@ -75,7 +75,8 @@ export function extractStreamingMarkdown(raw: string): { title?: string; body: s
 
 export default function LiteratureClient() {
   const searchParams = useSearchParams();
-  const initialMode = searchParams.get("mode") || "couple";
+  const rawMode = searchParams.get("mode");
+  const initialMode = rawMode === "group" ? "group" : "couple";
 
   const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
@@ -449,8 +450,9 @@ export default function LiteratureClient() {
         data = JSON.parse(cleaned);
       } catch (parseErr) {
         console.warn("JSON parse fallback for literature:", parseErr);
-        const extracted = extractStreamingMarkdown(rawText);
-        if (extracted.body && extracted.body.trim().length > 20) {
+        const textToExtract = rawText || streamProgress;
+        const extracted = extractStreamingMarkdown(textToExtract);
+        if (extracted.body && extracted.body.trim().length > 0) {
           data = {
             title: extracted.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
             body: extracted.body.trim()
@@ -458,16 +460,28 @@ export default function LiteratureClient() {
           if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
             isStreamInterrupted = true;
           }
-        } else if (rawText.trim().length > 0) {
+        } else if (textToExtract.trim().length > 0) {
           data = {
             title: (activeTrope && activeTrope.title) || theme || "Romantic Literature",
-            body: rawText
+            body: textToExtract.trim()
           };
           isStreamInterrupted = true;
         }
       }
 
+      if (!data && (rawText.trim().length > 0 || streamProgress.trim().length > 0)) {
+        const fallbackText = rawText.trim() || streamProgress.trim();
+        const extracted = extractStreamingMarkdown(fallbackText);
+        data = {
+          title: extracted.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+          body: extracted.body || fallbackText
+        };
+      }
+
       if (data) {
+        if (!data.body) {
+          data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
+        }
         setScenario(data);
       }
 
@@ -483,21 +497,19 @@ export default function LiteratureClient() {
 
       setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue shaping your literature. Please try again."));
 
-      if (streamProgress && streamProgress.trim().length > 20) {
+      if (streamProgress && streamProgress.trim().length > 0) {
         const partial = extractStreamingMarkdown(streamProgress);
-        if (partial.body) {
-          setScenario({
-            title: partial.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
-            body: partial.body.trim()
-          });
-        }
+        setScenario({
+          title: partial.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+          body: partial.body || streamProgress.trim()
+        });
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const content = scenario?.body || '';
+  const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
@@ -511,17 +523,6 @@ export default function LiteratureClient() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 mb-8">
           <h2 className="text-xl font-medium text-zinc-100 mb-4">Configure Literature</h2>
           <div className="flex flex-wrap gap-4 mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="solo" 
-                checked={playMode === 'solo'} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Solo</span>
-            </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="radio" 
@@ -741,23 +742,25 @@ export default function LiteratureClient() {
                 </div>
               )}
 
-              {loading && wordCount >= 1000 && (
+              {(wordCount >= 1000 || (!loading && (generatedContent.trim().length > 0 || streamProgress.trim().length > 0))) && (
                 <div className="mt-8 space-y-6 animate-in fade-in duration-300">
                   {/* Real-time Streaming Status Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="relative flex h-3.5 w-3.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
-                      </span>
-                      <span className="text-sm font-semibold text-red-200">
-                        Streaming Story Chapters in Real-Time...
+                  {loading && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="relative flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+                        </span>
+                        <span className="text-sm font-semibold text-red-200">
+                          Streaming Story Chapters in Real-Time...
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
+                        ~{wordCount} words streamed
                       </span>
                     </div>
-                    <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
-                      ~{wordCount} words streamed
-                    </span>
-                  </div>
+                  )}
 
                   {/* Real-time Streamed Content Canvas */}
                   <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6">
@@ -773,7 +776,7 @@ export default function LiteratureClient() {
                           {safeMarkdownString(generatedContent)}
                         </ReactMarkdown>
                       </ErrorBoundary>
-                      <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
+                      {loading && <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />}
                     </div>
                   </div>
                 </div>
@@ -860,71 +863,13 @@ export default function LiteratureClient() {
 
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
-          {scenario.body ? (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
-              <ErrorBoundary fallbackContent={cleanContent}>
-                <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                  {safeMarkdownString(cleanContent)}
-                </ReactMarkdown>
-              </ErrorBoundary>
-            </div>
-          ) : (
-            <>
-              {scenario.overview && (
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
-                  <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Synopsis</h3>
-                  <ErrorBoundary fallbackContent={cleanOverview}>
-                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
-                      {safeMarkdownString(cleanOverview)}
-                    </ReactMarkdown>
-                  </ErrorBoundary>
-                </div>
-              )}
-
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden mb-8">
-                <div className="flex bg-zinc-900/80 border-b border-zinc-800">
-                  <button
-                    onClick={() => setActiveMode("partner-a")}
-                    className={`flex-1 py-4 text-sm font-medium transition-all ${
-                      activeMode === "partner-a" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
-                    }`}
-                  >
-                    Partner A Lens
-                  </button>
-                  <button
-                    onClick={() => setActiveMode("partner-b")}
-                    className={`flex-1 py-4 text-sm font-medium transition-all ${
-                      activeMode === "partner-b" ? "bg-zinc-800 text-white shadow-sm border-b-2 border-red-500" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
-                    }`}
-                  >
-                    Partner B Lens
-                  </button>
-                </div>
-
-                <div className="p-6 md:p-8">
-                  {activeMode === "partner-a" && (
-                    <div className="animate-in fade-in">
-                      <ErrorBoundary fallbackContent={cleanPartnerA}>
-                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                          {safeMarkdownString(cleanPartnerA)}
-                        </ReactMarkdown>
-                      </ErrorBoundary>
-                    </div>
-                  )}
-
-                  {activeMode === "partner-b" && (
-                    <div className="animate-in fade-in">
-                      <ErrorBoundary fallbackContent={cleanPartnerB}>
-                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                          {safeMarkdownString(cleanPartnerB)}
-                        </ReactMarkdown>
-                      </ErrorBoundary>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
+            <ErrorBoundary fallbackContent={cleanContent}>
+              <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                {safeMarkdownString(cleanContent)}
+              </ReactMarkdown>
+            </ErrorBoundary>
+          </div>
 
           {error && (
             <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">

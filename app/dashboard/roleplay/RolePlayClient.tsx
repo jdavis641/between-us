@@ -71,7 +71,8 @@ export function extractStreamingRoleplay(raw: string): {
 
 export default function RolePlayClient() {
   const searchParams = useSearchParams();
-  const initialMode = searchParams.get("mode") || "couple";
+  const rawMode = searchParams.get("mode");
+  const initialMode = rawMode === "group" ? "group" : "couple";
   
   const [playMode, setPlayMode] = useState(initialMode);
   const [theme, setTheme] = useState("");
@@ -344,21 +345,28 @@ export default function RolePlayClient() {
           data = JSON.parse(rawText);
         } catch {
           console.warn("JSON parse fallback for roleplay generation:", parseErr);
-          const extracted = extractStreamingRoleplay(rawText);
+          const textToExtract = rawText || streamProgress;
+          const extracted = extractStreamingRoleplay(textToExtract);
           data = {
             title: extracted.title || theme || "Roleplay Experience",
-            overview: extracted.overview || rawText,
+            overview: extracted.overview || textToExtract,
             preExperienceTasks: [],
-            partnerAPerspective: extracted.overview || rawText,
-            partnerBPerspective: extracted.overview || rawText,
-            fullScript: extracted.fullScript || rawText
+            partnerAPerspective: extracted.overview || textToExtract,
+            partnerBPerspective: extracted.overview || textToExtract,
+            fullScript: extracted.fullScript || textToExtract
           };
           if (!rawText.trim().endsWith('}') && !rawText.trim().endsWith('```')) {
             isStreamInterrupted = true;
           }
         }
       }
-      setScenario(data);
+
+      if (data) {
+        if (!data.fullScript) {
+          data.fullScript = (data as any).script || (data as any).body || (data as any).text || data.overview || rawText || streamProgress;
+        }
+        setScenario(data);
+      }
 
       if (isStreamInterrupted) {
         setError(STREAM_INTERRUPTED_MESSAGE);
@@ -371,7 +379,7 @@ export default function RolePlayClient() {
                             streamProgress.length > 0;
       setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err.message || "Our AI engine encountered an issue shaping your scenario. Please try again."));
 
-      if (streamProgress && streamProgress.trim().length > 20) {
+      if (streamProgress && streamProgress.trim().length > 0) {
         const partial = extractStreamingRoleplay(streamProgress);
         setScenario({
           title: partial.title || theme || "Roleplay Experience",
@@ -412,17 +420,6 @@ export default function RolePlayClient() {
                 className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
               />
               <span className="text-zinc-300">Couple</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="radio" 
-                name="playMode" 
-                value="solo" 
-                checked={playMode === "solo"} 
-                onChange={(e) => setPlayMode(e.target.value)}
-                className="w-4 h-4 text-red-600 bg-zinc-950 border-zinc-700"
-              />
-              <span className="text-zinc-300">Solo</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
@@ -481,23 +478,25 @@ export default function RolePlayClient() {
                 </div>
               )}
 
-              {loading && wordCount >= 1000 && (
+              {(wordCount >= 1000 || (!loading && (generatedContent.trim().length > 0 || streamProgress.trim().length > 0))) && (
                 <div className="mt-8 space-y-6 animate-in fade-in duration-300">
                   {/* Real-time Streaming Status Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="relative flex h-3.5 w-3.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
-                      </span>
-                      <span className="text-sm font-semibold text-red-200">
-                        Game Master Streaming Scenario in Real-Time...
+                  {loading && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="relative flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+                        </span>
+                        <span className="text-sm font-semibold text-red-200">
+                          Game Master Streaming Scenario in Real-Time...
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
+                        ~{wordCount} words streamed
                       </span>
                     </div>
-                    <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
-                      ~{wordCount} words streamed
-                    </span>
-                  </div>
+                  )}
 
                   {/* Real-time Streamed Scenario Canvas */}
                   <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6">
@@ -522,7 +521,7 @@ export default function RolePlayClient() {
                           {safeMarkdownString(generatedContent)}
                         </ReactMarkdown>
                       </ErrorBoundary>
-                      <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
+                      {loading && <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />}
                     </div>
                   </div>
                 </div>

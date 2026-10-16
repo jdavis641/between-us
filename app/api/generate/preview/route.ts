@@ -11,10 +11,10 @@ export async function POST(req: Request) {
     const {
       pacing = "Slow Burn",
       storyLength = "Short Story",
-      playMode = "couple",
       targetBoundary,
       theme
     } = body;
+    const playMode = body.playMode?.toLowerCase() === "group" ? "group" : "couple";
 
     // Bulletproof Auth Check
     let authHeader = req.headers.get('Authorization'); 

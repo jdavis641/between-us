@@ -300,14 +300,14 @@ export default function ExperienceReader({ params }: { params: any }) {
     )
   }
 
-  const isRoleplay = experience.content_type !== 'midweek_story';
+  const isRoleplay = experience?.content_type === 'roleplay' || experience?.content_type === 'weekend_scenario';
   const contentObj = experience.parsedData || {};
   
   const partnerA = contentObj.partnerAPerspective || contentObj.partner_a_perspective || "Your partner is eagerly anticipating what comes next. Lean into the mystery and excitement.";
   const partnerB = contentObj.partnerBPerspective || contentObj.partner_b_perspective || "The tension is building. Focus on the sensory details and let the moment guide you.";
   const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
   const storyboard = contentObj.overview || contentObj.storyboard || "The stage is set for an intimate encounter.";
-  const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
+  const scriptBody = contentObj.body || contentObj.text || contentObj.content || contentObj.story || contentObj.fullScript || experience.body || experience.overview || '';
 
   const content = typeof scriptBody === 'string' ? scriptBody : (scriptBody ? JSON.stringify(scriptBody, null, 2) : '');
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');

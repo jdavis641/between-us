@@ -80,9 +80,7 @@ function buildSystemInstruction({
   }
 
   let modeInstructions = '';
-  if (playMode === 'solo') {
-    modeInstructions = 'Write a highly descriptive, first-person romantic fantasy focusing entirely on the reader\'s internal monologue and solo exploration.';
-  } else if (playMode === 'group') {
+  if (playMode === 'group') {
     modeInstructions = 'Write an interconnected narrative featuring exactly 4 distinct character storylines navigating shifting alliances and group dynamics.';
   } else {
     modeInstructions = 'Write a dual-perspective, parallel storyline focusing strictly on 2 main character storylines, revealing distinct inner desires and complementary pre-experience tasks.';
@@ -410,8 +408,8 @@ export async function POST(req: Request) {
     const pacing = body.pacing;
     const storyLength = body.storyLength;
     const activeTrope = body.activeTrope;
-    const validModes = ["solo", "couple", "group"];
-    const playMode = validModes.includes(body.playMode) ? body.playMode : "couple";
+    const validModes = ["couple", "group"];
+    const playMode = validModes.includes(body.playMode?.toLowerCase()) ? body.playMode.toLowerCase() : "couple";
     
     // Auth Check
     let authHeader = req.headers.get('Authorization'); 
