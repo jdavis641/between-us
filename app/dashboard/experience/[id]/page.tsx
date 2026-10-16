@@ -582,20 +582,22 @@ export default function ExperienceReader({ params }: { params: any }) {
             <h3 className="text-2xl font-serif font-bold text-zinc-100 mb-2">How was the experience?</h3>
             <p className="text-zinc-500 text-sm mb-6">Your feedback shapes future generations and learns your desires.</p>
             
-            <div className="flex flex-col items-center justify-center gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <div className="w-full max-w-sm">
                 <RatingWidget contentType={isRoleplay ? "roleplay" : "literature"} contentId={params.id} />
               </div>
               <button
                 onClick={handleToggleFavorite}
                 disabled={isFavoriting}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all shadow-md active:scale-95 cursor-pointer ${
+                className={`inline-flex items-center gap-2.5 px-6 py-5 rounded-xl border text-sm font-semibold transition-all shadow-md active:scale-95 cursor-pointer ${
                   isFavorite
-                    ? "bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/60 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
-                    : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700"
+                    ? "bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/60 shadow-[0_0_20px_rgba(244,63,94,0.3)]"
+                    : "bg-zinc-900 text-zinc-300 hover:text-white border-zinc-800 hover:border-zinc-700 hover:bg-zinc-850"
                 }`}
+                title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               >
-                <span>{isFavorite ? '❤️ In Your Favorites' : '🤍 Save this to Your Favorites'}</span>
+                <span className="text-2xl">{isFavorite ? '❤️' : '🤍'}</span>
+                <span>{isFavorite ? 'In Your Favorites' : 'Add to Favorites'}</span>
               </button>
             </div>
           </div>

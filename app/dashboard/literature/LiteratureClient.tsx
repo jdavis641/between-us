@@ -24,6 +24,45 @@ interface StoryPreview {
   premise: string;
 }
 
+export function extractStreamingMarkdown(raw: string): { title?: string; body: string } {
+  if (!raw || !raw.trim()) return { body: "" };
+
+  try {
+    const cleaned = raw.trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    const body = parsed.body || parsed.text || parsed.content || parsed.story || "";
+    if (body) {
+      return { title: parsed.title, body: String(body).replace(/\\n/g, '\n').replace(/\\"/g, '"') };
+    }
+  } catch {}
+
+  const titleMatch = raw.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"?/);
+  const title = titleMatch ? titleMatch[1].replace(/\\"/g, '"') : undefined;
+
+  const bodyMatch = raw.match(/"(?:body|text|content|story|continuation)"\s*:\s*"([\s\S]*)/i);
+  if (bodyMatch && bodyMatch[1]) {
+    let partial = bodyMatch[1];
+    partial = partial.replace(/"\s*,\s*"[^"]*"\s*:\s*[\s\S]*$/, '');
+    partial = partial.replace(/"\s*}\s*$/, '');
+    partial = partial.replace(/"$/, '');
+    const clean = partial
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\t/g, '\t');
+    return { title, body: clean };
+  }
+
+  const cleaned = raw
+    .replace(/^\{?\s*"title"\s*:\s*"[^"]*",?\s*"(?:body|text)"\s*:\s*"?/i, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"');
+  return { title, body: cleaned };
+}
+
 export default function LiteratureClient() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") || "couple";
@@ -361,6 +400,7 @@ export default function LiteratureClient() {
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerB = (scenario?.partnerBPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const streamingStory = extractStreamingMarkdown(streamProgress);
 
   return (
     <div className="flex flex-col w-full relative">
@@ -590,11 +630,40 @@ export default function LiteratureClient() {
               </div>
 
               {loading && (
-                <div className="mt-6">
-                  <FlameLoader 
-                    isGenerating={loading} 
-                    progressText={streamProgress.length > 0 ? "Streaming story chapters..." : "Connecting to story engine..."} 
-                  />
+                <div className="mt-8 space-y-6 animate-in fade-in duration-300">
+                  {/* Real-time Streaming Status Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="relative flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+                      </span>
+                      <span className="text-sm font-semibold text-red-200">
+                        {streamProgress.length > 0 ? "Streaming Story Chapters in Real-Time..." : "Connecting to Story Engine..."}
+                      </span>
+                    </div>
+                    {streamProgress.length > 0 && (
+                      <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
+                        ~{Math.round(streamProgress.split(/\s+/).filter(Boolean).length)} words streamed
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Real-time Streamed Content Canvas */}
+                  <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6">
+                    {streamingStory.title && (
+                      <h3 className="text-2xl sm:text-3xl font-serif font-bold text-zinc-100 border-b border-zinc-800 pb-4">
+                        {streamingStory.title}
+                      </h3>
+                    )}
+
+                    <div className="prose prose-invert max-w-none text-zinc-200 font-serif leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
+                      <ReactMarkdown>
+                        {streamingStory.body || (streamProgress.length > 0 ? streamProgress : "Waiting for the first chapter...")}
+                      </ReactMarkdown>
+                      <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -750,11 +819,22 @@ export default function LiteratureClient() {
           </div>
 
           {isContinuing && (
-            <div className="mt-4 mb-8">
-              <FlameLoader
-                isGenerating={isContinuing}
-                progressText={streamProgress.length > 0 ? "Extending story chapters..." : "Generating continuation..."}
-              />
+            <div className="mt-4 mb-8 space-y-4">
+              <div className="flex items-center gap-2.5 text-xs text-red-300 bg-red-950/40 border border-red-900/50 p-3 rounded-lg">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+                <span className="font-medium">
+                  {streamProgress.length > 0 ? "Appending new chapters in real-time..." : "Connecting to story engine to extend..."}
+                </span>
+              </div>
+              {streamProgress.length > 0 && (
+                <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6 text-zinc-300 font-serif leading-loose whitespace-pre-wrap">
+                  <ReactMarkdown>{streamingStory.body || streamProgress}</ReactMarkdown>
+                  <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
+                </div>
+              )}
             </div>
           )}
           

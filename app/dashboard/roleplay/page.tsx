@@ -1,5 +1,7 @@
+'use client';
+
 import { Suspense } from "react";
-import RolePlayClient from "./RolePlayClient";
+import RolePlayClient, { extractStreamingRoleplay } from "./RolePlayClient";
 import ReactMarkdown from "react-markdown";
 
 export const maxDuration = 300;
@@ -12,7 +14,7 @@ export function RolePlayMarkdown({ content }: { content: string }) {
   return <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>;
 }
 
-export default async function RolePlayPage() {
+export default function RolePlayPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-rose-500/30">
       <div className="max-w-4xl mx-auto p-6 md:p-12">

@@ -1,5 +1,7 @@
+'use client';
+
 import { Suspense } from "react";
-import LiteratureClient from "./LiteratureClient";
+import LiteratureClient, { extractStreamingMarkdown } from "./LiteratureClient";
 import ReactMarkdown from "react-markdown";
 
 export const maxDuration = 300;
@@ -12,7 +14,7 @@ export function LiteratureMarkdown({ content }: { content: string }) {
   return <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>;
 }
 
-export default async function LiteraturePage() {
+export default function LiteraturePage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-rose-500/30">
       <div className="max-w-4xl mx-auto p-6 md:p-12">

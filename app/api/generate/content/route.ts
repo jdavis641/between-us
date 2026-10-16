@@ -216,23 +216,52 @@ async function fetchCuratedSupabaseFallback({
   hasScripts?: boolean;
 }) {
   try {
-    // 1. Try to query generated_content for existing seeded or curated content matching contentType
+    // 1. SELECT query against the Supabase generated_content table
+    // Matching the user's base_tolerance and play_mode
     let query = supabase
       .from('generated_content')
       .select('*')
       .eq('content_type', contentType);
 
+    if (playMode) {
+      query = query.eq('play_mode', playMode);
+    }
+
     if (targetBoundary) {
       query = query.ilike('tolerance_tier', `%${targetBoundary}%`);
     }
 
-    const { data: rows } = await query
+    let { data: rows } = await query
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(25);
+
+    // If no row found with both strict filters, try matching play_mode or tolerance_tier
+    if (!rows || rows.length === 0) {
+      let fallbackQuery = supabase
+        .from('generated_content')
+        .select('*')
+        .eq('content_type', contentType);
+      if (playMode) {
+        fallbackQuery = fallbackQuery.eq('play_mode', playMode);
+      }
+      const res = await fallbackQuery.order('created_at', { ascending: false }).limit(25);
+      rows = res.data;
+    }
+
+    // If still no rows, query any pre-existing story/roleplay of this content_type
+    if (!rows || rows.length === 0) {
+      const res = await supabase
+        .from('generated_content')
+        .select('*')
+        .eq('content_type', contentType)
+        .order('created_at', { ascending: false })
+        .limit(25);
+      rows = res.data;
+    }
 
     let selectedRow = null;
     if (rows && rows.length > 0) {
-      // If a theme was provided, prioritize matching theme
+      // If a theme was provided and matches, prioritize it, otherwise pick random
       if (theme) {
         selectedRow = rows.find((r: any) => 
           (r.theme_tags && r.theme_tags.toLowerCase().includes(theme.toLowerCase())) ||
@@ -240,7 +269,7 @@ async function fetchCuratedSupabaseFallback({
         );
       }
       if (!selectedRow) {
-        // Pick random from the fetched curated pool
+        // Return a randomly selected, pre-existing story/roleplay matching base_tolerance & play_mode
         selectedRow = rows[Math.floor(Math.random() * rows.length)];
       }
     }
@@ -502,6 +531,11 @@ export async function POST(req: Request) {
     }
 
     let streamResult;
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort(new Error("OpenRouter request timed out after 25s"));
+    }, 25000);
+
     try {
       if (!process.env.OPENROUTER_API_KEY) {
         throw new Error("Missing OPENROUTER_API_KEY in environment variables");
@@ -529,9 +563,13 @@ export async function POST(req: Request) {
             "cognitivecomputations/dolphin-mistral-24b-venice-edition"
           ]
         }
-      } as any);
+      } as any, { signal: abortController.signal });
+
+      clearTimeout(timeoutId);
     } catch (apiError: any) {
-      console.warn("OpenRouter/Euryale endpoint dropped or failed. Initiating Supabase library failover:", apiError?.message || apiError);
+      clearTimeout(timeoutId);
+      abortController.abort();
+      console.warn("OpenRouter/Euryale fetch failed, timed out, or threw 50x error. Executing Supabase fallback:", apiError?.message || apiError);
 
       const fallbackContent = await fetchCuratedSupabaseFallback({
         supabase,

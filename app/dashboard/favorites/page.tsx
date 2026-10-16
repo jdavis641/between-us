@@ -128,7 +128,13 @@ export default function FavoritesHubPage() {
           // user_favorites table might not be queried or populated yet
         }
 
-        setFavorites(Array.from(itemsMap.values()))
+        const sortedFavorites = Array.from(itemsMap.values()).sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        setFavorites(sortedFavorites)
       } catch (err) {
         console.error('Error loading favorites:', err)
       } finally {

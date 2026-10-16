@@ -18,6 +18,47 @@ interface ScenarioPayload {
   fullScript: string | null;
 }
 
+export function extractStreamingRoleplay(raw: string): {
+  title?: string;
+  overview?: string;
+  fullScript: string;
+} {
+  if (!raw || !raw.trim()) return { overview: "", fullScript: "" };
+
+  try {
+    const cleaned = raw.trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      title: parsed.title,
+      overview: parsed.overview || "",
+      fullScript: parsed.fullScript || parsed.script || parsed.body || ""
+    };
+  } catch {}
+
+  const titleMatch = raw.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"?/);
+  const overviewMatch = raw.match(/"overview"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"?/);
+  const scriptMatch = raw.match(/"(?:fullScript|dialogue|script|body)"\s*:\s*"([\s\S]*)/i);
+
+  let script = "";
+  if (scriptMatch && scriptMatch[1]) {
+    script = scriptMatch[1]
+      .replace(/"\s*}\s*$/, '')
+      .replace(/"$/, '')
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"');
+  }
+
+  return {
+    title: titleMatch ? titleMatch[1].replace(/\\"/g, '"') : undefined,
+    overview: overviewMatch ? overviewMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : "",
+    fullScript: script || raw.replace(/^\{?\s*"title":\s*"[^"]*",?/i, '').replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  };
+}
+
 export default function RolePlayClient() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") || "couple";
@@ -237,6 +278,7 @@ export default function RolePlayClient() {
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerB = (scenario?.partnerBPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const streamingRoleplay = extractStreamingRoleplay(streamProgress);
 
   return (
     <div className="flex flex-col w-full relative">
@@ -316,11 +358,49 @@ export default function RolePlayClient() {
           </button>
 
           {loading && (
-            <div className="mt-6">
-              <FlameLoader 
-                isGenerating={loading} 
-                progressText="Connecting to experience engine..." 
-              />
+            <div className="mt-8 space-y-6 animate-in fade-in duration-300">
+              {/* Real-time Streaming Status Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
+                <div className="flex items-center gap-3">
+                  <span className="relative flex h-3.5 w-3.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+                  </span>
+                  <span className="text-sm font-semibold text-red-200">
+                    {streamProgress.length > 0 ? "Game Master Streaming Scenario in Real-Time..." : "Connecting to Experience Engine..."}
+                  </span>
+                </div>
+                {streamProgress.length > 0 && (
+                  <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
+                    ~{Math.round(streamProgress.split(/\s+/).filter(Boolean).length)} words streamed
+                  </span>
+                )}
+              </div>
+
+              {/* Real-time Streamed Scenario Canvas */}
+              <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6">
+                {streamingRoleplay.title && (
+                  <h3 className="text-2xl sm:text-3xl font-serif font-bold text-zinc-100 border-b border-zinc-800 pb-4">
+                    {streamingRoleplay.title}
+                  </h3>
+                )}
+
+                {streamingRoleplay.overview && (
+                  <div className="bg-zinc-950/60 p-5 rounded-xl border border-zinc-800/80">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-red-400 mb-2">The Setting & Storyboard</h4>
+                    <p className="text-zinc-300 font-serif leading-relaxed text-sm sm:text-base whitespace-pre-wrap">
+                      {streamingRoleplay.overview}
+                    </p>
+                  </div>
+                )}
+
+                <div className="prose prose-invert max-w-none text-zinc-200 font-serif leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
+                  <ReactMarkdown>
+                    {streamingRoleplay.fullScript || (streamProgress.length > 0 ? streamProgress : "Waiting for the scenario script...")}
+                  </ReactMarkdown>
+                  <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
+                </div>
+              </div>
             </div>
           )}
 
@@ -454,11 +534,22 @@ export default function RolePlayClient() {
           </div>
 
           {isContinuing && (
-            <div className="mt-4 mb-8">
-              <FlameLoader
-                isGenerating={isContinuing}
-                progressText={streamProgress.length > 0 ? "Extending scenario chapters..." : "Generating continuation..."}
-              />
+            <div className="mt-4 mb-8 space-y-4">
+              <div className="flex items-center gap-2.5 text-xs text-red-300 bg-red-950/40 border border-red-900/50 p-3 rounded-lg">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+                <span className="font-medium">
+                  {streamProgress.length > 0 ? "Appending scenario continuation in real-time..." : "Connecting to Game Master to extend..."}
+                </span>
+              </div>
+              {streamProgress.length > 0 && (
+                <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6 text-zinc-300 font-serif leading-loose whitespace-pre-wrap">
+                  <ReactMarkdown>{streamingRoleplay.fullScript || streamProgress}</ReactMarkdown>
+                  <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
+                </div>
+              )}
             </div>
           )}
           
