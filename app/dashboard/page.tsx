@@ -207,7 +207,7 @@ export default function DashboardHome() {
               <div className="flex items-center space-x-4">
                 <span className="text-3xl">🔥</span>
                 <div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-red-400 transition-colors">custom Kinks</h3>
+                  <h3 className="text-lg font-bold text-white group-hover:text-red-400 transition-colors">Custom Kinks</h3>
                   <p className="text-gray-400 text-sm">Define explicit desires that manually override AI boundaries.</p>
                 </div>
               </div>
