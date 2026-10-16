@@ -76,12 +76,10 @@ export default function SettingsPage() {
     if (e) e.preventDefault()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const currentNickname = profile?.nickname || profile?.anonymous_alias || ''
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          pronouns,
-          ...(currentNickname ? { nickname: currentNickname, anonymous_alias: currentNickname } : {})
+          pronouns
         })
         .eq('id', session.user.id)
 
@@ -159,21 +157,20 @@ export default function SettingsPage() {
     setSavingUsername(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
+      const cleanNickname = usernameToSave.trim()
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          nickname: usernameToSave, 
-          anonymous_alias: usernameToSave,
-          pronouns: pronouns
+          nickname: cleanNickname, 
+          anonymous_alias: cleanNickname
         })
         .eq('id', session.user.id)
       
       if (!error) {
         setProfile((prev: any) => ({ 
           ...prev, 
-          nickname: usernameToSave, 
-          anonymous_alias: usernameToSave,
-          pronouns: pronouns 
+          nickname: cleanNickname, 
+          anonymous_alias: cleanNickname
         }))
         setIsEditingUsername(false)
         setNewUsername('')

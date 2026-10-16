@@ -48,10 +48,15 @@ export async function POST(req: Request) {
         // a) Upsert profiles table to activate the user and guarantee the row exists
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
-          .upsert({ id: targetUserId, is_active: true });
+          .upsert(
+            { id: targetUserId, is_active: true },
+            { onConflict: 'id' }
+          );
           
         if (profileError) {
           console.error('[Stripe Webhook] Error updating profile:', profileError);
+        } else {
+          console.log(`[Stripe Webhook] Successfully activated profile for user: ${targetUserId}`);
         }
 
         // b) Activate connection groups

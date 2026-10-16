@@ -1,9 +1,26 @@
 -- Function to automatically create a profile for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  default_alias TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, email)
-  VALUES (new.id, new.email);
+  default_alias := COALESCE(
+    new.raw_user_meta_data->>'anonymous_alias',
+    new.raw_user_meta_data->>'nickname',
+    'User_' || substring(new.id::text, 1, 8)
+  );
+
+  INSERT INTO public.profiles (id, email, anonymous_alias, nickname)
+  VALUES (
+    new.id,
+    new.email,
+    default_alias,
+    default_alias
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    anonymous_alias = COALESCE(public.profiles.anonymous_alias, EXCLUDED.anonymous_alias),
+    nickname = COALESCE(public.profiles.nickname, EXCLUDED.nickname);
 
   INSERT INTO public.in_app_messages (user_id, subject, message)
   VALUES (

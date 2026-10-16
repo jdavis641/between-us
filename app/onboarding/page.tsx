@@ -258,8 +258,7 @@ function OnboardingContent() {
         .from('profiles')
         .update({
           nickname: username.trim(),
-          anonymous_alias: username.trim(),
-          pronouns: pronouns.trim()
+          anonymous_alias: username.trim()
         })
         .eq('id', session.user.id)
     }
