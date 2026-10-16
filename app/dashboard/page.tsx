@@ -57,28 +57,16 @@ export default function DashboardHome() {
 
       <div className="max-w-4xl mx-auto space-y-10">
         
-        {/* Active AI Story/Roleplay Banner */}
+        {/* Settings Notification Banner */}
         <section>
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Your Active Experience</h2>
-          {loading ? (
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 animate-pulse h-24"></div>
-          ) : activeStory ? (
-            <Link href={`/dashboard/experience/${activeStory.id}`}>
-              <div className="bg-gradient-to-r from-blue-900 to-gray-800 p-6 rounded-xl border border-blue-800 hover:border-blue-500 transition-colors cursor-pointer group flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-bold group-hover:text-blue-400 transition-colors">{activeStory.title}</h3>
-                  <p className="text-sm text-gray-300 mt-1">
-                    {activeStory.content_type === 'midweek_story' ? 'Continue Reading Chapter...' : 'View Weekend Roleplay Script'}
-                  </p>
-                </div>
-                <span className="text-2xl group-hover:translate-x-2 transition-transform">→</span>
-              </div>
-            </Link>
-          ) : (
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
-              <p className="text-gray-400 text-sm">Your game master is preparing your next scenario.</p>
-            </div>
-          )}
+          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
+            <p className="text-gray-300 text-sm">
+              Change your tolerance level and contribute to the community, anonymously, in the{' '}
+              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline font-medium transition-colors">
+                settings menu
+              </Link>
+            </p>
+          </div>
         </section>
 
         {/* Main Navigation Grid */}
