@@ -6,6 +6,21 @@ import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 import { getActiveHoliday } from "@/utils/holidayTheme";
 
+export class StreamingTextResponse extends Response {
+  constructor(res: ReadableStream, init?: ResponseInit) {
+    super(res, {
+      ...init,
+      status: init?.status ?? 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Content-Type-Options': 'nosniff',
+        ...init?.headers,
+      },
+    });
+  }
+}
+
 function buildSystemInstruction({
   preferences,
   playMode,
@@ -533,8 +548,8 @@ export async function POST(req: Request) {
     let streamResult;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
-      abortController.abort(new Error("OpenRouter request timed out after 25s"));
-    }, 25000);
+      abortController.abort(new Error("OpenRouter request timed out after 280s"));
+    }, 280000);
 
     try {
       if (!process.env.OPENROUTER_API_KEY) {
@@ -675,12 +690,7 @@ export async function POST(req: Request) {
       }
     });
 
-    return new Response(customStream, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-      }
-    });
+    return new StreamingTextResponse(customStream);
   } catch (error: any) {
     console.error("OpenAI Generation Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
+import ErrorBoundary, { safeMarkdownString } from '@/components/ErrorBoundary'
 
 const supabase = createClient()
 
@@ -402,18 +403,22 @@ export default function ExperienceReader({ params }: { params: any }) {
           {activeMode === "partner-a" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner A</h2>
-               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                 {cleanPartnerA}
-               </ReactMarkdown>
+               <ErrorBoundary fallbackContent={cleanPartnerA}>
+                 <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                   {safeMarkdownString(cleanPartnerA)}
+                 </ReactMarkdown>
+               </ErrorBoundary>
              </div>
           )}
 
           {activeMode === "partner-b" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">Psychological Profile: Partner B</h2>
-               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                 {cleanPartnerB}
-               </ReactMarkdown>
+               <ErrorBoundary fallbackContent={cleanPartnerB}>
+                 <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                   {safeMarkdownString(cleanPartnerB)}
+                 </ReactMarkdown>
+               </ErrorBoundary>
              </div>
           )}
 
@@ -441,17 +446,21 @@ export default function ExperienceReader({ params }: { params: any }) {
               {isRoleplay && storyboard && (
                 <section className="bg-zinc-950 border border-zinc-800/60 p-6 md:p-8 rounded-2xl">
                   <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-6">The Storyboard</h3>
-                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif italic text-zinc-300 leading-relaxed">
-                    {cleanStoryboard}
-                  </ReactMarkdown>
+                  <ErrorBoundary fallbackContent={cleanStoryboard}>
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif italic text-zinc-300 leading-relaxed">
+                      {safeMarkdownString(cleanStoryboard)}
+                    </ReactMarkdown>
+                  </ErrorBoundary>
                 </section>
               )}
 
               <section className="space-y-6 pt-4 font-serif text-zinc-200">
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
-                <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                  {cleanContent}
-                </ReactMarkdown>
+                <ErrorBoundary fallbackContent={cleanContent}>
+                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                    {safeMarkdownString(cleanContent)}
+                  </ReactMarkdown>
+                </ErrorBoundary>
               </section>
 
             </div>

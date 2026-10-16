@@ -1,17 +1,23 @@
-'use client';
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
 import LiteratureClient, { extractStreamingMarkdown } from "./LiteratureClient";
 import ReactMarkdown from "react-markdown";
+import FlameLoader from "@/components/FlameLoader";
+import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
-export const maxDuration = 300;
-export const dynamic = 'force-dynamic';
+export { LiteratureClient, FlameLoader, ErrorBoundary, extractStreamingMarkdown };
 
-export const sanitizeContent = (content: string) => (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
 export function LiteratureMarkdown({ content }: { content: string }) {
-  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  return <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>;
+  const cleanContent = safeMarkdownString(content);
+  return (
+    <ErrorBoundary fallbackContent={cleanContent}>
+      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
+    </ErrorBoundary>
+  );
 }
 
 export default function LiteraturePage() {
@@ -27,7 +33,7 @@ export default function LiteraturePage() {
 
         <Suspense fallback={
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-pulse text-zinc-500 font-serif">Loading literature engine...</div>
+            <FlameLoader isGenerating={true} progressText="Connecting to literature engine..." />
           </div>
         }>
           <LiteratureClient />

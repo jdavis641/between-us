@@ -4,8 +4,9 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 import RatingWidget from "@/components/RatingWidget";
-import FlameLoader from "../../components/FlameLoader";
+import FlameLoader from "@/components/FlameLoader";
 import ReactMarkdown from "react-markdown";
+import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
 type ReaderMode = "partner-a" | "partner-b";
 
@@ -629,7 +630,16 @@ export default function LiteratureClient() {
                 </button>
               </div>
 
-              {loading && (
+              {loading && streamProgress.length === 0 && (
+                <div className="mt-6">
+                  <FlameLoader 
+                    isGenerating={loading} 
+                    progressText="Connecting to story engine & establishing narrative stream..." 
+                  />
+                </div>
+              )}
+
+              {loading && streamProgress.length > 0 && (
                 <div className="mt-8 space-y-6 animate-in fade-in duration-300">
                   {/* Real-time Streaming Status Bar */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
@@ -639,14 +649,12 @@ export default function LiteratureClient() {
                         <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
                       </span>
                       <span className="text-sm font-semibold text-red-200">
-                        {streamProgress.length > 0 ? "Streaming Story Chapters in Real-Time..." : "Connecting to Story Engine..."}
+                        Streaming Story Chapters in Real-Time...
                       </span>
                     </div>
-                    {streamProgress.length > 0 && (
-                      <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
-                        ~{Math.round(streamProgress.split(/\s+/).filter(Boolean).length)} words streamed
-                      </span>
-                    )}
+                    <span className="text-xs font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-lg border border-zinc-800">
+                      ~{Math.round(streamProgress.split(/\s+/).filter(Boolean).length)} words streamed
+                    </span>
                   </div>
 
                   {/* Real-time Streamed Content Canvas */}
@@ -658,9 +666,11 @@ export default function LiteratureClient() {
                     )}
 
                     <div className="prose prose-invert max-w-none text-zinc-200 font-serif leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
-                      <ReactMarkdown>
-                        {streamingStory.body || (streamProgress.length > 0 ? streamProgress : "Waiting for the first chapter...")}
-                      </ReactMarkdown>
+                      <ErrorBoundary fallbackContent={streamingStory.body || streamProgress}>
+                        <ReactMarkdown>
+                          {safeMarkdownString(streamingStory.body || streamProgress)}
+                        </ReactMarkdown>
+                      </ErrorBoundary>
                       <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />
                     </div>
                   </div>
@@ -738,18 +748,22 @@ export default function LiteratureClient() {
           
           {scenario.body ? (
             <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 md:p-10 mb-8 shadow-inner font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif">
-              <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                {cleanContent}
-              </ReactMarkdown>
+              <ErrorBoundary fallbackContent={cleanContent}>
+                <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                  {safeMarkdownString(cleanContent)}
+                </ReactMarkdown>
+              </ErrorBoundary>
             </div>
           ) : (
             <>
               {scenario.overview && (
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
                   <h3 className="text-sm uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Synopsis</h3>
-                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
-                    {cleanOverview}
-                  </ReactMarkdown>
+                  <ErrorBoundary fallbackContent={cleanOverview}>
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300 leading-relaxed">
+                      {safeMarkdownString(cleanOverview)}
+                    </ReactMarkdown>
+                  </ErrorBoundary>
                 </div>
               )}
 
@@ -776,17 +790,21 @@ export default function LiteratureClient() {
                 <div className="p-6 md:p-8">
                   {activeMode === "partner-a" && (
                     <div className="animate-in fade-in">
-                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                        {cleanPartnerA}
-                      </ReactMarkdown>
+                      <ErrorBoundary fallbackContent={cleanPartnerA}>
+                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                          {safeMarkdownString(cleanPartnerA)}
+                        </ReactMarkdown>
+                      </ErrorBoundary>
                     </div>
                   )}
 
                   {activeMode === "partner-b" && (
                     <div className="animate-in fade-in">
-                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
-                        {cleanPartnerB}
-                      </ReactMarkdown>
+                      <ErrorBoundary fallbackContent={cleanPartnerB}>
+                        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-loose">
+                          {safeMarkdownString(cleanPartnerB)}
+                        </ReactMarkdown>
+                      </ErrorBoundary>
                     </div>
                   )}
                 </div>
@@ -818,7 +836,16 @@ export default function LiteratureClient() {
             </button>
           </div>
 
-          {isContinuing && (
+          {isContinuing && streamProgress.length === 0 && (
+            <div className="mt-4 mb-8">
+              <FlameLoader
+                isGenerating={isContinuing}
+                progressText="Connecting to story engine to extend..."
+              />
+            </div>
+          )}
+
+          {isContinuing && streamProgress.length > 0 && (
             <div className="mt-4 mb-8 space-y-4">
               <div className="flex items-center gap-2.5 text-xs text-red-300 bg-red-950/40 border border-red-900/50 p-3 rounded-lg">
                 <span className="relative flex h-2.5 w-2.5">
@@ -826,15 +853,15 @@ export default function LiteratureClient() {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                 </span>
                 <span className="font-medium">
-                  {streamProgress.length > 0 ? "Appending new chapters in real-time..." : "Connecting to story engine to extend..."}
+                  Appending new chapters in real-time...
                 </span>
               </div>
-              {streamProgress.length > 0 && (
-                <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6 text-zinc-300 font-serif leading-loose whitespace-pre-wrap">
-                  <ReactMarkdown>{streamingStory.body || streamProgress}</ReactMarkdown>
-                  <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
-                </div>
-              )}
+              <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-6 text-zinc-300 font-serif leading-loose whitespace-pre-wrap">
+                <ErrorBoundary fallbackContent={streamingStory.body || streamProgress}>
+                  <ReactMarkdown>{safeMarkdownString(streamingStory.body || streamProgress)}</ReactMarkdown>
+                </ErrorBoundary>
+                <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
+              </div>
             </div>
           )}
           
