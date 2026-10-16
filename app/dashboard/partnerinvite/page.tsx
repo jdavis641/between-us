@@ -54,22 +54,23 @@ export default function InvitePartnerPage() {
   }, [])
 
   const handleSearch = async () => {
-    if (!searchValue.trim()) return
+    const searchTerm = searchValue.trim()
+    if (!searchTerm) return
     setIsSearching(true)
     
-    let query = supabase.from('profiles').select('id, username, anonymous_alias, nickname')
+    let query = supabase.from('profiles').select('id, anonymous_alias, nickname')
     if (searchMethod === 'username') {
-      query = query.eq('anonymous_alias', searchValue)
+      query = query.or(`anonymous_alias.ilike.%${searchTerm}%,nickname.ilike.%${searchTerm}%`)
     } else if (searchMethod === 'email') {
-      query = query.eq('email', searchValue)
+      query = query.eq('email', searchTerm)
     } else if (searchMethod === 'phone') {
-      query = query.eq('phone', searchValue)
+      query = query.eq('phone', searchTerm)
     }
 
     const { data, error } = await query.limit(1).maybeSingle()
 
     if (data) {
-      setFoundUser({ id: data.id, username: data.anonymous_alias || data.nickname || data.username || searchValue })
+      setFoundUser({ id: data.id, username: data.anonymous_alias || data.nickname || searchTerm })
     } else {
       setFoundUser(null)
       alert("Partner not found.")
