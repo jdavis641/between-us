@@ -18,10 +18,12 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [textSize, setTextSize] = useState<"text-lg" | "text-xl" | "text-2xl">("text-lg")
   const [storyId, setStoryId] = useState<string>("")
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareMethod, setShareMethod] = useState<'email' | 'sms'>('email')
   const [shareRecipient, setShareRecipient] = useState('')
   const [isSharing, setIsSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
   const [shareToast, setShareToast] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
   const [isFavoriting, setIsFavoriting] = useState(false)
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
@@ -241,6 +243,21 @@ export default function ExperienceReader({ params }: { params: any }) {
       setShareError(err.message || 'Failed to share story. Please try again.');
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleCopyDirectLink = async () => {
+    const directUrl = `https://betweenusapp.io/dashboard/experience/${storyId}`;
+    try {
+      await navigator.clipboard.writeText(directUrl);
+      setCopiedLink(true);
+      setShareToast('Story link copied to clipboard');
+      setTimeout(() => {
+        setCopiedLink(false);
+        setShareToast(null);
+      }, 3500);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
     }
   };
 
@@ -552,23 +569,66 @@ export default function ExperienceReader({ params }: { params: any }) {
               </div>
 
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Send a secure direct link for <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> via email or text message.
+                Send a secure direct link for <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> via email or SMS text message.
               </p>
 
+              {/* Delivery Method Selector */}
+              <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => { setShareMethod('email'); setShareError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                    shareMethod === 'email' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShareMethod('sms'); setShareError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                    shareMethod === 'sms' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Mobile Number (SMS)
+                </button>
+              </div>
+
               <form onSubmit={handleShareStory} className="space-y-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
-                    Recipient Email Address or Mobile Number
-                  </label>
-                  <input
-                    type="text"
-                    value={shareRecipient}
-                    onChange={(e) => setShareRecipient(e.target.value)}
-                    placeholder="partner@example.com or +1234567890"
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
-                    autoFocus
-                  />
-                </div>
+                {shareMethod === 'email' ? (
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
+                      Recipient Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={shareRecipient}
+                      onChange={(e) => setShareRecipient(e.target.value)}
+                      placeholder="partner@example.com"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
+                      Recipient Mobile Number (SMS)
+                    </label>
+                    <input
+                      type="tel"
+                      value={shareRecipient}
+                      onChange={(e) => setShareRecipient(e.target.value)}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                      autoFocus
+                      required
+                    />
+                    <p className="mt-1.5 text-xs text-zinc-500">
+                      Dispatched directly via our active Twilio SMS integration.
+                    </p>
+                  </div>
+                )}
 
                 {shareError && (
                   <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
@@ -576,21 +636,31 @@ export default function ExperienceReader({ params }: { params: any }) {
                   </div>
                 )}
 
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="flex items-center justify-between pt-2">
                   <button
                     type="button"
-                    onClick={() => setIsShareModalOpen(false)}
-                    className="px-4 py-2.5 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors cursor-pointer"
+                    onClick={handleCopyDirectLink}
+                    className="text-xs text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
                   >
-                    Cancel
+                    {copiedLink ? '✓ Copied Link' : 'Copy link instead'}
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSharing || !shareRecipient.trim()}
-                    className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors shadow-md cursor-pointer"
-                  >
-                    {isSharing ? 'Sending Link...' : 'Send Link'}
-                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsShareModalOpen(false)}
+                      className="px-4 py-2.5 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSharing || !shareRecipient.trim()}
+                      className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors shadow-md cursor-pointer"
+                    >
+                      {isSharing ? 'Sending Link...' : 'Send Link'}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

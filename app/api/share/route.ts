@@ -39,42 +39,24 @@ export async function POST(req: Request) {
       user = res.data?.user || null;
     }
 
-    // Record shared access in DB
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        const supabaseAdmin = createSupabaseClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
-        await supabaseAdmin
-          .from('generated_content')
-          .update({ is_shared: true })
-          .eq('id', storyId);
-
-        await supabaseAdmin
-          .from('shared_content_access')
-          .upsert(
-            { content_id: storyId, shared_by: user?.id || null },
-            { onConflict: 'content_id' }
-          );
-      }
-    } catch (shareDbErr) {
-      console.warn('Could not record shared access in DB:', shareDbErr);
-    }
-
     // Determine story title if not provided
     let title = storyTitle || 'Intimate Experience';
     if (!storyTitle) {
-      const { data: storyData } = await supabase
-        .from('generated_content')
-        .select('title')
-        .eq('id', storyId)
-        .maybeSingle();
+      try {
+        const { data: storyData } = await supabase
+          .from('generated_content')
+          .select('title')
+          .eq('id', storyId)
+          .maybeSingle();
 
-      if (storyData?.title) {
-        title = storyData.title;
+        if (storyData?.title) {
+          title = storyData.title;
+        }
+      } catch (e) {
+        // Fallback to default
       }
     }
+
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenusapp.io';
     const storyLink = `${baseUrl}/dashboard/experience/${storyId}`;
