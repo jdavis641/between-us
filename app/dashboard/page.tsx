@@ -124,17 +124,17 @@ export default function DashboardHome() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             
-            {/* Intimacy Games Hub Link */}
-            <Link href="/dashboard/games">
-              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
+            {/* Erotic Stories Hub Link */}
+            <Link href="/dashboard/literature">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-purple-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
                 <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                  <span className="text-4xl">🎲</span>
+                  <span className="text-4xl">📖</span>
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Intimacy Games</h3>
-                  <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
+                  <h3 className="text-2xl font-bold text-white mb-2">Erotic Stories</h3>
+                  <p className="text-gray-400 text-sm">Generate immersive, serialized romantic fiction tailored to your shared desires.</p>
                 </div>
               </div>
             </Link>
@@ -148,6 +148,19 @@ export default function DashboardHome() {
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">Role Play Scenarios</h3>
                   <p className="text-gray-400 text-sm">Explore scenarios for couple or group play.</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Intimacy Games Hub Link */}
+            <Link href="/dashboard/games">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
+                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
+                  <span className="text-4xl">🎲</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Intimacy Games</h3>
+                  <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
                 </div>
               </div>
             </Link>
