@@ -88,6 +88,8 @@ export default function LiteratureClient() {
   const [streamProgress, setStreamProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
+  const [regenerationCount, setRegenerationCount] = useState(0);
+  const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
 
   const handleConfigureNewStory = () => {
     setLoading(false);
@@ -98,6 +100,8 @@ export default function LiteratureClient() {
     setStreamProgress("");
     setError(null);
     setPreviewError(null);
+    setRegenerationCount(0);
+    setGenerationMetric(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -342,17 +346,19 @@ export default function LiteratureClient() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (regenOverride?: number) => {
     if (!activeTrope) {
       setError("Please select a story trope preview to continue.");
       return;
     }
 
+    const currentRegen = typeof regenOverride === 'number' ? regenOverride : regenerationCount;
     setLoading(true);
     setError(null);
     setScenario(null);
     setStreamProgress("");
     let isStreamInterrupted = false;
+    const startTime = performance.now();
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -376,7 +382,8 @@ export default function LiteratureClient() {
           theme: theme,
           targetBoundary: targetBoundary,
           pacing: pacing,
-          activeTrope: activeTrope
+          activeTrope: activeTrope,
+          regenerationCount: currentRegen
         })
       }).catch((fetchErr) => {
         console.error("Generate fetch error:", fetchErr);
@@ -470,6 +477,15 @@ export default function LiteratureClient() {
           data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
         }
         setScenario(data);
+        const elapsed = Math.round(performance.now() - startTime);
+        const source = (data as any).source || ((data as any).cached ? 'supabase_library' : 'euryale_ai');
+        setGenerationMetric({
+          source,
+          speedMs: (data as any).generationSpeedMs || elapsed
+        });
+        if (currentRegen >= 2) {
+          setRegenerationCount(0);
+        }
       }
 
       if (isStreamInterrupted) {
@@ -494,6 +510,12 @@ export default function LiteratureClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegenerate = async () => {
+    const nextCount = regenerationCount + 1;
+    setRegenerationCount(nextCount);
+    await handleGenerate(nextCount);
   };
 
   const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
@@ -764,15 +786,30 @@ export default function LiteratureClient() {
             </button>
           </div>
           
-          {activeTrope && (
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full bg-red-950/60 text-red-200 border border-red-800">
-                {activeTrope.trope}
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            {activeTrope && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full bg-red-950/60 text-red-200 border border-red-800">
+                  {activeTrope.trope}
+                </span>
+                <span className="text-xs text-zinc-500">•</span>
+                <span className="text-xs text-zinc-400">{pacing}</span>
+              </div>
+            )}
+            {generationMetric && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
+                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
+                  </span>
+                ) : (
+                  <span className="text-amber-400 flex items-center gap-1">
+                    <span className="text-red-500 font-bold">🔥</span> Generated via Euryale AI ({Math.round(generationMetric.speedMs / 100) / 10}s)
+                  </span>
+                )}
               </span>
-              <span className="text-xs text-zinc-500">•</span>
-              <span className="text-xs text-zinc-400">{pacing}</span>
-            </div>
-          )}
+            )}
+          </div>
 
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
@@ -800,18 +837,26 @@ export default function LiteratureClient() {
             </div>
           )}
 
-          {/* Story Actions: Configure New Story & Continue Existing Story */}
+          {/* Story Actions: Configure New Story, Regenerate, & Continue Existing Story */}
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <button
               onClick={handleConfigureNewStory}
-              disabled={isContinuing}
+              disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
             >
               Configure New Story
             </button>
             <button
+              onClick={handleRegenerate}
+              disabled={isContinuing || loading}
+              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <span>🔄</span>
+              {regenerationCount >= 1 ? "Regenerate (Fresh AI via Euryale)" : `Regenerate (${regenerationCount + 1}/2 from Library)`}
+            </button>
+            <button
               onClick={handleContinueStory}
-              disabled={isContinuing}
+              disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
               {isContinuing ? "Extending Story..." : "Continue Existing Story"}

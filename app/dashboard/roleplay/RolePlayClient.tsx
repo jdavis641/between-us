@@ -85,12 +85,16 @@ export default function RolePlayClient() {
   const [streamProgress, setStreamProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
+  const [regenerationCount, setRegenerationCount] = useState(0);
+  const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
 
   const handleConfigureNewStory = () => {
     setLoading(false);
     setIsContinuing(false);
     setScenario(null);
     setStreamProgress("");
+    setRegenerationCount(0);
+    setGenerationMetric(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -255,12 +259,14 @@ export default function RolePlayClient() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (regenOverride?: number) => {
+    const currentRegen = typeof regenOverride === 'number' ? regenOverride : regenerationCount;
     setLoading(true);
     setError(null);
     setScenario(null);
     setStreamProgress("");
     let isStreamInterrupted = false;
+    const startTime = performance.now();
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -284,7 +290,8 @@ export default function RolePlayClient() {
           hasScripts: true,
           theme: theme,
           targetBoundary: targetBoundary,
-          pacing: pacing
+          pacing: pacing,
+          regenerationCount: currentRegen
         })
       }).catch((fetchErr) => {
         console.error("Generate fetch error:", fetchErr);
@@ -369,6 +376,15 @@ export default function RolePlayClient() {
           data.fullScript = (data as any).script || (data as any).body || (data as any).text || data.overview || rawText || streamProgress;
         }
         setScenario(data);
+        const elapsed = Math.round(performance.now() - startTime);
+        const source = (data as any).source || ((data as any).cached ? 'supabase_library' : 'euryale_ai');
+        setGenerationMetric({
+          source,
+          speedMs: (data as any).generationSpeedMs || elapsed
+        });
+        if (currentRegen >= 2) {
+          setRegenerationCount(0);
+        }
       }
 
       if (isStreamInterrupted) {
@@ -396,6 +412,12 @@ export default function RolePlayClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegenerate = async () => {
+    const nextCount = regenerationCount + 1;
+    setRegenerationCount(nextCount);
+    await handleGenerate(nextCount);
   };
 
   const content = scenario?.fullScript || scenario?.overview || '';
@@ -574,6 +596,22 @@ export default function RolePlayClient() {
             ← Configure a new scenario
           </button>
           
+          {generationMetric && (
+            <div className="mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
+                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
+                  </span>
+                ) : (
+                  <span className="text-amber-400 flex items-center gap-1">
+                    <span className="text-red-500 font-bold">🔥</span> Generated via Euryale AI ({Math.round(generationMetric.speedMs / 100) / 10}s)
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+          
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
@@ -701,18 +739,26 @@ export default function RolePlayClient() {
             </div>
           )}
 
-          {/* Story Actions: Configure New Story & Continue Existing Story */}
+          {/* Scenario Actions: Configure New Scenario, Regenerate, & Continue Existing Story */}
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <button
               onClick={handleConfigureNewStory}
-              disabled={isContinuing}
+              disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
             >
-              Configure New Story
+              Configure New Scenario
+            </button>
+            <button
+              onClick={handleRegenerate}
+              disabled={isContinuing || loading}
+              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <span>🔄</span>
+              {regenerationCount >= 1 ? "Regenerate (Fresh AI via Euryale)" : `Regenerate (${regenerationCount + 1}/2 from Library)`}
             </button>
             <button
               onClick={handleContinueStory}
-              disabled={isContinuing}
+              disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
               {isContinuing ? "Extending Story..." : "Continue Existing Story"}

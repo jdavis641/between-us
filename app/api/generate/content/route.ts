@@ -234,6 +234,44 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
   return sys;
 }
 
+function extractIntimacyMetaTags({
+  theme,
+  targetBoundary,
+  playMode,
+  contentType,
+  rawText
+}: {
+  theme?: string;
+  targetBoundary?: string;
+  playMode?: string;
+  contentType: string;
+  rawText?: string;
+}): string[] {
+  const tags = new Set<string>();
+  tags.add(contentType);
+  if (playMode) tags.add(playMode.toLowerCase());
+  
+  const tier = (targetBoundary || 'Moderate').toLowerCase();
+  tags.add(tier);
+
+  const keywordsByTier: Record<string, string[]> = {
+    sensory: ['slow_burn', 'massage', 'breathwork', 'feather_touch', 'emotional_intimacy', 'vulnerability', 'candle_light', 'body_worship'],
+    playful: ['flirting', 'teasing', 'edging_light', 'strip_challenge', 'lingerie', 'ice_contrast', 'public_thrill', 'spanking_light'],
+    intense: ['power_dynamics', 'dominance', 'submission', 'strict_control', 'restraints', 'sensory_deprivation', 'orgasm_denial'],
+    extreme: ['total_surrender', 'unconditional_obedience', 'heavy_restraints', 'sensory_overload', 'deep_taboo', 'complete_domination']
+  };
+
+  const pool = keywordsByTier[tier] || keywordsByTier['playful'];
+  pool.slice(0, 4).forEach(k => tags.add(k));
+
+  if (theme) {
+    const cleanTheme = theme.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+    cleanTheme.split(/\s+/).filter(w => w.length > 3).slice(0, 3).forEach(w => tags.add(w));
+  }
+
+  return Array.from(tags);
+}
+
 async function fetchCuratedSupabaseFallback({
   supabase,
   contentType,
@@ -253,59 +291,49 @@ async function fetchCuratedSupabaseFallback({
 }) {
   try {
     // 1. SELECT query against the Supabase generated_content table
-    // Matching the user's base_tolerance and play_mode
     let query = supabase
       .from('generated_content')
       .select('*')
-      .eq('content_type', contentType);
+      .eq('content_type', contentType)
+      .eq('status', 'active');
 
-    if (playMode) {
-      query = query.eq('play_mode', playMode);
-    }
-
-    if (targetBoundary) {
-      query = query.ilike('tolerance_tier', `%${targetBoundary}%`);
+    if (theme && typeof theme === 'string' && theme.trim().length > 0) {
+      query = query.ilike('body', `%${theme.trim()}%`);
     }
 
     let { data: rows } = await query
       .order('created_at', { ascending: false })
-      .limit(25);
+      .limit(50);
 
-    // If no row found with both strict filters, try matching play_mode or tolerance_tier
-    if (!rows || rows.length === 0) {
-      let fallbackQuery = supabase
-        .from('generated_content')
-        .select('*')
-        .eq('content_type', contentType);
-      if (playMode) {
-        fallbackQuery = fallbackQuery.eq('play_mode', playMode);
-      }
-      const res = await fallbackQuery.order('created_at', { ascending: false }).limit(25);
-      rows = res.data;
-    }
-
-    // If still no rows, query any pre-existing story/roleplay of this content_type
+    // If no row found with strict theme filter, fetch recent rows
     if (!rows || rows.length === 0) {
       const res = await supabase
         .from('generated_content')
         .select('*')
         .eq('content_type', contentType)
         .order('created_at', { ascending: false })
-        .limit(25);
+        .limit(50);
       rows = res.data;
     }
 
     let selectedRow = null;
     if (rows && rows.length > 0) {
-      // If a theme was provided and matches, prioritize it, otherwise pick random
-      if (theme) {
-        selectedRow = rows.find((r: any) => 
-          (r.theme_tags && r.theme_tags.toLowerCase().includes(theme.toLowerCase())) ||
-          (r.title && r.title.toLowerCase().includes(theme.toLowerCase()))
-        );
+      // Find row matching targetBoundary and playMode in body
+      for (const r of rows) {
+        try {
+          const parsed = typeof r.body === 'string' ? JSON.parse(r.body) : r.body;
+          const rTier = parsed.tolerance_tier || parsed.tier;
+          const rMode = parsed.play_mode || parsed.mode;
+          const matchTier = !targetBoundary || (rTier && rTier.toLowerCase() === targetBoundary.toLowerCase());
+          const matchMode = !playMode || (rMode && rMode.toLowerCase() === playMode.toLowerCase());
+          if (matchTier && matchMode) {
+            selectedRow = r;
+            break;
+          }
+        } catch {}
       }
+
       if (!selectedRow) {
-        // Return a randomly selected, pre-existing story/roleplay matching base_tolerance & play_mode
         selectedRow = rows[Math.floor(Math.random() * rows.length)];
       }
     }
@@ -464,31 +492,95 @@ export async function POST(req: Request) {
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
     
-    // Check Inventory First (skip if continuing an ongoing story or generating a specific trope)
-    if (theme && !previousContent && !activeTrope) {
-      const { data: existingData } = await supabase
-        .from('generated_content')
-        .select('*')
-        .eq('content_type', contentType)
-        .ilike('theme_tags', `%${theme}%`)
-        .limit(1)
-        .maybeSingle();
+    const regenerationCount = typeof body.regenerationCount === 'number' ? body.regenerationCount : 0;
+    const forceFresh = body.forceFresh === true;
+    const isRegenThresholdReached = regenerationCount >= 2 || forceFresh;
 
-      if (existingData) {
-        // We have to parse the body if it's stored as JSON string, but maybe it's just the object
-        let cachedContent = existingData.body;
-        try {
-          if (typeof cachedContent === 'string') {
-            cachedContent = JSON.parse(cachedContent);
-          }
-        } catch (e) {}
-        
-        // ensure title is there
-        if (typeof cachedContent === 'object' && cachedContent !== null) {
-          cachedContent.title = cachedContent.title || existingData.title;
+    // 1. PRIMARY RETRIEVAL FROM SUPABASE LIBRARY
+    // Pull content from Supabase library as the primary retrieval.
+    // After two back-to-back regeneration requests, bypass retrieval and send to Euryale for a fresh output.
+    if (!previousContent && !isRegenThresholdReached) {
+      const retrievalStartTime = Date.now();
+      try {
+        let libraryQuery = supabase
+          .from('generated_content')
+          .select('*')
+          .eq('content_type', contentType)
+          .eq('status', 'active');
+
+        if (theme && typeof theme === 'string' && theme.trim().length > 0) {
+          libraryQuery = libraryQuery.ilike('body', `%${theme.trim()}%`);
         }
 
-        return NextResponse.json({ ...cachedContent, cached: true });
+        const { data: libraryRows } = await libraryQuery
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (libraryRows && libraryRows.length > 0) {
+          // Avoid immediate duplicates from recent user activity
+          let candidates = libraryRows.filter((r: any) => !historyTitles.includes(r.title));
+          if (candidates.length === 0) candidates = libraryRows;
+
+          // Find candidate that best matches boundary and playMode
+          let matchedRow = null;
+          for (const row of candidates) {
+            try {
+              const parsed = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
+              const rowTier = parsed.tolerance_tier || parsed.tier;
+              const rowMode = parsed.play_mode || parsed.mode;
+              const matchesTier = !targetBoundary || (rowTier && rowTier.toLowerCase() === targetBoundary.toLowerCase());
+              const matchesMode = !playMode || (rowMode && rowMode.toLowerCase() === playMode.toLowerCase());
+              if (matchesTier && matchesMode) {
+                matchedRow = row;
+                break;
+              }
+            } catch {}
+          }
+
+          if (!matchedRow) {
+            matchedRow = candidates[Math.floor(Math.random() * candidates.length)];
+          }
+
+          if (matchedRow) {
+            let parsedBody: any = {};
+            try {
+              parsedBody = typeof matchedRow.body === 'string' ? JSON.parse(matchedRow.body) : matchedRow.body;
+            } catch {
+              parsedBody = {
+                title: matchedRow.title,
+                body: matchedRow.body,
+                text: matchedRow.body
+              };
+            }
+
+            parsedBody.title = parsedBody.title || matchedRow.title;
+            parsedBody.cached = true;
+            parsedBody.source = "supabase_library";
+            parsedBody.generationSpeedMs = Date.now() - retrievalStartTime;
+            parsedBody.regenerationCount = regenerationCount;
+
+            // Track in history
+            try {
+              await supabase.from('activity_history').insert({
+                user_id: user.id,
+                group_id: groupId || null,
+                content_type: contentType,
+                category: category || playMode,
+                content_title: parsedBody.title,
+                tags: [playMode, ...(hasScripts ? ['scripted'] : []), 'library_retrieval']
+              });
+            } catch {}
+
+            return NextResponse.json(parsedBody, {
+              headers: {
+                'X-Generation-Source': 'supabase-library',
+                'X-Generation-Speed-Ms': parsedBody.generationSpeedMs.toString()
+              }
+            });
+          }
+        }
+      } catch (libErr) {
+        console.warn("Supabase library primary retrieval failed, proceeding to Euryale generation:", libErr);
       }
     }
 
@@ -631,10 +723,7 @@ export async function POST(req: Request) {
           content_type: contentType,
           title: fallbackContent.title || "Curated Experience",
           body: JSON.stringify(fallbackContent),
-          status: 'active',
-          tolerance_tier: targetBoundary || baseTolerance || null,
-          play_mode: playMode,
-          theme_tags: theme ? `${theme},[fallback]` : '[fallback]'
+          status: 'active'
         });
 
         await supabase.from('activity_history').insert({
@@ -685,15 +774,26 @@ export async function POST(req: Request) {
               .trim();
             const generatedContent = JSON.parse(cleaned);
 
+            const metaTags = extractIntimacyMetaTags({
+              theme,
+              targetBoundary: targetBoundary || baseTolerance,
+              playMode,
+              contentType,
+              rawText: cleaned
+            });
+
+            generatedContent.metaTags = metaTags;
+            generatedContent.tolerance_tier = targetBoundary || baseTolerance || 'Moderate';
+            generatedContent.play_mode = playMode;
+            generatedContent.theme_tags = metaTags.join(', ');
+
             const payload: any = {
               user_id: user.id,
               content_type: contentType,
               title: generatedContent.title || "Untitled Experience",
               body: JSON.stringify(generatedContent),
-              status: 'active',
-              tolerance_tier: targetBoundary || baseTolerance || null,
-              play_mode: playMode,
-              theme_tags: theme || null
+              pre_experience_tasks: generatedContent.preExperienceTasks || generatedContent.tasks || null,
+              status: 'active'
             };
 
             await supabase.from('generated_content').insert(payload);
