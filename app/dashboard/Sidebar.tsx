@@ -91,6 +91,13 @@ export default function Sidebar({ logo }: SidebarProps) {
           >
             📖 Erotic Literature
           </Link>
+          <Link
+            href="/dashboard/randomizer"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+          >
+            🎲 Randomizer
+          </Link>
         </div>
 
         {/* Intimacy Games */}
