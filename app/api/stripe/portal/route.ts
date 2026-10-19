@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import Stripe from 'stripe'
 
-// Initialize Stripe (assuming the secret is in env, but fallback for dev if needed)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2026-08-26.dahlia' as any,
-})
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
+      apiVersion: '2026-08-26.dahlia' as any,
+    });
+
     const supabase = await createClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
