@@ -389,7 +389,7 @@ export default function GuestPassHub() {
             <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 inline-block max-w-full text-left">
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2 font-semibold">Fallback Link</p>
               <code className="text-sm text-zinc-300 break-all select-all">
-                {typeof window !== 'undefined' ? location.origin : ''}/signup?pass={inviteToken}
+                {typeof window !== 'undefined' ? location.origin : ''}/signin?pass={inviteToken}
               </code>
             </div>
           )}

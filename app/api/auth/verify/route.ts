@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createClientBase } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { checkRateLimit, resetRateLimit } from '@/utils/rate-limiter';
 
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { email, code, share_id } = await req.json();
+    const { email, code, share_id, pass_token, pass } = await req.json();
 
     if (!email || !code) {
       return NextResponse.json({ error: 'Email and code are required.' }, { status: 400 });
@@ -92,6 +93,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Verification failed, no user returned.' }, { status: 401 });
     }
 
+    const supabaseAdmin = createClientBase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // Admin bypass list
     const adminEmails = [
       'jdcdjd664411@proton.me',
@@ -99,18 +105,143 @@ export async function POST(req: Request) {
       'crystalbrndt3+spark@gmail.com'
     ];
 
-    const isAdmin = Boolean(email && adminEmails.includes(email.toLowerCase()));
+    const isAdmin = Boolean(cleanEmail && adminEmails.includes(cleanEmail));
     if (isAdmin) {
-      await supabase.from('profiles').upsert({ id: data.user.id, is_active: true }, { onConflict: 'id' });
+      await supabaseAdmin.from('profiles').upsert({ id: data.user.id, is_active: true, email: cleanEmail }, { onConflict: 'id' });
     }
 
-    const { data: profile } = await supabase
+    // Process Guest Pass Claim & Automated Inbox Delivery if present
+    const rawPassToken = pass_token || pass || cookieStore.get('pass_token')?.value || cookieStore.get('pass')?.value || null;
+    const effectivePassToken = rawPassToken ? String(rawPassToken).trim() : null;
+
+    if (effectivePassToken) {
+      try {
+        const { data: invitation } = await supabaseAdmin
+          .from('invitations')
+          .select('*')
+          .eq('invite_token', effectivePassToken)
+          .maybeSingle();
+
+        if (invitation && invitation.status !== 'revoked' && (!invitation.expires_at || new Date(invitation.expires_at) > new Date())) {
+          // 1. Mark invitation claimed
+          await supabaseAdmin
+            .from('invitations')
+            .update({ status: 'claimed' })
+            .eq('id', invitation.id);
+
+          // 2. Fetch sender details & Guest Pass Config
+          const senderId = invitation.sender_id;
+          let senderName = "Your Partner";
+          let boundariesText = "Standard intimate boundaries";
+          let kinksText = "None specified";
+          let instructionsText = "No special instructions provided.";
+
+          if (senderId) {
+            const { data: senderProfile } = await supabaseAdmin
+              .from('profiles')
+              .select('nickname, anonymous_alias, email')
+              .eq('id', senderId)
+              .maybeSingle();
+
+            if (senderProfile?.nickname || senderProfile?.anonymous_alias) {
+              senderName = senderProfile.nickname || senderProfile.anonymous_alias;
+            }
+
+            const { data: prefRow } = await supabaseAdmin
+              .from('intimacy_preferences')
+              .select('kinks_override')
+              .eq('user_id', senderId)
+              .eq('category_tag', 'Guest Pass Config')
+              .maybeSingle();
+
+            if (prefRow?.kinks_override) {
+              try {
+                const parsed = JSON.parse(prefRow.kinks_override);
+                if (Array.isArray(parsed.boundaries) && parsed.boundaries.length > 0) {
+                  boundariesText = parsed.boundaries.join(', ');
+                }
+                if (Array.isArray(parsed.kinks) && parsed.kinks.length > 0) {
+                  kinksText = parsed.kinks.join(', ');
+                } else if (typeof parsed.kinks === 'string' && parsed.kinks.trim()) {
+                  kinksText = parsed.kinks.trim();
+                }
+                if (parsed.instructions && parsed.instructions.trim()) {
+                  instructionsText = parsed.instructions.trim();
+                }
+              } catch {
+                if (typeof prefRow.kinks_override === 'string') {
+                  instructionsText = prefRow.kinks_override;
+                }
+              }
+            }
+          }
+
+          // 3. Ensure recipient profile is marked active for the duration of the pass
+          await supabaseAdmin.from('profiles').upsert({
+            id: data.user.id,
+            email: cleanEmail,
+            is_active: true
+          }, { onConflict: 'id' });
+
+          // 4. Physically deliver sender instructions & boundaries to recipient's inbox
+          const { data: existingMsg } = await supabaseAdmin
+            .from('in_app_messages')
+            .select('id')
+            .eq('user_id', data.user.id)
+            .ilike('subject', `%Guest Pass from ${senderName}%`)
+            .maybeSingle();
+
+          if (!existingMsg) {
+            const formattedMessage = `You have accepted a Guest Pass from ${senderName}!\n\n` +
+              `SHARED BOUNDARIES:\n${boundariesText}\n\n` +
+              `SHARED DESIRES & KINKS:\n${kinksText}\n\n` +
+              `GUEST INSTRUCTIONS & CHEAT CODES:\n"${instructionsText}"\n\n` +
+              `This pass gives you access to explore curated experiences together. Head to the dashboard to begin!`;
+
+            await supabaseAdmin.from('in_app_messages').insert({
+              user_id: data.user.id,
+              subject: `Guest Pass from ${senderName}: Instructions & Desires`,
+              message: formattedMessage,
+              is_read: false
+            });
+          }
+
+          // Clear pass token cookie
+          cookiesToSetBuffer.push({
+            name: 'pass_token',
+            value: '',
+            options: { path: '/', maxAge: 0 }
+          });
+          cookiesToSetBuffer.push({
+            name: 'pass',
+            value: '',
+            options: { path: '/', maxAge: 0 }
+          });
+        }
+      } catch (passErr) {
+        console.warn("Guest pass processing warning:", passErr);
+      }
+    }
+
+    // Query ground-truth profile via supabaseAdmin to bypass RLS restrictions
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', data.user.id)
       .maybeSingle();
 
     const isUserActive = Boolean(profile?.is_active === true || isAdmin);
+
+    // Enforce Stripe Tollbooth for unrecognized or non-paying users
+    if (!isUserActive) {
+      const stripeBase = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}&prefilled_email=${encodeURIComponent(cleanEmail)}`;
+      const destination = persistedShareId ? `${stripeBase}&share_id=${encodeURIComponent(persistedShareId)}` : stripeBase;
+      const response = NextResponse.json({ destination });
+      cookiesToSetBuffer.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, options);
+      });
+      return response;
+    }
 
     // Check if profile exists and has completed onboarding
     const isProfileComplete = Boolean(
@@ -119,20 +250,14 @@ export async function POST(req: Request) {
 
     let destination = '/dashboard';
 
-    // Conditional routing: Shared content with onboarding suspension
-    if (persistedShareId && isUserActive) {
-      // Active user with shared link: bypass nickname/onboarding check entirely
+    // Active users with shared content bypass onboarding
+    if (persistedShareId) {
       destination = `/dashboard/experience/${persistedShareId}`;
-      // Clear share_id cookie so subsequent standard logins properly intercept for onboarding
       cookiesToSetBuffer.push({
         name: 'share_id',
         value: '',
         options: { path: '/', maxAge: 0 }
       });
-    } else if (!isUserActive) {
-      // Inactive/new user: route to Stripe, preserving share_id context
-      const stripeBase = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}&prefilled_email=${encodeURIComponent(email)}`;
-      destination = persistedShareId ? `${stripeBase}&share_id=${encodeURIComponent(persistedShareId)}` : stripeBase;
     } else if (!isProfileComplete) {
       destination = '/onboarding';
     } else {

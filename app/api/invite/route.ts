@@ -123,8 +123,8 @@ export async function POST(req: Request) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenusapp.io';
-    const signupLink = `${baseUrl}/signup?pass=${inviteToken}`;
-    const messageBody = `You've been invited to a secure Between Us Guest Pass! Create your account to view instructions and shared boundaries here: ${signupLink}`;
+    const guestPassUrl = `${baseUrl}/signin?pass=${inviteToken}`;
+    const messageBody = `You've been invited to a secure Between Us Guest Pass! Please log in and check your Between Us inbox for details: ${guestPassUrl}`;
 
     // Dispatch via Resend (email)
     if (recipientEmail) {
@@ -143,13 +143,13 @@ export async function POST(req: Request) {
               html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 32px; border-radius: 12px; max-width: 580px; margin: 0 auto; border: 1px solid #27272a;">
                   <h2 style="color: #ffffff; margin-top: 0; font-size: 22px;">You've been invited to a secure Between Us Guest Pass</h2>
-                  <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">The sender has shared specific desires, kinks, and instructions for a memorable experience.</p>
+                  <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">The sender has shared specific desires, kinks, and instructions for a memorable experience. Please log in and check your Between Us inbox for details.</p>
                   <p style="margin: 28px 0; text-align: center;">
-                    <a href="${signupLink}" style="background-color: #7f1d1d; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(127, 29, 29, 0.4);">
-                      View Pass & Create Account
+                    <a href="${guestPassUrl}" style="background-color: #7f1d1d; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(127, 29, 29, 0.4);">
+                      Log In & Check Inbox
                     </a>
                   </p>
-                  <p style="font-size: 12px; color: #71717a; text-align: center;">Direct link: <a href="${signupLink}" style="color: #ef4444;">${signupLink}</a></p>
+                  <p style="font-size: 12px; color: #71717a; text-align: center;">Direct link: <a href="${guestPassUrl}" style="color: #ef4444;">${guestPassUrl}</a></p>
                 </div>
               `
             })
@@ -204,6 +204,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       token: inviteToken,
+      url: guestPassUrl,
       recipientIdentifier
     });
   } catch (error: any) {

@@ -8,7 +8,6 @@ const supabase = createClient()
 
 function SignInContent() {
   const searchParams = useSearchParams()
-  const paymentSuccess = searchParams.get('message') === 'payment_success'
   
   const [email, setEmail] = useState('')
   const [authMessage, setAuthMessage] = useState('')
@@ -18,6 +17,7 @@ function SignInContent() {
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resendMessage, setResendMessage] = useState('')
   const [shareId, setShareId] = useState<string | null>(null)
+  const [passToken, setPassToken] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -49,6 +49,27 @@ function SignInContent() {
         console.warn('Could not read stored share_id in login:', e)
       }
     }
+
+    const urlPassToken = searchParams.get('pass') || searchParams.get('pass_token')
+    if (urlPassToken) {
+      setPassToken(urlPassToken)
+      try {
+        sessionStorage.setItem('pass_token', urlPassToken)
+        document.cookie = `pass_token=${encodeURIComponent(urlPassToken)}; path=/; max-age=86400; SameSite=Lax`
+      } catch (e) {}
+    } else {
+      try {
+        const storedPass = sessionStorage.getItem('pass_token')
+        if (storedPass) {
+          setPassToken(storedPass)
+        } else {
+          const matchPass = document.cookie.match(/(?:^|;\s*)pass_token=([^;]+)/)
+          if (matchPass && matchPass[1]) {
+            setPassToken(decodeURIComponent(matchPass[1]))
+          }
+        }
+      } catch (e) {}
+    }
   }, [searchParams])
   
   const handleSendOtp = async () => {
@@ -78,13 +99,18 @@ function SignInContent() {
         try { return sessionStorage.getItem('share_id') } catch(e) { return null }
       })()
 
+      const effectivePassToken = passToken || searchParams.get('pass') || searchParams.get('pass_token') || (() => {
+        try { return sessionStorage.getItem('pass_token') } catch(e) { return null }
+      })()
+
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email, 
           code: otp,
-          share_id: effectiveShareId
+          share_id: effectiveShareId,
+          pass_token: effectivePassToken
         })
       });
 
@@ -96,47 +122,20 @@ function SignInContent() {
       } else {
         const target = data.destination || '/onboarding';
 
-        // If destination routes directly to shared experience, clear storage and route directly
+        // Clear persisted state
         if (target.includes('/dashboard/experience/')) {
           try {
             sessionStorage.removeItem('share_id');
             document.cookie = 'share_id=; path=/; max-age=0';
           } catch(e) {}
-          window.location.href = target;
-          return;
         }
-
-        // If routing to Stripe checkout, preserve share context and route
-        if (target.includes('buy.stripe.com')) {
-          window.location.href = target;
-          return;
-        }
-
-        // Standard profile check if not routing to shared content or Stripe
-        let finalTarget = target;
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .maybeSingle();
+          sessionStorage.removeItem('pass_token');
+          document.cookie = 'pass_token=; path=/; max-age=0';
+        } catch(e) {}
 
-            const isComplete = Boolean(
-              profile && (profile.onboarding_completed === true || !!profile.nickname || !!profile.anonymous_alias)
-            );
-
-            if (!isComplete) {
-              finalTarget = '/onboarding';
-            }
-          }
-        } catch (profileErr) {
-          console.error('Error checking profile status post-OTP:', profileErr);
-        }
-
-        // Hard navigation to guarantee session hydration and prevent defaulting to dashboard
-        window.location.href = finalTarget;
+        // Direct navigation to server-determined destination (drops active users straight to dashboard or Stripe)
+        window.location.href = target;
       }
     } catch (err: any) {
       setAuthMessage('Network error: ' + err.message);
@@ -175,11 +174,6 @@ function SignInContent() {
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 text-white p-8 font-sans items-center justify-center">
       <div className="max-w-md w-full space-y-6">
-        {paymentSuccess && (
-          <div className="bg-green-950/40 border border-green-900/50 p-4 rounded-xl mb-8">
-            <p className="text-green-400 text-sm font-medium text-center">Payment authorized! Please sign in below to finish setting up your account.</p>
-          </div>
-        )}
         
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mx-auto mb-4">

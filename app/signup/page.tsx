@@ -76,12 +76,6 @@ export default function SignUpFlow() {
             <button onClick={handleStripeCheckout} className="bg-red-900 text-white px-6 py-4 rounded-xl font-bold hover:bg-red-800 w-full transition-colors shadow-lg shadow-red-900/20">
               Start Trial & Pay $0.99 via Stripe
             </button>
-            <button onClick={() => {
-              // Dev bypass: Pretend payment authorized and redirect to sign in
-              window.location.href = "/login?message=payment_success"
-            }} className="text-xs text-zinc-500 underline mt-4 block text-center w-full">
-              (Dev Only: Bypass Payment to Sign In)
-            </button>
           </div>
         )}
         </div>
