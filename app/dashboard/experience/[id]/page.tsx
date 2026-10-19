@@ -11,6 +11,8 @@ const supabase = createClient()
 
 type ReaderMode = "partner-a" | "partner-b" | "script";
 
+export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
+
 export default function ExperienceReader({ params }: { params: any }) {
   const [experience, setExperience] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -356,6 +358,16 @@ export default function ExperienceReader({ params }: { params: any }) {
   const cleanPartnerA = (partnerA || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerB = (partnerB || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
 
+  const isInterruptedStory = (cleanContent || '').includes("Stream interrupted") || 
+                             (cleanContent || '').includes("Click Continue Story to resume") || 
+                             (cleanContent || '').includes("Click continue story to expand") ||
+                             experience?.status === 'interrupted' ||
+                             experience?.is_interrupted === true;
+
+  const displayContent = (cleanContent || '')
+    .replace(/⚠️?\s*Stream interrupted\.?\s*(Click Continue Story to resume)?/gi, '')
+    .trim();
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8 lg:p-12 pb-32 font-sans selection:bg-red-900/50">
       
@@ -513,11 +525,17 @@ export default function ExperienceReader({ params }: { params: any }) {
 
               <section className="space-y-6 pt-4 font-serif text-zinc-200">
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
-                <ErrorBoundary fallbackContent={cleanContent}>
+                <ErrorBoundary fallbackContent={displayContent}>
                   <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                    {safeMarkdownString(cleanContent)}
+                    {safeMarkdownString(displayContent)}
                   </ReactMarkdown>
                 </ErrorBoundary>
+
+                {isInterruptedStory && (
+                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4">
+                    Click continue story to expand.
+                  </div>
+                )}
               </section>
 
             </div>

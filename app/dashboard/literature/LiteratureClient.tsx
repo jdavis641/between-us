@@ -24,7 +24,7 @@ interface StoryPreview {
   premise: string;
 }
 
-export const STREAM_INTERRUPTED_MESSAGE = "Stream interrupted. Click Continue Story to resume";
+export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
 
 export function handleStreamError(error: unknown, onError?: (msg: string) => void): string {
   console.warn("Stream error intercepted:", error);
@@ -394,6 +394,8 @@ export default function LiteratureClient() {
       console.error("Continue Story Error:", err);
       const isInterrupted = isStreamInterrupted ||
                             err?.message?.includes("Stream interrupted") || 
+                            err?.message?.includes("continue story") ||
+                            err?.message?.includes(STREAM_INTERRUPTED_MESSAGE) ||
                             err?.name === "AbortError" || 
                             streamProgress.length > 0;
 
@@ -630,6 +632,8 @@ export default function LiteratureClient() {
       console.error("Literature generation error:", err);
       const isInterrupted = isStreamInterrupted ||
                             err?.message?.includes("Stream interrupted") || 
+                            err?.message?.includes("continue story") ||
+                            err?.message?.includes(STREAM_INTERRUPTED_MESSAGE) ||
                             err?.name === "AbortError" || 
                             streamProgress.length > 0;
 
@@ -871,21 +875,38 @@ export default function LiteratureClient() {
               )}
 
               {error && (
-                <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl shrink-0">⚠️</span>
-                    <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+                error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
+                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                    <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
+                      Click continue story to expand.
+                    </span>
+                    {scenario && (
+                      <button
+                        onClick={handleContinueStory}
+                        disabled={isContinuing}
+                        className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                      >
+                        {isContinuing ? "Expanding..." : "Continue Story"}
+                      </button>
+                    )}
                   </div>
-                  {scenario && (
-                    <button
-                      onClick={handleContinueStory}
-                      disabled={isContinuing}
-                      className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-                    >
-                      {isContinuing ? "Resuming..." : "Continue Story"}
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl shrink-0">⚠️</span>
+                      <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+                    </div>
+                    {scenario && (
+                      <button
+                        onClick={handleContinueStory}
+                        disabled={isContinuing}
+                        className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+                      >
+                        {isContinuing ? "Resuming..." : "Continue Story"}
+                      </button>
+                    )}
+                  </div>
+                )
               )}
             </div>
           )}
@@ -972,19 +993,34 @@ export default function LiteratureClient() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-              <div className="flex items-center gap-3">
-                <span className="text-xl shrink-0">⚠️</span>
-                <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+            error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
+              <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
+                  Click continue story to expand.
+                </span>
+                <button
+                  onClick={handleContinueStory}
+                  disabled={isContinuing}
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                >
+                  {isContinuing ? "Expanding..." : "Continue Story"}
+                </button>
               </div>
-              <button
-                onClick={handleContinueStory}
-                disabled={isContinuing}
-                className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-              >
-                {isContinuing ? "Resuming..." : "Continue Story"}
-              </button>
-            </div>
+            ) : (
+              <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl shrink-0">⚠️</span>
+                  <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+                </div>
+                <button
+                  onClick={handleContinueStory}
+                  disabled={isContinuing}
+                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
+                >
+                  {isContinuing ? "Resuming..." : "Continue Story"}
+                </button>
+              </div>
+            )
           )}
 
           {/* Story Actions: Configure New Story, Regenerate, & Continue Existing Story */}

@@ -2,11 +2,13 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
-import LiteratureClient, { extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError, LiteratureMarkdown } from "./LiteratureClient";
+import LiteratureClient, { extractStreamingMarkdown, handleStreamError, LiteratureMarkdown } from "./LiteratureClient";
 import FlameLoader from "@/components/FlameLoader";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
-export { LiteratureClient, LiteratureMarkdown, FlameLoader, ErrorBoundary, extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
+export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
+
+export { LiteratureClient, LiteratureMarkdown, FlameLoader, ErrorBoundary, extractStreamingMarkdown, handleStreamError };
 
 export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
