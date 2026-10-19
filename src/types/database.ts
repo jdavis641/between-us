@@ -114,6 +114,88 @@ export interface Database {
           created_at?: string;
         };
       };
+      generated_content: {
+        Row: {
+          id: string;
+          user_id: string;
+          content_type: string;
+          title: string;
+          body: string;
+          pre_experience_tasks?: string[] | null;
+          status: string;
+          tolerance_tier?: string | null;
+          play_mode?: string | null;
+          theme_tags?: string | null;
+          theme_embedding?: number[] | string | null;
+          created_at?: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          content_type: string;
+          title: string;
+          body: string;
+          pre_experience_tasks?: string[] | null;
+          status?: string;
+          tolerance_tier?: string | null;
+          play_mode?: string | null;
+          theme_tags?: string | null;
+          theme_embedding?: number[] | string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          content_type?: string;
+          title?: string;
+          body?: string;
+          pre_experience_tasks?: string[] | null;
+          status?: string;
+          tolerance_tier?: string | null;
+          play_mode?: string | null;
+          theme_tags?: string | null;
+          theme_embedding?: number[] | string | null;
+          created_at?: string | null;
+        };
+      };
+      style_references: {
+        Row: {
+          id: string;
+          title: string;
+          author?: string | null;
+          excerpt: string;
+          pacing?: string | null;
+          boundary_level?: string | null;
+          rating?: number | null;
+          theme_embedding?: number[] | string | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          author?: string | null;
+          excerpt: string;
+          pacing?: string | null;
+          boundary_level?: string | null;
+          rating?: number | null;
+          theme_embedding?: number[] | string | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          author?: string | null;
+          excerpt?: string;
+          pacing?: string | null;
+          boundary_level?: string | null;
+          rating?: number | null;
+          theme_embedding?: number[] | string | null;
+          tags?: string[] | null;
+          created_at?: string | null;
+        };
+      };
     };
   };
 }

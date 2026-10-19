@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import OpenAI from 'openai';
 import { getActiveHoliday } from "@/utils/holidayTheme";
+import { getSemanticEmbedding, cosineSimilarity, formatVectorForPg } from "@/lib/embeddings";
+import { computeAndAppendChaptersAsync } from "@/lib/async-chapters";
 
 export class StreamingTextResponse extends Response {
   constructor(res: ReadableStream, init?: ResponseInit) {
@@ -56,7 +58,8 @@ function buildSystemInstruction({
   pacing,
   storyLength,
   activeTrope,
-  theme
+  theme,
+  styleReference
 }: {
   preferences: any[];
   playMode: string;
@@ -71,6 +74,7 @@ function buildSystemInstruction({
   storyLength?: string;
   activeTrope?: any;
   theme?: string;
+  styleReference?: { title?: string; excerpt: string };
 }) {
   const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
@@ -121,6 +125,15 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
 You are continuing an ongoing narrative. Continue the narrative seamlessly from the provided text. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
   }
 
+  // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
+  if (styleReference?.excerpt) {
+    sys += `LITEROTICA MASTER STYLE REFERENCE (FEW-SHOT PROSE GROUNDING):
+Critical Formatting Rule: Do not copy the plot of the following excerpt. You must strictly mimic the tension building, pacing, anatomical accuracy, and descriptive prose quality of this master-level reference text:
+"""
+${styleReference.excerpt.trim()}
+"""\n\n`;
+  }
+
   const currentPacing = pacing || 'Medium Burn';
   let pacingRule = '';
   if (currentPacing === 'Quick Burn') {
@@ -132,20 +145,20 @@ You are continuing an ongoing narrative. Continue the narrative seamlessly from 
   }
 
   if (contentType === 'literature') {
-    let wordCountInstruction = `Target Length: Short Story (~1,500 - 2,500 words). You MUST generate a full multi-chapter story (minimum 3 chapters, 1,500+ words). Establish narrative buildup in Chapter 1, escalating tension in Chapter 2, and a highly explicit, detailed climax in Chapter 3.`;
+    let wordCountInstruction = `Target Length: Short Story. You are generating ONLY "Chapter 1" (maximum 1,500 words) to ensure immediate sub-30-second reader delivery. Do NOT write Chapters 2 or 3 in this response. Establish rich atmospheric scene setting, palpable tension, and the electric buildup of the first encounter. Subsequent chapters will be continued asynchronously.`;
 
     const isNovella = storyLength === 'Novella' || (typeof storyLength === 'string' && storyLength.includes('Novella'));
     const isNovel = (storyLength === 'Novel' || (typeof storyLength === 'string' && storyLength.includes('Novel'))) && !isNovella;
 
     if (isNovella) {
-      wordCountInstruction = `Target Length: Novella (~2,250 - 3,750 words, a 50% length increase over the baseline). You MUST generate an expansive, multi-chapter novella (minimum 4-5 chapters, 2,250 - 3,750 words). Develop deeper narrative arcs, protracted tension, layered interactions, and a fully expansive, explicit climax.`;
+      wordCountInstruction = `Target Length: Novella. You are generating ONLY "Chapter 1" (maximum 1,500 words) of an expansive novella. Develop deep narrative tension, layered micro-interactions, and compelling character dynamics. Subsequent chapters will follow.`;
     } else if (isNovel) {
-      wordCountInstruction = `Target Length: Novel (~13,500+ words, a 500% length increase over the novella). CRITICAL NOVEL INSTRUCTION: You are generating a comprehensive, epic Novel (~13,500+ words). Utilize your MAXIMUM output token limit. Write richly descriptive, expansive chapters with extensive dialogue, micro-actions, psychological depth, and granular sensual progression. Write as much expansive content as possible up to your maximum output token capacity. Do NOT rush, summarize, or truncate. If you reach token capacity before the story concludes, conclude cleanly at the end of a scene; the user will utilize the 'Continue Existing Story' button to generate subsequent chapters.`;
+      wordCountInstruction = `Target Length: Novel. You are generating ONLY "Chapter 1" (maximum 1,500 words) of an epic romance novel. Focus on rich character interiority, atmospheric depth, and slow sensual tension.`;
     }
 
     const pacingInstruction = `Pacing: ${currentPacing}. Strict Pacing Mechanic: "${pacingRule}"`;
 
-    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\nUse Markdown headers (e.g., '## Chapter 1') to separate sections. Do not summarize; write the full scenes.\n\n`;
+    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\nUse Markdown headers (e.g., '## Chapter 1: [Title]') for the chapter. Do not summarize; write the full scene.\n\n`;
 
     if (activeTrope) {
       const tropeTitle = typeof activeTrope === 'object' ? activeTrope.title : '';
@@ -219,8 +232,10 @@ Theme Prioritization: If theme suggestions are provided, they are explicitly tag
 You must return a valid JSON object matching this schema exactly:
 {
   "title": "A catchy title for the story",
-  "body": "The full markdown text of the multi-chapter story or continuation as requested. Do not summarize, write the full scenes.",
-  "text": "The full markdown text of the multi-chapter story or continuation as requested. Do not summarize, write the full scenes."
+  "chapter": 1,
+  "totalChapters": 3,
+  "body": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene.",
+  "text": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene."
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
   } else if (contentType === "roleplay") {
@@ -573,9 +588,140 @@ export async function POST(req: Request) {
     const forceFresh = body.forceFresh === true;
     const isRegenThresholdReached = regenerationCount >= 2 || forceFresh;
 
-    // 1. PRIMARY RETRIEVAL FROM SUPABASE LIBRARY
-    // Pull content from Supabase library as the primary retrieval.
-    // Initial Request (regenerationCount=0) & 1st Regeneration (regenerationCount=1) serve from library.
+    const currentPacing = pacing || 'Medium Burn';
+    const semanticQueryText = [theme, targetBoundary || effectiveTolerance, playMode].filter(Boolean).join(' ');
+    const queryEmbedding = await getSemanticEmbedding(semanticQueryText || 'sensory intimacy literature');
+
+    // 0. LITEROTICA RAG STYLE-REFERENCE RETRIEVAL
+    let selectedStyleReference: { title?: string; excerpt: string } | null = null;
+    try {
+      let styleQuery = supabase
+        .from('style_references')
+        .select('title, excerpt, pacing, boundary_level, rating')
+        .order('rating', { ascending: false });
+
+      if (currentPacing) {
+        styleQuery = styleQuery.ilike('pacing', `%${currentPacing}%`);
+      }
+      if (targetBoundary || effectiveTolerance) {
+        styleQuery = styleQuery.ilike('boundary_level', `%${targetBoundary || effectiveTolerance}%`);
+      }
+
+      const { data: styleRows } = await styleQuery.limit(5);
+      if (styleRows && styleRows.length > 0) {
+        selectedStyleReference = styleRows[Math.floor(Math.random() * styleRows.length)];
+      } else {
+        const { data: fallbackRows } = await supabase
+          .from('style_references')
+          .select('title, excerpt, pacing, boundary_level, rating')
+          .order('rating', { ascending: false })
+          .limit(1);
+        if (fallbackRows && fallbackRows.length > 0) {
+          selectedStyleReference = fallbackRows[0];
+        }
+      }
+    } catch (styleErr) {
+      console.warn("Style reference retrieval warning:", styleErr);
+    }
+
+    if (!selectedStyleReference || !selectedStyleReference.excerpt) {
+      selectedStyleReference = {
+        title: "Velvet and Embers",
+        excerpt: `The candlelight flickered against the dark wainscoting, casting elongated amber shadows across her collarbone. He did not rush. Every movement was agonizingly measured, a deliberate exploration that tested the fragile boundaries of their restraint. His thumb traced the fragile ridge of her jawline, resting just beneath the frantic flutter of her pulse. She let out a shuddering breath that broke the quiet room, her fingers curling into the heavy wool of his jacket as if anchoring herself against a rising tide. "Look at me," he murmured, his voice low, gravel-rough with weeks of deferred desire. When her eyes met his, the unspoken tension between them snapped into sharp, incandescent focus.`
+      };
+    }
+
+    // 1. SEMANTIC INVENTORY RETRIEVAL (>85% Match Bypasses OpenRouter)
+    // Replace exact-match Supabase query with semantic similarity search using pgvector embeddings.
+    // If the similarity score is above 85%, instantly serve the cached story to completely bypass the OpenRouter wait time.
+    if (!previousContent && !isRegenThresholdReached) {
+      const retrievalStartTime = Date.now();
+      try {
+        let bestSemanticRow: any = null;
+        let bestScore = 0;
+
+        // Try Supabase match_generated_content RPC function
+        const { data: rpcMatches, error: rpcErr } = await supabase.rpc('match_generated_content', {
+          query_embedding: formatVectorForPg(queryEmbedding),
+          match_threshold: 0.85,
+          match_count: 5,
+          filter_content_type: contentType
+        });
+
+        if (!rpcErr && rpcMatches && rpcMatches.length > 0) {
+          bestSemanticRow = rpcMatches[0];
+          bestScore = Number(rpcMatches[0].similarity);
+        } else {
+          // Client-side cosine similarity check on existing vector rows
+          const { data: vectorCandidates } = await supabase
+            .from('generated_content')
+            .select('*')
+            .eq('content_type', contentType)
+            .eq('status', 'active')
+            .not('theme_embedding', 'is', null)
+            .limit(50);
+
+          if (vectorCandidates && vectorCandidates.length > 0) {
+            for (const row of vectorCandidates) {
+              let v = row.theme_embedding;
+              if (typeof v === 'string') {
+                try { v = JSON.parse(v); } catch { v = v.replace(/[\[\]]/g, '').split(',').map(Number); }
+              }
+              if (Array.isArray(v) && v.length > 0) {
+                const sim = cosineSimilarity(queryEmbedding, v);
+                if (sim >= 0.85 && sim > bestScore) {
+                  bestScore = sim;
+                  bestSemanticRow = { ...row, similarity: sim };
+                }
+              }
+            }
+          }
+        }
+
+        if (bestSemanticRow && bestScore >= 0.85) {
+          let parsedBody: any = {};
+          try {
+            parsedBody = typeof bestSemanticRow.body === 'string' ? JSON.parse(bestSemanticRow.body) : bestSemanticRow.body;
+          } catch {
+            parsedBody = {
+              title: bestSemanticRow.title,
+              body: bestSemanticRow.body,
+              text: bestSemanticRow.body
+            };
+          }
+
+          parsedBody.title = parsedBody.title || bestSemanticRow.title || "Curated Experience";
+          parsedBody.cached = true;
+          parsedBody.source = "semantic_library_cache";
+          parsedBody.similarityScore = bestScore;
+          parsedBody.generationSpeedMs = Date.now() - retrievalStartTime;
+          parsedBody.regenerationCount = regenerationCount;
+
+          try {
+            await supabase.from('activity_history').insert({
+              user_id: user.id,
+              group_id: groupId || null,
+              content_type: contentType,
+              category: category || playMode,
+              content_title: parsedBody.title,
+              tags: [playMode, 'semantic_cache_hit', `sim_${Math.round(bestScore * 100)}`]
+            });
+          } catch {}
+
+          return NextResponse.json(parsedBody, {
+            headers: {
+              'X-Generation-Source': 'semantic-library-cache',
+              'X-Similarity-Score': bestScore.toFixed(3),
+              'X-Generation-Speed-Ms': parsedBody.generationSpeedMs.toString()
+            }
+          });
+        }
+      } catch (vectorSearchErr) {
+        console.warn("Semantic vector retrieval check encountered error, continuing to standard cycle:", vectorSearchErr);
+      }
+    }
+
+    // 2. STANDARD 3-STEP CYCLE RETRIEVAL (Initial & 1st Regen Fallback)
     // On 2nd consecutive regeneration (regenerationCount=2, the 3rd total attempt), bypass retrieval and send to Euryale for a fresh output.
     if (!previousContent && !isRegenThresholdReached) {
       const retrievalStartTime = Date.now();
@@ -749,10 +895,10 @@ export async function POST(req: Request) {
       pacing,
       storyLength,
       activeTrope,
-      theme
+      theme,
+      styleReference: selectedStyleReference || undefined
     });
 
-    const currentPacing = pacing || 'Medium Burn';
     let pacingRule = '';
     if (currentPacing === 'Quick Burn') {
       pacingRule = 'Get to the explicit climax quickly within the allotted word count.';
@@ -770,11 +916,13 @@ export async function POST(req: Request) {
             ? "An intimate exploratory roleplay scenario."
             : "An intimate challenge for couples.");
 
-    if (contentType === 'literature') {
+    const isLiterature = contentType === 'literature';
+
+    if (isLiterature) {
       const tropeDetails = activeTrope
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
-      userPrompt = `Write the story according to: Pacing: ${currentPacing} (${pacingRule}). Length: ${storyLength || 'Short Story'}.${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+      userPrompt = `Write Chapter 1 (max 1,500 words) of this story according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
     } else if (contentType === 'roleplay') {
       userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
     }
@@ -783,7 +931,8 @@ export async function POST(req: Request) {
       userPrompt = `PREVIOUS STORY TEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the narrative seamlessly from the provided text. Do not summarize or repeat the previous text. Return valid JSON containing the new continuation text in the "body" and "text" fields. ${userPrompt}`;
     }
 
-    const maxTokens = 8000;
+    // Sub-30-second token allocation: 2500 max tokens for Chapter 1
+    const maxTokens = isLiterature ? 2500 : 8000;
 
     let streamResult;
     const abortController = new AbortController();
@@ -808,11 +957,11 @@ export async function POST(req: Request) {
         ],
         temperature: 0.85,
         top_p: 0.9,
-        max_tokens: 8000,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         stream: true,
         extra_body: {
-          max_tokens: 8000,
+          max_tokens: maxTokens,
           models: [
             "sao10k/l3.1-euryale-70b",
             "neversleep/llama-3.1-lumimaid-70b",
@@ -909,16 +1058,48 @@ export async function POST(req: Request) {
             generatedContent.play_mode = playMode;
             generatedContent.theme_tags = metaTags.join(', ');
 
+            const storyId = crypto.randomUUID();
+
+            if (isLiterature) {
+              generatedContent.chapter = 1;
+              generatedContent.totalChapters = 3;
+              generatedContent.status = 'chapter_1_ready';
+            }
+
             const payload: any = {
+              id: storyId,
               user_id: user.id,
               content_type: contentType,
               title: generatedContent.title || "Untitled Experience",
               body: JSON.stringify(generatedContent),
               pre_experience_tasks: generatedContent.preExperienceTasks || generatedContent.tasks || null,
-              status: 'active'
+              status: isLiterature ? 'chapter_1_ready' : 'active',
+              tolerance_tier: effectiveTolerance || 'Moderate',
+              play_mode: playMode,
+              theme_tags: metaTags.join(', '),
+              theme_embedding: formatVectorForPg(queryEmbedding)
             };
 
             await supabase.from('generated_content').insert(payload);
+
+            // Asynchronous Progressive Generation:
+            // Trigger non-blocking background function to compute and append Chapters 2 & 3
+            if (isLiterature) {
+              computeAndAppendChaptersAsync({
+                storyId,
+                userId: user.id,
+                title: generatedContent.title || "Untitled Experience",
+                chapter1Text: generatedContent.body || generatedContent.text,
+                pacing: currentPacing,
+                pacingRule,
+                baseTolerance: effectiveTolerance || 'Moderate',
+                theme,
+                systemInstruction,
+                styleExcerpt: selectedStyleReference?.excerpt
+              }).catch((bgErr) => {
+                console.warn("[Async Chunking] Background chapter generation warning:", bgErr);
+              });
+            }
 
             await supabase.from('activity_history').insert({
               user_id: user.id,

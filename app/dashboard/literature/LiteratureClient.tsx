@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "@/components/FlameLoader";
@@ -104,6 +104,55 @@ export default function LiteratureClient() {
     setGenerationMetric(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Progressive Chapter Assembly Poller:
+  // Detects if Chapter 1 is ready and polls Supabase while user reads, updating the body seamlessly when Chapters 2 & 3 append.
+  useEffect(() => {
+    if (!scenario?.title) return;
+    const isProgressive = (scenario as any)?.status === 'chapter_1_ready' || (scenario as any)?.status === 'chapter_2_ready';
+    if (!isProgressive) return;
+
+    let pollAttempts = 0;
+    const interval = setInterval(async () => {
+      pollAttempts++;
+      if (pollAttempts > 30) {
+        clearInterval(interval);
+        return;
+      }
+
+      try {
+        const { data: latest } = await supabase
+          .from('generated_content')
+          .select('body')
+          .eq('title', scenario.title)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latest?.body) {
+          const parsed = typeof latest.body === 'string' ? JSON.parse(latest.body) : latest.body;
+          const newBody = parsed.body || parsed.text;
+          if (newBody && newBody.length > (scenario.body?.length || 0)) {
+            setScenario(prev => prev ? {
+              ...prev,
+              body: newBody,
+              chapter: parsed.chapter,
+              totalChapters: parsed.totalChapters,
+              status: parsed.status
+            } : prev);
+
+            if (parsed.status === 'completed' || (parsed.chapter && parsed.chapter >= 3)) {
+              clearInterval(interval);
+            }
+          }
+        }
+      } catch (pollErr) {
+        console.warn("Progressive chapter polling error:", pollErr);
+      }
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [scenario?.title, (scenario as any)?.status, (scenario as any)?.body?.length, supabase]);
 
   const handleContinueStory = async () => {
     if (!scenario) return;
@@ -798,7 +847,11 @@ export default function LiteratureClient() {
             )}
             {generationMetric && (
               <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' || (generationMetric.source || '').includes('library') || (generationMetric.source || '').includes('supabase') ? (
+                {generationMetric.source === 'semantic_library_cache' || (generationMetric.source || '').includes('semantic') ? (
+                  <span className="text-cyan-400 flex items-center gap-1">
+                    <span className="text-cyan-300 font-bold">⚡</span> Semantic Vector Cache Hit ({generationMetric.speedMs}ms)
+                  </span>
+                ) : generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' || (generationMetric.source || '').includes('library') || (generationMetric.source || '').includes('supabase') ? (
                   <span className="text-emerald-400 flex items-center gap-1">
                     <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
                   </span>
@@ -807,6 +860,16 @@ export default function LiteratureClient() {
                     <span className="text-red-500 font-bold">🔥</span> Generated via Euryale AI ({Math.round(generationMetric.speedMs / 100) / 10}s)
                   </span>
                 )}
+              </span>
+            )}
+            {((scenario as any)?.status === 'chapter_1_ready' || (scenario as any)?.status === 'chapter_2_ready') && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-amber-950/40 border-amber-800 text-amber-200 animate-pulse">
+                <span>📖</span> Chapter {(scenario as any)?.chapter || 1} of 3 — Assembling remaining chapters in background...
+              </span>
+            )}
+            {(scenario as any)?.status === 'completed' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-emerald-950/40 border-emerald-800 text-emerald-300">
+                <span>✓</span> Complete 3-Chapter Story
               </span>
             )}
           </div>
