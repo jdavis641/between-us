@@ -599,7 +599,7 @@ export default function RolePlayClient() {
           {generationMetric && (
             <div className="mb-3">
               <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' ? (
+                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' || (generationMetric.source || '').includes('library') || (generationMetric.source || '').includes('supabase') ? (
                   <span className="text-emerald-400 flex items-center gap-1">
                     <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
                   </span>

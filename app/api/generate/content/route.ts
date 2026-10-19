@@ -239,13 +239,15 @@ function extractIntimacyMetaTags({
   targetBoundary,
   playMode,
   contentType,
-  rawText
+  rawText,
+  customKinks
 }: {
   theme?: string;
   targetBoundary?: string;
   playMode?: string;
   contentType: string;
   rawText?: string;
+  customKinks?: string[];
 }): string[] {
   const tags = new Set<string>();
   tags.add(contentType);
@@ -267,6 +269,13 @@ function extractIntimacyMetaTags({
   if (theme) {
     const cleanTheme = theme.toLowerCase().replace(/[^a-z0-9\s]/g, '');
     cleanTheme.split(/\s+/).filter(w => w.length > 3).slice(0, 3).forEach(w => tags.add(w));
+  }
+
+  if (customKinks && Array.isArray(customKinks)) {
+    customKinks.forEach(k => {
+      const clean = k.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+      if (clean) tags.add(clean);
+    });
   }
 
   return Array.from(tags);
@@ -480,6 +489,45 @@ export async function POST(req: Request) {
       .select('category_tag, preference_level, kinks_override')
       .eq('user_id', user.id);
 
+    // Derive Base Tolerance and Target Boundary
+    const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
+    const effectiveTolerance = targetBoundary || baseTolerance;
+
+    // Extract User Custom Kinks
+    let userCustomKinks: string[] = [];
+    const kinkRow = preferences?.find(p => p.kinks_override && p.category_tag !== 'Guest Pass Config');
+    if (kinkRow?.kinks_override) {
+      try {
+        const parsedKinks = JSON.parse(kinkRow.kinks_override);
+        if (Array.isArray(parsedKinks)) {
+          userCustomKinks = parsedKinks.map((k: any) => (typeof k === 'string' ? k : k?.text || '')).filter(Boolean);
+        } else if (typeof parsedKinks === 'string') {
+          userCustomKinks = parsedKinks.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+        }
+      } catch {
+        userCustomKinks = kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+
+    // Preferred Themes (Definitely or Curious)
+    const preferredThemes = preferences
+      ?.filter(p => p.preference_level === 'Definitely' || p.preference_level === 'Curious')
+      .map(p => p.category_tag)
+      .filter(tag => tag && tag !== 'Base' && tag !== 'Base Tolerance' && tag !== 'Guest Pass Config') || [];
+
+    // Strictly Excluded Variables (Off-Limits)
+    const excludedThemes = preferences
+      ?.filter(p => p.preference_level === 'Off-Limits')
+      .map(p => p.category_tag.toLowerCase())
+      .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
+
+    // Target Metatags for High-Relevance Matching
+    const targetMetatags = Array.from(new Set([
+      ...userCustomKinks.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, '_')),
+      ...preferredThemes.map(t => t.toLowerCase().replace(/[^a-z0-9]/g, '_')),
+      ...(theme ? theme.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length > 3) : [])
+    ])).filter(Boolean);
+
     // Fetch History
     const historyQuery = supabase.from('activity_history').select('content_title').eq('content_type', contentType);
     if (groupId) {
@@ -491,14 +539,14 @@ export async function POST(req: Request) {
     const { data: historyData } = await historyQuery.order('completed_at', { ascending: false }).limit(20);
     const historyTitles = historyData?.map(h => h.content_title) || [];
 
-    
     const regenerationCount = typeof body.regenerationCount === 'number' ? body.regenerationCount : 0;
     const forceFresh = body.forceFresh === true;
     const isRegenThresholdReached = regenerationCount >= 2 || forceFresh;
 
     // 1. PRIMARY RETRIEVAL FROM SUPABASE LIBRARY
     // Pull content from Supabase library as the primary retrieval.
-    // After two back-to-back regeneration requests, bypass retrieval and send to Euryale for a fresh output.
+    // Initial Request (regenerationCount=0) & 1st Regeneration (regenerationCount=1) serve from library.
+    // On 2nd consecutive regeneration (regenerationCount=2, the 3rd total attempt), bypass retrieval and send to Euryale for a fresh output.
     if (!previousContent && !isRegenThresholdReached) {
       const retrievalStartTime = Date.now();
       try {
@@ -512,32 +560,77 @@ export async function POST(req: Request) {
           libraryQuery = libraryQuery.ilike('body', `%${theme.trim()}%`);
         }
 
-        const { data: libraryRows } = await libraryQuery
+        let { data: libraryRows } = await libraryQuery
           .order('created_at', { ascending: false })
           .limit(50);
+
+        if (!libraryRows || libraryRows.length === 0) {
+          const res = await supabase
+            .from('generated_content')
+            .select('*')
+            .eq('content_type', contentType)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(100);
+          libraryRows = res.data;
+        }
 
         if (libraryRows && libraryRows.length > 0) {
           // Avoid immediate duplicates from recent user activity
           let candidates = libraryRows.filter((r: any) => !historyTitles.includes(r.title));
           if (candidates.length === 0) candidates = libraryRows;
 
-          // Find candidate that best matches boundary and playMode
-          let matchedRow = null;
+          // Score and rank candidates by base_tolerance and custom kinks (metatags)
+          let scoredCandidates: { row: any; score: number }[] = [];
+
           for (const row of candidates) {
             try {
               const parsed = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
-              const rowTier = parsed.tolerance_tier || parsed.tier;
-              const rowMode = parsed.play_mode || parsed.mode;
-              const matchesTier = !targetBoundary || (rowTier && rowTier.toLowerCase() === targetBoundary.toLowerCase());
-              const matchesMode = !playMode || (rowMode && rowMode.toLowerCase() === playMode.toLowerCase());
-              if (matchesTier && matchesMode) {
-                matchedRow = row;
-                break;
+              const rowTier = (parsed.tolerance_tier || parsed.tier || '').toLowerCase();
+              const rowMode = (parsed.play_mode || parsed.mode || '').toLowerCase();
+              const rowTags: string[] = (Array.isArray(parsed.metaTags) ? parsed.metaTags : []).concat(
+                typeof parsed.theme_tags === 'string' ? parsed.theme_tags.split(',').map((s: string) => s.trim().toLowerCase()) : []
+              );
+
+              // Exclude check: If any row tag matches an excluded theme, reject this row immediately
+              const hasExcluded = excludedThemes.some(ex => 
+                rowTags.includes(ex) || (row.title && row.title.toLowerCase().includes(ex))
+              );
+              if (hasExcluded) continue;
+
+              let score = 0;
+
+              // Strict Tolerance Tier Match (Sensory, Playful, Intense, Extreme)
+              if (effectiveTolerance && rowTier === effectiveTolerance.toLowerCase()) {
+                score += 100;
+              } else if (!effectiveTolerance) {
+                score += 20;
               }
+
+              // Play Mode Match (couple, group)
+              if (playMode && rowMode === playMode.toLowerCase()) {
+                score += 50;
+              }
+
+              // Custom Kinks and Intimacy Metatag overlap
+              if (targetMetatags.length > 0 && rowTags.length > 0) {
+                const matchedTags = targetMetatags.filter(t => 
+                  rowTags.some((rt: string) => rt.includes(t) || t.includes(rt))
+                );
+                score += matchedTags.length * 25;
+              }
+
+              scoredCandidates.push({ row, score });
             } catch {}
           }
 
-          if (!matchedRow) {
+          let matchedRow = null;
+          if (scoredCandidates.length > 0) {
+            scoredCandidates.sort((a, b) => b.score - a.score);
+            const topScore = scoredCandidates[0].score;
+            const topMatches = scoredCandidates.filter(c => c.score === topScore);
+            matchedRow = topMatches[Math.floor(Math.random() * topMatches.length)].row;
+          } else {
             matchedRow = candidates[Math.floor(Math.random() * candidates.length)];
           }
 
@@ -612,8 +705,6 @@ export async function POST(req: Request) {
         }
       }
     }
-
-    const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
     const systemInstruction = buildSystemInstruction({
       preferences: preferences || [],
@@ -776,14 +867,15 @@ export async function POST(req: Request) {
 
             const metaTags = extractIntimacyMetaTags({
               theme,
-              targetBoundary: targetBoundary || baseTolerance,
+              targetBoundary: effectiveTolerance,
               playMode,
               contentType,
-              rawText: cleaned
+              rawText: cleaned,
+              customKinks: userCustomKinks
             });
 
             generatedContent.metaTags = metaTags;
-            generatedContent.tolerance_tier = targetBoundary || baseTolerance || 'Moderate';
+            generatedContent.tolerance_tier = effectiveTolerance || 'Moderate';
             generatedContent.play_mode = playMode;
             generatedContent.theme_tags = metaTags.join(', ');
 

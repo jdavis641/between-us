@@ -105,7 +105,22 @@ async function runCmoEngine() {
   fs.writeFileSync(csvPath, csvContent, 'utf8');
   console.log(`[CMO Agent] Canva Bulk Create CSV generated: ${csvPath}`);
 
-  // 5. Performance Tracking Helper (Webhook Processing)
+  // 5. External Webhook & Publishing Circuit Breaker
+  function dispatchExternalWebhook(url, payload) {
+    if (!OPSEC_CLEARED) {
+      console.warn('[OPSEC CIRCUIT BREAKER] External webhook dispatch BLOCKED. Marketing paused until OPSEC_CLEARED.flag and OPSEC_VERIFIED=true are provided.');
+      const stagingFile = path.join(draftsDir, 'staged-external-webhooks.json');
+      const existing = fs.existsSync(stagingFile) ? JSON.parse(fs.readFileSync(stagingFile, 'utf8')) : [];
+      existing.push({ url, payload, timestamp: new Date().toISOString() });
+      fs.writeFileSync(stagingFile, JSON.stringify(existing, null, 2), 'utf8');
+      console.log(`[OPSEC CIRCUIT BREAKER] Payload routed strictly to staging: ${stagingFile}`);
+      return { status: 'blocked_by_opsec', staged: true, path: stagingFile };
+    }
+    console.log(`[CMO Agent] External dispatch authorized to ${url}`);
+    return { status: 'dispatched' };
+  }
+
+  // 6. Performance Tracking Helper (Webhook Processing)
   function processStripeWebhook(payload) {
     if (payload.type === 'checkout.session.completed') {
       const utmCampaign = payload.data?.object?.metadata?.utm_campaign;
@@ -120,7 +135,7 @@ async function runCmoEngine() {
     }
   }
 
-  // 6. Hook Optimization Summary
+  // 7. Hook Optimization Summary
   const sortedHooks = [...repo.hooks].sort((a, b) => (b.performance_score || 0) - (a.performance_score || 0));
   const topPerforming = sortedHooks[0] || { target_demographic: 'Couples', perspective: 'Dual', hook_text: 'Default Hook' };
 
@@ -130,7 +145,9 @@ async function runCmoEngine() {
   return {
     activeUsersCount: activeUsers.length,
     hooksCount: repo.hooks.length,
-    topPerformingHook: topPerforming
+    topPerformingHook: topPerforming,
+    opsecCleared: OPSEC_CLEARED,
+    dispatchExternalWebhook
   };
 }
 
