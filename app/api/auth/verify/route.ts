@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { checkRateLimit, resetRateLimit } from '@/utils/rate-limiter';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,33 @@ export async function POST(req: Request) {
 
     if (!email || !code) {
       return NextResponse.json({ error: 'Email and code are required.' }, { status: 400 });
+    }
+
+    // Rate Limiting Protection against OTP Brute-Force Attacks
+    const forwarded = req.headers.get('x-forwarded-for');
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : (req.headers.get('x-real-ip') || 'unknown-client');
+    const cleanEmail = email.toLowerCase().trim();
+    const rateLimitKey = `otp_verify:${cleanEmail}:${clientIp}`;
+
+    const { allowed, remaining, retryAfterSec } = checkRateLimit({
+      key: rateLimitKey,
+      maxAttempts: 5,
+      windowMs: 5 * 60 * 1000 // 5 minutes
+    });
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Too many verification attempts. Please wait ${retryAfterSec} seconds before trying again.` },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSec),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(retryAfterSec)
+          }
+        }
+      );
     }
 
     const cookieStore = await cookies();
@@ -40,14 +68,25 @@ export async function POST(req: Request) {
     );
 
     const { data, error } = await supabase.auth.verifyOtp({ 
-      email, 
-      token: code, 
+      email: cleanEmail, 
+      token: code.trim(), 
       type: 'email' 
     });
 
     if (error) {
-      return NextResponse.json({ error: 'Invalid code: ' + error.message }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Invalid code: ' + error.message, remainingAttempts: remaining }, 
+        { 
+          status: 401,
+          headers: {
+            'X-RateLimit-Remaining': String(remaining)
+          }
+        }
+      );
     }
+
+    // Reset rate limiter on successful verification
+    resetRateLimit(rateLimitKey);
 
     if (!data?.user) {
       return NextResponse.json({ error: 'Verification failed, no user returned.' }, { status: 401 });

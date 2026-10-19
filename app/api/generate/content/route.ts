@@ -21,6 +21,28 @@ export class StreamingTextResponse extends Response {
   }
 }
 
+/**
+ * Sanitizes user-supplied strings before injection into LLM prompts or system instructions.
+ * Strips known injection markers, control delimiters, and systemic override phrasing.
+ */
+function sanitizePromptInput(input: any, maxLength = 1000): string {
+  if (typeof input !== 'string') return '';
+  let sanitized = input.slice(0, maxLength);
+  const injectionPatterns = [
+    /<\|.*?\|>/gi,
+    /\[\/?(?:inst|sys|system|user|assistant)\]/gi,
+    /<<\/?sys>>/gi,
+    /\b(?:ignore|disregard|forget|override)\s+(?:all\s+)?(?:previous|prior|above|system)\s+(?:instructions|prompts|directives|rules)\b/gi,
+    /\b(?:system\s*:|assistant\s*:|developer\s*:)/gi
+  ];
+
+  for (const pattern of injectionPatterns) {
+    sanitized = sanitized.replace(pattern, ' ');
+  }
+
+  return sanitized.trim();
+}
+
 function buildSystemInstruction({
   preferences,
   playMode,
@@ -70,12 +92,12 @@ function buildSystemInstruction({
     try {
       const parsed = JSON.parse(kinkRow.kinks_override);
       if (Array.isArray(parsed)) {
-        primaryDirective = parsed.map((k: any) => k.text).join('\n');
+        primaryDirective = parsed.map((k: any) => sanitizePromptInput(typeof k === 'string' ? k : (k?.text || ''), 500)).filter(Boolean).join('\n');
       } else {
-        primaryDirective = kinkRow.kinks_override;
+        primaryDirective = sanitizePromptInput(kinkRow.kinks_override, 1000);
       }
     } catch(e) {
-      primaryDirective = kinkRow.kinks_override;
+      primaryDirective = sanitizePromptInput(kinkRow.kinks_override, 1000);
     }
   }
 
@@ -439,9 +461,9 @@ export async function POST(req: Request) {
     const contentType = body.contentType;
     const category = body.category;
     const hasScripts = body.hasScripts;
-    const theme = body.theme;
-    const targetBoundary = body.targetBoundary;
-    const previousContent = body.previousContent || body.existingStory;
+    const theme = sanitizePromptInput(body.theme, 1000);
+    const targetBoundary = sanitizePromptInput(body.targetBoundary, 100);
+    const previousContent = sanitizePromptInput(body.previousContent || body.existingStory, 10000);
     const pacing = body.pacing;
     const storyLength = body.storyLength;
     const activeTrope = body.activeTrope;
@@ -500,12 +522,20 @@ export async function POST(req: Request) {
       try {
         const parsedKinks = JSON.parse(kinkRow.kinks_override);
         if (Array.isArray(parsedKinks)) {
-          userCustomKinks = parsedKinks.map((k: any) => (typeof k === 'string' ? k : k?.text || '')).filter(Boolean);
+          userCustomKinks = parsedKinks
+            .map((k: any) => sanitizePromptInput(typeof k === 'string' ? k : (k?.text || ''), 500))
+            .filter(Boolean);
         } else if (typeof parsedKinks === 'string') {
-          userCustomKinks = parsedKinks.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+          userCustomKinks = parsedKinks
+            .split(/[,;\n]+/)
+            .map(s => sanitizePromptInput(s, 500))
+            .filter(Boolean);
         }
       } catch {
-        userCustomKinks = kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+        userCustomKinks = kinkRow.kinks_override
+          .split(/[,;\n]+/)
+          .map((s: string) => sanitizePromptInput(s, 500))
+          .filter(Boolean);
       }
     }
 
@@ -758,8 +788,8 @@ export async function POST(req: Request) {
     let streamResult;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
-      abortController.abort(new Error("OpenRouter request timed out after 280s"));
-    }, 280000);
+      abortController.abort(new Error("OpenRouter request timed out after 45s"));
+    }, 45000);
 
     try {
       if (!process.env.OPENROUTER_API_KEY) {
