@@ -2,34 +2,13 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
-import LiteratureClient, { extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError } from "./LiteratureClient";
-import ReactMarkdown from "react-markdown";
+import LiteratureClient, { extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError, LiteratureMarkdown } from "./LiteratureClient";
 import FlameLoader from "@/components/FlameLoader";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
-export { LiteratureClient, FlameLoader, ErrorBoundary, extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
+export { LiteratureClient, LiteratureMarkdown, FlameLoader, ErrorBoundary, extractStreamingMarkdown, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
 
 export const sanitizeContent = (content: string) => safeMarkdownString(content);
-
-export function LiteratureMarkdown({ content, isGenerating = false }: { content: string; isGenerating?: boolean }) {
-  const generatedContent = content || '';
-  const wordCount = (generatedContent || '').trim().split(/\s+/).length;
-
-  if (isGenerating && wordCount < 1000) {
-    return (
-      <div className="py-6">
-        <FlameLoader isGenerating={true} progressText="Crafting the narrative..." />
-      </div>
-    );
-  }
-
-  const cleanContent = safeMarkdownString(generatedContent);
-  return (
-    <ErrorBoundary fallbackContent={cleanContent}>
-      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
-    </ErrorBoundary>
-  );
-}
 
 export default function LiteraturePage() {
   return (

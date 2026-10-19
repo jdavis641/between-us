@@ -2,34 +2,13 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
-import RolePlayClient, { extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError } from "./RolePlayClient";
-import ReactMarkdown from "react-markdown";
+import RolePlayClient, { extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError, RolePlayMarkdown } from "./RolePlayClient";
 import FlameLoader from "@/components/FlameLoader";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 
-export { RolePlayClient, FlameLoader, ErrorBoundary, extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
+export { RolePlayClient, RolePlayMarkdown, FlameLoader, ErrorBoundary, extractStreamingRoleplay, STREAM_INTERRUPTED_MESSAGE, handleStreamError };
 
 export const sanitizeContent = (content: string) => safeMarkdownString(content);
-
-export function RolePlayMarkdown({ content, isGenerating = false }: { content: string; isGenerating?: boolean }) {
-  const generatedContent = content || '';
-  const wordCount = (generatedContent || '').trim().split(/\s+/).length;
-
-  if (isGenerating && wordCount < 1000) {
-    return (
-      <div className="py-6">
-        <FlameLoader isGenerating={true} progressText="Crafting the narrative..." />
-      </div>
-    );
-  }
-
-  const cleanContent = safeMarkdownString(generatedContent);
-  return (
-    <ErrorBoundary fallbackContent={cleanContent}>
-      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
-    </ErrorBoundary>
-  );
-}
 
 export default function RolePlayPage() {
   return (

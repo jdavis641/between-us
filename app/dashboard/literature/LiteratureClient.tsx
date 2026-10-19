@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "@/components/FlameLoader";
@@ -72,6 +72,55 @@ export function extractStreamingMarkdown(raw: string): { title?: string; body: s
   return { title, body: cleaned };
 }
 
+export function LiteratureMarkdown({ content, isGenerating = false }: { content: string; isGenerating?: boolean }) {
+  const generatedContent = content || '';
+  const wordCount = (generatedContent || '').trim().split(/\s+/).length;
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+      if (distanceFromBottom > 100) {
+        setIsAutoScrollPaused(true);
+      } else {
+        setIsAutoScrollPaused(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (isGenerating && !isAutoScrollPaused && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [content, isGenerating, isAutoScrollPaused]);
+
+  if (isGenerating && wordCount < 1000) {
+    return (
+      <div className="py-6">
+        <FlameLoader isGenerating={true} progressText="Crafting the narrative..." />
+      </div>
+    );
+  }
+
+  const cleanContent = safeMarkdownString(generatedContent);
+  return (
+    <div style={{ overflowAnchor: "none" }} className="space-y-4">
+      <ErrorBoundary fallbackContent={cleanContent}>
+        <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">{cleanContent}</ReactMarkdown>
+      </ErrorBoundary>
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
 export default function LiteratureClient() {
   const [theme, setTheme] = useState("");
   const [targetBoundary, setTargetBoundary] = useState("");
@@ -91,6 +140,40 @@ export default function LiteratureClient() {
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
 
+  // User Scroll Override & Smart Auto-Scroll States
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  const streamBottomRef = useRef<HTMLDivElement>(null);
+
+  // User Scroll Override Listener:
+  // If user scrolls up (more than 100px from the bottom of the viewport),
+  // pause auto-scroll so the reader is not yanked away from their current paragraph.
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+      if (distanceFromBottom > 100) {
+        setIsAutoScrollPaused(true);
+      } else {
+        setIsAutoScrollPaused(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Smart Auto-Scroll:
+  // Only scroll down while generating/continuing if isAutoScrollPaused is false.
+  // When generation finishes (loading & isContinuing become false), no auto-scroll is fired.
+  useEffect(() => {
+    if (!isAutoScrollPaused && (loading || isContinuing) && streamBottomRef.current) {
+      streamBottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [streamProgress, loading, isContinuing, isAutoScrollPaused]);
+
   const handleConfigureNewStory = () => {
     setLoading(false);
     setIsContinuing(false);
@@ -102,6 +185,7 @@ export default function LiteratureClient() {
     setPreviewError(null);
     setRegenerationCount(0);
     setGenerationMetric(null);
+    setIsAutoScrollPaused(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -158,6 +242,7 @@ export default function LiteratureClient() {
     if (!scenario) return;
     const currentStoryText = scenario.body || scenario.overview || "";
     setIsContinuing(true);
+    setIsAutoScrollPaused(false);
     setError(null);
     setStreamProgress("");
     let isStreamInterrupted = false;
@@ -403,6 +488,7 @@ export default function LiteratureClient() {
 
     const currentRegen = typeof regenOverride === 'number' ? regenOverride : regenerationCount;
     setLoading(true);
+    setIsAutoScrollPaused(false);
     setError(null);
     setScenario(null);
     setStreamProgress("");
@@ -729,7 +815,7 @@ export default function LiteratureClient() {
               )}
 
               {(wordCount >= 1000 || (!loading && (generatedContent.trim().length > 0 || streamProgress.trim().length > 0))) && (
-                <div className="mt-8 space-y-6 animate-in fade-in duration-300">
+                <div className="mt-8 space-y-6 animate-in fade-in duration-300" style={{ overflowAnchor: 'none' }}>
                   {/* Real-time Streaming Status Bar */}
                   {loading && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-red-900/50 p-4 rounded-xl shadow-lg">
@@ -749,7 +835,7 @@ export default function LiteratureClient() {
                   )}
 
                   {/* Real-time Streamed Content Canvas */}
-                  <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6">
+                  <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl space-y-6" style={{ overflowAnchor: 'none' }}>
                     {streamingStory.title && (
                       <h3 className="text-2xl sm:text-3xl font-serif font-bold text-zinc-100 border-b border-zinc-800 pb-4">
                         {streamingStory.title}
@@ -764,6 +850,7 @@ export default function LiteratureClient() {
                       </ErrorBoundary>
                       {loading && <span className="inline-block w-2 h-5 bg-red-500 ml-1 animate-pulse align-middle" />}
                     </div>
+                    <div ref={streamBottomRef} />
                   </div>
                 </div>
               )}
@@ -806,7 +893,7 @@ export default function LiteratureClient() {
       )}
 
       {scenario && (
-        <div className="animate-in fade-in duration-700 pb-24">
+        <div className="animate-in fade-in duration-700 pb-24" style={{ overflowAnchor: 'none' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <button 
               onClick={handleConfigureNewStory}
@@ -901,7 +988,7 @@ export default function LiteratureClient() {
           )}
 
           {/* Story Actions: Configure New Story, Regenerate, & Continue Existing Story */}
-          <div className="flex flex-wrap items-center gap-4 mb-8">
+          <div className="flex flex-wrap items-center gap-4 mb-8" style={{ overflowAnchor: 'none' }}>
             <button
               onClick={handleConfigureNewStory}
               disabled={isContinuing || loading}
@@ -936,7 +1023,7 @@ export default function LiteratureClient() {
           )}
 
           {isContinuing && wordCount >= 1000 && (
-            <div className="mt-4 mb-8 space-y-4">
+            <div className="mt-4 mb-8 space-y-4" style={{ overflowAnchor: 'none' }}>
               <div className="flex items-center gap-2.5 text-xs text-red-300 bg-red-950/40 border border-red-900/50 p-3 rounded-lg">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -952,6 +1039,7 @@ export default function LiteratureClient() {
                 </ErrorBoundary>
                 <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse align-middle" />
               </div>
+              <div ref={streamBottomRef} />
             </div>
           )}
           

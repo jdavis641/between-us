@@ -27,6 +27,7 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [isFavorite, setIsFavorite] = useState(false)
   const [isFavoriting, setIsFavoriting] = useState(false)
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false)
 
   useEffect(() => {
     async function fetchContent() {
@@ -131,6 +132,17 @@ export default function ExperienceReader({ params }: { params: any }) {
     let debounceTimer: NodeJS.Timeout | null = null;
 
     const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+      if (distanceFromBottom > 100) {
+        setIsAutoScrollPaused(true);
+      } else {
+        setIsAutoScrollPaused(false);
+      }
+
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
@@ -426,7 +438,7 @@ export default function ExperienceReader({ params }: { params: any }) {
           </div>
         )}
 
-        <article className={`prose prose-invert prose-zinc max-w-none ${textSize} leading-loose space-y-12 transition-all duration-300`}>
+        <article style={{ overflowAnchor: 'none' }} className={`prose prose-invert prose-zinc max-w-none ${textSize} leading-loose space-y-12 transition-all duration-300`}>
           
           {/* Partner Lenses */}
           {activeMode === "partner-a" && isRoleplay && (
@@ -684,7 +696,7 @@ export default function ExperienceReader({ params }: { params: any }) {
         )}
 
         {/* Feedback Loop */}
-        <div className="mt-24 pt-16 border-t border-zinc-800/80 space-y-16">
+        <div style={{ overflowAnchor: 'none' }} className="mt-24 pt-16 border-t border-zinc-800/80 space-y-16">
           <div className="text-center">
             <h3 className="text-2xl font-serif font-bold text-zinc-100 mb-2">How was the experience?</h3>
             <p className="text-zinc-500 text-sm mb-6">Your feedback shapes future generations and learns your desires.</p>
