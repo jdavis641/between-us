@@ -77,7 +77,7 @@ export default function LandingPage() {
           <svg className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
         </a>
         <p className="mt-4 sm:mt-5 text-xs sm:text-sm text-zinc-400 font-light tracking-wide max-w-md">
-          All of this for just $3/month. Cheaper than a single board game, with your price locked in for the life of your account.
+          All of this for just $3/month. Cheaper than a single intimacy game, with your price locked in (and free upgrades) for the life of your account.
         </p>
       </section>
 
@@ -143,7 +143,7 @@ export default function LandingPage() {
                   Pricing &amp; Value
                 </h3>
                 <p className="text-zinc-300 leading-relaxed font-light text-base sm:text-lg">
-                  All of this for just <span className="font-semibold text-rose-300">$3/month</span>. Cheaper than a single board game, with your price locked in for the life of your account.
+                  All of this for just <span className="font-semibold text-rose-300">$3/month</span>. Cheaper than a single intimacy game, with your price locked in (and free upgrades) for the life of your account.
                 </p>
                 <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-xs sm:text-sm text-zinc-400 pt-1 font-light">
                   <span className="flex items-center gap-1.5"><span className="text-rose-400 font-semibold">✓</span> Age-verified &amp; anonymous</span>
@@ -211,7 +211,7 @@ export default function LandingPage() {
           $0.99 7-day trial (required for age verification)
         </a>
         <p className="mt-4 sm:mt-5 text-xs sm:text-sm text-zinc-400 font-light tracking-wide max-w-md">
-          All of this for just $3/month. Cheaper than a single board game, with your price locked in for the life of your account.
+          All of this for just $3/month. Cheaper than a single intimacy game, with your price locked in (and free upgrades) for the life of your account.
         </p>
       </section>
     </main>
