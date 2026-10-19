@@ -58,13 +58,19 @@ export default function InvitePartnerPage() {
     if (!searchTerm) return
     setIsSearching(true)
     
-    let query = supabase.from('profiles').select('id, anonymous_alias, nickname')
+    let query = supabase.from('profiles').select('id, anonymous_alias, nickname, mobile_number')
     if (searchMethod === 'username') {
       query = query.or(`anonymous_alias.ilike.%${searchTerm}%,nickname.ilike.%${searchTerm}%`)
     } else if (searchMethod === 'email') {
-      query = query.eq('email', searchTerm)
+      query = query.ilike('email', searchTerm)
     } else if (searchMethod === 'phone') {
-      query = query.eq('phone', searchTerm)
+      const digits = searchTerm.replace(/[^\d]/g, '')
+      if (digits.length >= 7) {
+        const last10 = digits.slice(-10)
+        query = query.or(`mobile_number.ilike.%${searchTerm}%,mobile_number.ilike.%${last10}%`)
+      } else {
+        query = query.ilike('mobile_number', `%${searchTerm}%`)
+      }
     }
 
     const { data, error } = await query.limit(1).maybeSingle()
@@ -104,6 +110,25 @@ export default function InvitePartnerPage() {
         role: 'member',
         preferences_shared: JSON.stringify({})
       })
+
+      // Deliver internal app inbox message to partner
+      try {
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('nickname, anonymous_alias')
+          .eq('id', session.user.id)
+          .maybeSingle()
+        const myName = myProfile?.nickname || myProfile?.anonymous_alias || 'Your Partner'
+
+        await supabase.from('in_app_messages').insert({
+          user_id: foundUser.id,
+          subject: `Partner Connection Request from ${myName}`,
+          message: `${myName} has linked their account with you and shared intimacy boundaries and desires. Visit your dashboard to review and connect!`,
+          is_read: false
+        })
+      } catch (inboxErr) {
+        console.warn("Could not deliver partner invite inbox message:", inboxErr)
+      }
     }
 
     setInviteSent(true)

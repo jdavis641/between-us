@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createClientBase } from "@supabase/supabase-js";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -33,50 +35,69 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const rawIdentifier = (contactInfo || email || nickname || '').trim();
-    const isSms = contactMethod === 'sms';
-    const targetPhone = phoneNumber || mobileNumber || (isSms ? rawIdentifier : null);
+    const rawContact = (contactInfo || '').trim();
+    const rawEmail = (email || (rawContact.includes('@') ? rawContact : '')).trim();
+    const isContactMethodSms = contactMethod === 'sms';
+    const isNumericContact = /^[\d\s+\-().]{7,}$/.test(rawContact);
+    const rawPhone = (phoneNumber || mobileNumber || (isContactMethodSms || isNumericContact ? rawContact : '')).trim();
+    const rawNickname = (nickname || (!rawContact.includes('@') && !isNumericContact ? rawContact : '')).trim();
 
-    let recipientIdentifier = rawIdentifier;
-    let recipientEmail: string | null = rawIdentifier.includes('@') ? rawIdentifier : null;
+    const phoneDigits = (rawPhone || rawContact).replace(/[^\d]/g, '');
 
-    if (!isSms) {
-      if (!rawIdentifier) {
-        return NextResponse.json({ error: "Please enter an email address or nickname." }, { status: 400 });
-      }
+    let recipientEmail: string | null = rawEmail || null;
+    let targetPhone: string | null = rawPhone || (phoneDigits.length >= 7 ? rawContact : null) || null;
+    let recipientUserId: string | null = null;
+    let matchedProfile: any = null;
 
-      // Query profiles table to resolve nickname / anonymous_alias / email to UUID
-      const { data: matchedProfile, error: profileErr } = await supabase
+    // 1. Resolve Recipient in Directory (by email, nickname, anonymous_alias, or mobile_number)
+    const orConditions: string[] = [];
+    if (recipientEmail) {
+      orConditions.push(`email.ilike.${recipientEmail}`);
+    }
+    if (rawNickname) {
+      orConditions.push(`nickname.ilike.${rawNickname}`);
+      orConditions.push(`anonymous_alias.ilike.${rawNickname}`);
+    }
+    if (rawContact && !rawContact.includes('@') && !isNumericContact) {
+      orConditions.push(`nickname.ilike.${rawContact}`);
+      orConditions.push(`anonymous_alias.ilike.${rawContact}`);
+    }
+    if (phoneDigits && phoneDigits.length >= 7) {
+      const last10 = phoneDigits.slice(-10);
+      orConditions.push(`mobile_number.ilike.%${last10}%`);
+    }
+
+    if (orConditions.length > 0) {
+      const { data, error: profileErr } = await supabase
         .from('profiles')
-        .select('id, email, nickname, anonymous_alias')
-        .or(`email.ilike.${rawIdentifier},nickname.ilike.${rawIdentifier},anonymous_alias.ilike.${rawIdentifier}`)
+        .select('id, email, nickname, anonymous_alias, mobile_number')
+        .or(orConditions.join(','))
         .limit(1)
         .maybeSingle();
 
       if (profileErr) {
-        console.warn("Profile query warning in invite route:", profileErr);
+        console.warn("Profile directory query warning in invite route:", profileErr);
       }
 
-      if (matchedProfile) {
-        // Correctly query the profiles table to resolve identifier to a UUID
-        recipientIdentifier = matchedProfile.id;
-        if (matchedProfile.email) {
-          recipientEmail = matchedProfile.email;
+      if (data) {
+        matchedProfile = data;
+        recipientUserId = data.id;
+        if (!recipientEmail && data.email) {
+          recipientEmail = data.email;
         }
-      } else if (rawIdentifier.includes('@')) {
-        // Gracefully process the invite for a non-registered email
-        recipientEmail = rawIdentifier;
-        recipientIdentifier = rawIdentifier;
-      } else {
-        return NextResponse.json({
-          error: `No registered user found with nickname "${rawIdentifier}". Please verify the nickname or enter their email address.`
-        }, { status: 404 });
+        if (!targetPhone && data.mobile_number) {
+          targetPhone = data.mobile_number;
+        }
       }
-    } else {
-      if (!targetPhone) {
-        return NextResponse.json({ error: "Please enter a valid mobile number for SMS dispatch." }, { status: 400 });
-      }
-      recipientIdentifier = targetPhone;
+    }
+
+    // Set canonical recipient identifier
+    let recipientIdentifier = recipientUserId || recipientEmail || targetPhone || rawContact || rawNickname || 'guest';
+
+    if (!recipientUserId && !recipientEmail && !targetPhone) {
+      return NextResponse.json({
+        error: `Could not resolve recipient for "${rawContact || rawNickname || 'input'}". Please verify their email, mobile number, or nickname.`
+      }, { status: 404 });
     }
 
     const inviteToken = crypto.randomUUID();
@@ -126,7 +147,35 @@ export async function POST(req: Request) {
     const guestPassUrl = `${baseUrl}/signin?pass=${inviteToken}`;
     const messageBody = `You've been invited to a secure Between Us Guest Pass! Please log in and check your Between Us inbox for details: ${guestPassUrl}`;
 
-    // Dispatch via Resend (email)
+    let senderName = "Your Partner";
+    if (user?.id) {
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('nickname, anonymous_alias')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (senderProfile?.nickname || senderProfile?.anonymous_alias) {
+        senderName = senderProfile.nickname || senderProfile.anonymous_alias;
+      }
+    }
+
+    const boundariesList = Array.isArray(selectedBoundaries) && selectedBoundaries.length > 0 
+      ? selectedBoundaries.join(', ') 
+      : 'Standard intimate boundaries';
+    const kinksFormatted = Array.isArray(kinkSummary) 
+      ? kinkSummary.join(', ') 
+      : (kinkSummary || 'None specified');
+    const instructionsText = instructions || 'No special instructions provided.';
+
+    const dispatchResults = {
+      email: false,
+      sms: false,
+      inbox: false
+    };
+
+    // ==========================================
+    // DISPATCH 1: EMAIL (Resend)
+    // ==========================================
     if (recipientEmail) {
       if (process.env.RESEND_API_KEY) {
         try {
@@ -139,11 +188,11 @@ export async function POST(req: Request) {
             body: JSON.stringify({
               from: 'Between Us <invites@betweenusapp.io>',
               to: recipientEmail,
-              subject: 'You have a Between Us Guest Pass Waiting',
+              subject: `You have a Between Us Guest Pass from ${senderName}`,
               html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 32px; border-radius: 12px; max-width: 580px; margin: 0 auto; border: 1px solid #27272a;">
                   <h2 style="color: #ffffff; margin-top: 0; font-size: 22px;">You've been invited to a secure Between Us Guest Pass</h2>
-                  <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">The sender has shared specific desires, kinks, and instructions for a memorable experience. Please log in and check your Between Us inbox for details.</p>
+                  <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">${senderName} has shared specific desires, kinks, and instructions for a memorable experience. Please log in and check your Between Us inbox for details.</p>
                   <p style="margin: 28px 0; text-align: center;">
                     <a href="${guestPassUrl}" style="background-color: #7f1d1d; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(127, 29, 29, 0.4);">
                       Log In & Check Inbox
@@ -154,7 +203,9 @@ export async function POST(req: Request) {
               `
             })
           });
-          if (!resendRes.ok) {
+          if (resendRes.ok) {
+            dispatchResults.email = true;
+          } else {
             const errText = await resendRes.text();
             console.error("Resend invite email dispatch error:", errText);
           }
@@ -166,7 +217,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Dispatch via Twilio SMS
+    // ==========================================
+    // DISPATCH 2: SMS (Twilio)
+    // ==========================================
     if (targetPhone) {
       if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         try {
@@ -189,7 +242,9 @@ export async function POST(req: Request) {
             },
             body: formData
           });
-          if (!twilioRes.ok) {
+          if (twilioRes.ok) {
+            dispatchResults.sms = true;
+          } else {
             const errText = await twilioRes.text();
             console.error("Twilio SMS dispatch failed:", errText);
           }
@@ -201,11 +256,41 @@ export async function POST(req: Request) {
       }
     }
 
+    // ==========================================
+    // DISPATCH 3: INBOX (in_app_messages)
+    // ==========================================
+    if (recipientUserId) {
+      try {
+        const inboxMessage = `You have received a Between Us Guest Pass from ${senderName}!\n\n` +
+          `SHARED BOUNDARIES:\n${boundariesList}\n\n` +
+          `SHARED DESIRES & KINKS:\n${kinksFormatted}\n\n` +
+          `GUEST INSTRUCTIONS & CHEAT CODES:\n"${instructionsText}"\n\n` +
+          `Direct Pass Link: ${guestPassUrl}\n\n` +
+          `Please review the boundaries and explore your personalized experiences together!`;
+
+        const { error: msgErr } = await supabase.from('in_app_messages').insert({
+          user_id: recipientUserId,
+          subject: `Guest Pass from ${senderName}: Instructions & Desires`,
+          message: inboxMessage,
+          is_read: false
+        });
+
+        if (!msgErr) {
+          dispatchResults.inbox = true;
+        } else {
+          console.error("Failed to insert inbox message:", msgErr);
+        }
+      } catch (inboxErr) {
+        console.error("Failed to dispatch inbox message:", inboxErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       token: inviteToken,
       url: guestPassUrl,
-      recipientIdentifier
+      recipientIdentifier,
+      dispatched: dispatchResults
     });
   } catch (error: any) {
     console.error("Guest Pass Delivery Error:", error);
