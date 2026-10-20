@@ -532,8 +532,16 @@ export default function ExperienceReader({ params }: { params: any }) {
                 </ErrorBoundary>
 
                 {isInterruptedStory && (
-                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4">
-                    Click continue story to expand.
+                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+                    <span className="font-medium text-sm md:text-base leading-relaxed">
+                      Click continue story to expand.
+                    </span>
+                    <Link
+                      href={isRoleplay ? '/dashboard/roleplay' : '/dashboard/literature'}
+                      className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                    >
+                      Continue Story
+                    </Link>
                   </div>
                 )}
               </section>

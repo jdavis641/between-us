@@ -1032,7 +1032,7 @@ export default function LiteratureClient() {
               disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
-              {isContinuing ? "Extending Story..." : "Continue Existing Story"}
+              Continue Story
             </button>
           </div>
 
