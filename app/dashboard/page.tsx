@@ -126,6 +126,32 @@ export default function DashboardHome() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             
+            {/* Randomizer Games Hub Link */}
+            <Link href="/dashboard/randomizer">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-emerald-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
+                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
+                  <span className="text-4xl">🎲</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Randomizer Games</h3>
+                  <p className="text-gray-400 text-sm">Instant zero-wait prompts: The Original Randomizer, Truth or Dare, and Never Have I Ever.</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Card Games Hub Link */}
+            <Link href="/dashboard/games">
+              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
+                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
+                  <span className="text-4xl">✨</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Card Games</h3>
+                  <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
+                </div>
+              </div>
+            </Link>
+
             {/* Erotic Stories Hub Link */}
             <Link href="/dashboard/literature">
               <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-purple-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
@@ -146,34 +172,8 @@ export default function DashboardHome() {
                   <span className="text-4xl">🎭</span>
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Role Play Scenarios</h3>
+                  <h3 className="text-2xl font-bold text-white mb-2">Role Play</h3>
                   <p className="text-gray-400 text-sm">Explore scenarios for couple or group play.</p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Intimacy Randomizer Hub Link */}
-            <Link href="/dashboard/randomizer">
-              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-emerald-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                  <span className="text-4xl">🎲</span>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Intimacy Randomizer</h3>
-                  <p className="text-gray-400 text-sm">Instant zero-wait prompts: sensory, playful, and intense tasks & conversation starters.</p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Intimacy Games Hub Link */}
-            <Link href="/dashboard/games">
-              <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                  <span className="text-4xl">✨</span>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Intimacy Games</h3>
-                  <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
                 </div>
               </div>
             </Link>

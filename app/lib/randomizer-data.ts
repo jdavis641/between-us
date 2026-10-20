@@ -1076,3 +1076,295 @@ export const RANDOMIZER_DATA: Record<IntensityTier, TierData> = {
 };
 
 export const TOTAL_RANDOMIZER_PROMPTS = 1020;
+
+export type RandomizerGameMode = 'original' | 'truth_or_dare' | 'never_have_i_ever';
+export type TruthOrDareType = 'truth' | 'dare';
+
+export interface TruthOrDareTierData {
+  name: string;
+  badge: string;
+  color: string;
+  borderHover: string;
+  bgBadge: string;
+  description: string;
+  truths: string[];
+  dares: string[];
+}
+
+export interface NeverHaveIEverTierData {
+  name: string;
+  badge: string;
+  color: string;
+  borderHover: string;
+  bgBadge: string;
+  description: string;
+  statements: string[];
+}
+
+export const TRUTH_OR_DARE_DATA: Record<IntensityTier, TruthOrDareTierData> = {
+  sensory: {
+    name: 'Sensory',
+    badge: '🌿 Gentle & Romantic',
+    color: 'emerald',
+    borderHover: 'hover:border-emerald-500/60',
+    bgBadge: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80',
+    description: 'Tender emotional confessions and gentle, slow-paced physical connection.',
+    truths: [
+      "What was the exact moment you realized you felt a deep, genuine romantic spark with me?",
+      "What part of your body feels most neglected that you wish I touched with more tender, deliberate care?",
+      "What is your favorite non-sexual physical touch that we share together?",
+      "What scent or fragrance on me makes you immediately feel calm, safe, or aroused?",
+      "When you catch me looking at you across a crowded room, what is the first thought that enters your head?",
+      "What is a quiet, tender romantic fantasy you've imagined about us on a slow rainy afternoon?",
+      "Which specific kiss of ours has stayed etched in your memory the longest?",
+      "What emotional vulnerability do you feel safest letting go of when we hold each other in silence?",
+      "What is something small I do without thinking that completely melts your heart?",
+      "If you could freeze one gentle, peaceful moment between us forever, which one would it be?",
+      "What is a compliment about your body or soul you secretly long to hear from me more often?",
+      "How does your body feel when we share long, unbroken eye contact without saying a single word?",
+      "What slow-burn romantic fantasy have you never voiced to anyone before?",
+      "What kind of touch makes you shiver in the sweetest, most tender way?",
+      "What is the most comforting thing I could whisper into your ear right before you fall asleep?",
+      "What is your favorite memory of us lying in bed together with nowhere else we had to be?",
+      "What emotional boundary did being with me help you heal or soften over time?",
+      "What song makes you think of holding me close in the dark?",
+      "What do you feel in your chest when our bare skin touches under the blankets after a long day?",
+      "What gentle, unspoken promise do you want us to make to each other tonight?"
+    ],
+    dares: [
+      "Spend the next 90 seconds giving me a slow, rhythmic temple and jawline massage in complete silence.",
+      "Place your hand directly over my heartbeat, close your eyes, and take 10 synchronized deep breaths with me.",
+      "Trace the curve of my collarbone and neck using only the tips of your eyelashes and soft breaths.",
+      "Whisper three deeply honest things you adore about my body directly into my ear without letting your lips touch skin.",
+      "Blindfold me and use three different textures (fingertips, palm, warm breath) across my arms and neck.",
+      "Press a slow, lingering kiss to each of my knuckles, looking into my eyes with every single touch.",
+      "Gently cup my face with both hands and gaze into my eyes for two full minutes without speaking or looking away.",
+      "Trace the entire line of my spine from nape to lower back using only one warm fingertip with agonizing slowness.",
+      "Rest your head against my chest, wrap both arms around me, and stay completely still for two peaceful minutes.",
+      "Take a slow sip of warm water or wine, then press a warm, tender kiss against the hollow of my throat.",
+      "Lightly run your fingers through my hair while asking me to describe how your touch feels.",
+      "Undress one shoulder of mine and kiss every inch of exposed skin from collarbone to shoulder blade.",
+      "Hold both of my hands in yours and massage my palms and thumbs with slow circular pressure.",
+      "Whisper your favorite memory of our first kiss directly against my lips before kissing me softly once.",
+      "Lie face-to-face with me in the dark and trace the outline of my lips with your thumb.",
+      "Feather-kiss my eyelids, forehead, and temples, saving my lips for the very last touch.",
+      "Breathe warm air against the sensitive hollow beneath my ear for 60 seconds without breaking rhythm.",
+      "Slowly stroke my arms from shoulders to fingertips, matching the tempo of our breathing.",
+      "Blindfold yourself and identify three spots on my body using only your sense of touch and smell.",
+      "Pull me close and hold me in a slow, clothed dance without any music for three minutes."
+    ]
+  },
+  playful: {
+    name: 'Playful',
+    badge: '🔥 Teasing & Fun',
+    color: 'amber',
+    borderHover: 'hover:border-amber-500/60',
+    bgBadge: 'bg-amber-950/60 text-amber-300 border-amber-800/80',
+    description: 'Cheeky confessions, flirty dares, and mischievous anticipation to raise the heat.',
+    truths: [
+      "What outfit or piece of clothing of mine does things to your imagination every single time I wear it?",
+      "Have you ever had a scandalous thought about me during an inappropriate or mundane daytime moment?",
+      "What playful nickname or title secretly turns you on more than you care to admit?",
+      "If you could pick any semi-public place for us to get away with a secret make-out session, where would it be?",
+      "What is the cheekiest or most scandalous text you've ever drafted to send me but hesitated on?",
+      "What is one teasing game or roleplay scenario you think we would be ridiculously good at?",
+      "What was your very first thought the first time you saw me undressed?",
+      "If tonight had a soundtrack of seductive or playful songs, what track must be played?",
+      "What is a guilty pleasure trope or romantic scenario you secretly find hilarious yet intensely hot?",
+      "If we made a playful wager where the loser has to serve the winner all night, what would you bet?",
+      "Which part of your body is your most sensitive secret 'go-button' that I don't trigger often enough?",
+      "What is the most distracting thought you've had while trying to have a serious conversation with me?",
+      "If we could book a hotel room across town right now for purely recreational mischief, would you go?",
+      "Have you ever checked out my rear end while I was walking ahead of you without me noticing?",
+      "What playful tease gets you every single time, no matter how hard you try to resist?",
+      "If I gave you free rein to dress or style me for our next private night in, what would you choose?",
+      "What is your favorite time of day to catch me in a spontaneous, naughty mood?",
+      "What playful boundary or tease have you been itching to test with me?",
+      "What is the most memorable playful encounter we've had where we both couldn't stop grinning?",
+      "What is one thing you find unreasonably attractive about me that isn't traditionally 'sexy'?"
+    ],
+    dares: [
+      "Give me a 60-second lap dance to whatever song is currently stuck in your head.",
+      "Remove one article of clothing using only your teeth, or let me remove it for you with my eyes closed.",
+      "Whisper the cheekiest, dirtiest thing you've thought about me today while maintaining a poker face.",
+      "Feed me a piece of fruit, chocolate, or a sip of a drink without letting your hands touch me.",
+      "Give me a slow, teasing kiss that stops just short of being passionate, three times in a row.",
+      "Let me draw a secret word on your back or inner thigh with my finger—guess it right or forfeit an article of clothing.",
+      "Send me a scandalous or teasing voice memo from the other side of the room right now.",
+      "Sit on my lap and whisper a playful command in my ear that I must follow for the next 10 minutes.",
+      "Give my rear a firm, playful swat, then look me dead in the eye and say 'Thank you, more please.'",
+      "Blindfold yourself and let me place your hands on three different parts of my body—guess which ones they are.",
+      "Tease my neck and ear with quick little nibbles and kisses until I let out a sound.",
+      "Put an ice cube in your mouth and trace it along my neck and collarbone until it melts.",
+      "Do your best seductive walk across the room toward me and climb onto the bed or couch beside me.",
+      "Let me tickle or feather-touch your most sensitive spot for 30 seconds without moving away.",
+      "Give me three compliments right now: one sincere, one funny, and one shamelessly filthy.",
+      "Lie down and let me trace your waist and hips with my fingertips while you try to keep a straight face.",
+      "Whisper a naughty secret into my neck that you haven't said out loud to me before.",
+      "Let me choose a piece of your clothing to remove right now.",
+      "Kiss me everywhere on my face except my lips for two full minutes.",
+      "Perform a dramatic, slow-motion strip of your socks or jacket with theatrical flair."
+    ]
+  },
+  intense: {
+    name: 'Intense',
+    badge: '⚡ Boundary Pushing & Deep Passion',
+    color: 'rose',
+    borderHover: 'hover:border-rose-500/60',
+    bgBadge: 'bg-rose-950/60 text-rose-300 border-rose-800/80',
+    description: 'Raw desire, explicit power dynamics, and breathless challenges that test limits.',
+    truths: [
+      "What is the darkest, most uninhibited fantasy you've ever had that you've been hesitant to voice?",
+      "When during intimacy do you feel most electrically consumed: taking total control or completely surrendering?",
+      "What is a word, title, or phrase you secretly crave having growled into your ear when things get primal?",
+      "Have you ever fantasized about being physically restrained, blindfolded, or placed entirely at my mercy?",
+      "What is the most intense, earth-shaking orgasm you've ever experienced with me, and what pushed you there?",
+      "What taboo power dynamic (dominant/submissive, praise/discipline, chase/capture) pulls at your mind most?",
+      "What is a physical boundary you've wondered about safely pushing or testing under the right conditions?",
+      "If we agreed that tonight has zero inhibitions and complete safety, what is the very first thing you'd demand?",
+      "What kind of touch or impact (firm grips, scratching, biting, spanking) turns your mind completely feral?",
+      "Have you ever wanted me to command you to do something that pushed your comfort zone in a thrilling way?",
+      "What is a fantasy about public exposure, risk of getting caught, or voyeurism that makes your pulse spike?",
+      "How does the concept of denial and forced waiting affect your level of arousal?",
+      "What physical sensation borders right on the threshold between delicious pleasure and breathless ache for you?",
+      "If I told you that you weren't allowed to touch yourself or speak for the next 30 minutes, how would you react?",
+      "What is the most explicit command you want me to give you right now in this exact room?",
+      "When you look at me in a moment of intense desire, what primal impulse rises up inside you?",
+      "What is a hidden fetish or kink that you have researched in private but never shared with another human?",
+      "What kind of praise or degradation hits the deepest psychological nerve for you during sex?",
+      "If tonight was an agreement of total physical submission to me, what rule would excite you most to obey?",
+      "What does it take for you to completely lose your head and surrender all rational control in bed?"
+    ],
+    dares: [
+      "Kneel between my knees, place your hands flat on my thighs, look up into my eyes, and ask for permission to kiss me.",
+      "Let me bind your hands or blindfold you completely for the next 10 minutes while I dictate what happens.",
+      "Press me hard against the nearest wall, grip my hips firmly, and kiss me with breathless, bruising intensity for 60 seconds.",
+      "Deliver three firm, deliberate swats across my rear, pausing after each to watch my reaction.",
+      "Lie completely flat and still while I explore your body however I choose—you are forbidden from touching me back.",
+      "Grip my hair gently at the base of my neck, tilt my head back, and whisper your darkest command into my ear.",
+      "Let me leave a visible mark—a bite or a firm pinch—on a private area of your body of my choosing.",
+      "Strip down to your underwear in silence, maintaining unbroken, aggressive eye contact the entire time.",
+      "Get on all fours or lie face down, and let me run an ice cube or cold glass down the length of your spine to your lower back.",
+      "Whisper the most explicit, filthy sentence you know directly against my pulse point with slow, heavy breath.",
+      "Let me hold your wrists pinned above your head with one hand while I kiss down your throat with the other.",
+      "Sit in a chair while I straddle you, wrapping both hands around your neck gently to control your gaze.",
+      "Give me a 2-minute heavy make-out where you dictate every single move, bite, and breath with absolute dominance.",
+      "Command me to perform an act of your choosing right now, and enforce it with strict vocal authority.",
+      "Allow me to trace your inner thighs agonizingly close to your core without allowing any direct contact for 3 minutes.",
+      "Pull me into your lap, bury your face in my neck, and let out the rawest, deepest growl or breath you can muster.",
+      "Blindfold me, hold my chin firmly, and tease my mouth with your lips, tongue, and fingers without kissing me fully.",
+      "Let me inspect every curve of your body under bright light with deliberate, possessive hands while you stand motionless.",
+      "Press your forehead against mine, grip both sides of my ribcage tightly, and tell me: 'You belong to me tonight.'",
+      "Choose one item in this room to use as an improvised restraint, and let me test how secure it feels on your wrists."
+    ]
+  }
+};
+
+export const NEVER_HAVE_I_EVER_DATA: Record<IntensityTier, NeverHaveIEverTierData> = {
+  sensory: {
+    name: 'Sensory',
+    badge: '🌿 Gentle & Romantic',
+    color: 'emerald',
+    borderHover: 'hover:border-emerald-500/60',
+    bgBadge: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80',
+    description: 'Vulnerable romantic truths, emotional milestones, and tender sensual experiences.',
+    statements: [
+      "Never have I ever stayed awake until sunrise just tangled in blankets talking with someone I love.",
+      "Never have I ever felt shivers down my entire spine just from someone whispering close to my ear.",
+      "Never have I ever fallen completely in love with someone's hands and the gentle way they touch me.",
+      "Never have I ever had a romantic dream about my partner that felt so vivid it lingered in my head all day.",
+      "Never have I ever cried or felt overwhelming tears of joy during an intensely emotional intimate moment.",
+      "Never have I ever slow danced in an empty kitchen in the middle of the night without any music playing.",
+      "Never have I ever stared at my partner sleeping and felt terrified by how deeply I care about them.",
+      "Never have I ever gotten completely lost in someone's eyes for minutes without saying a single word.",
+      "Never have I ever saved a physical keepsake (ticket, flower, note) from our early dates in secret.",
+      "Never have I ever experienced an orgasm that was purely driven by emotional connection and tender touch.",
+      "Never have I ever spent an entire afternoon in bed with someone just listening to music and breathing together.",
+      "Never have I ever memorized the exact cadence of someone's breathing when they fall asleep beside me.",
+      "Never have I ever felt goosebumps when someone gently brushed a stray hair away from my face.",
+      "Never have I ever written a secret poem, love letter, or diary entry about how someone makes me feel.",
+      "Never have I ever wanted to kiss someone so badly that my hands were physically trembling.",
+      "Never have I ever smelled a sweater or pillow just because it carried their lingering scent.",
+      "Never have I ever felt safer in someone's arms than anywhere else in the entire world.",
+      "Never have I ever wished time would literally stop while resting my head on someone's chest.",
+      "Never have I ever given someone a full-body massage by candlelight with warmed aromatic oils.",
+      "Never have I ever felt a sudden surge of desire just from watching someone do something mundane with grace.",
+      "Never have I ever secretly re-read our old text messages late at night just to make myself smile.",
+      "Never have I ever felt breathless after a kiss that didn't even involve any undressing.",
+      "Never have I ever held someone's hand under a dinner table just to feel connected in public.",
+      "Never have I ever felt every hair on my body stand up from a gentle feather-light touch along my spine.",
+      "Never have I ever had a kiss that made me forget what year it was."
+    ]
+  },
+  playful: {
+    name: 'Playful',
+    badge: '🔥 Teasing & Fun',
+    color: 'amber',
+    borderHover: 'hover:border-amber-500/60',
+    bgBadge: 'bg-amber-950/60 text-amber-300 border-amber-800/80',
+    description: 'Cheeky secrets, spontaneous public thrills, and mischievous bedroom adventures.',
+    statements: [
+      "Never have I ever sent a scandalous photo or spicy text from a boring work meeting or family gathering.",
+      "Never have I ever hooked up or made out in a semi-public location with the thrilling risk of getting caught.",
+      "Never have I ever bought sexy lingerie, underwear, or a costume specifically hoping someone would tear it off.",
+      "Never have I ever had a spontaneous, steamy make-out session in the shower or hot tub.",
+      "Never have I ever blamed a playful hickey or scratch mark on an innocent household accident or pet.",
+      "Never have I ever initiated intimacy during the middle of a movie we paid good money to see in a theater.",
+      "Never have I ever played strip poker, strip blackjack, or an adult drinking game at a private party.",
+      "Never have I ever tried to turn a simple cooking session into an impromptu kitchen counter make-out.",
+      "Never have I ever secretly removed an article of clothing under a table or blanket while sitting near others.",
+      "Never have I ever practiced my seductive or sexy face in the mirror before a hot date night.",
+      "Never have I ever pretended to be someone else or used fake names during a playful hotel bar encounter.",
+      "Never have I ever used food, whipped cream, honey, or ice cubes in a deliciously messy bedroom game.",
+      "Never have I ever sent a risky 'accidental' text to test the waters with someone I was crushing on.",
+      "Never have I ever worn something revealing or scandalous with the sole intention of driving someone crazy all evening.",
+      "Never have I ever had a naughty daydream about my partner that made me blush out loud in public.",
+      "Never have I ever whispered something so filthy to my partner at a party that they choked on their drink.",
+      "Never have I ever left a secret love bite in a place nobody else would see unless clothes came off.",
+      "Never have I ever skinny-dipped in a pool, lake, or ocean with someone under the stars.",
+      "Never have I ever made a playful bet where the only acceptable stakes were sexual favors.",
+      "Never have I ever had sex in a car parked somewhere with a scenic view or hidden alleyway.",
+      "Never have I ever hidden someone's clothes to prevent them from getting out of bed in the morning.",
+      "Never have I ever bought an intimacy toy or accessory after laughing about it in a novelty shop.",
+      "Never have I ever teased someone under the sheets while other people were in the next room.",
+      "Never have I ever given someone an impromptu lap dance in our living room with all the blinds shut.",
+      "Never have I ever stolen a kiss when someone was in the middle of talking just to make them lose their train of thought."
+    ]
+  },
+  intense: {
+    name: 'Intense',
+    badge: '⚡ Boundary Pushing & Deep Passion',
+    color: 'rose',
+    borderHover: 'hover:border-rose-500/60',
+    bgBadge: 'bg-rose-950/60 text-rose-300 border-rose-800/80',
+    description: 'Kinky thresholds, raw physical power, submission, dominance, and taboo desires.',
+    statements: [
+      "Never have I ever explored light bondage, handcuffs, silk ties, or physical restraints in the bedroom.",
+      "Never have I ever begged—out loud and without pride—for release during an intense session of edging or denial.",
+      "Never have I ever had my hair firmly gripped or head tilted back and felt a sudden wave of intense arousal.",
+      "Never have I ever explored a formal Dominant and Submissive dynamic with explicit rules and safe words.",
+      "Never have I ever received or delivered a spanking that left warm red handprints and a lingering head-rush.",
+      "Never have I ever used a blindfold to surrender all control and heighten every other physical sense.",
+      "Never have I ever felt turned on by being given direct, uncompromising commands during intimacy.",
+      "Never have I ever fantasized about being watched, recorded, or sharing an intensely voyeuristic thrill.",
+      "Never have I ever had rough, primal sex that left marks, bruises, or scratches we had to hide the next day.",
+      "Never have I ever practiced orgasm control where my partner strictly dictated when and how I was allowed to climax.",
+      "Never have I ever engaged in consensual impact play using crops, paddles, belts, or leather straps.",
+      "Never have I ever felt a surge of pleasure from having my throat gently cupped or held during deep eye contact.",
+      "Never have I ever experimented with temperature play using melting hot massage wax or chilling ice.",
+      "Never have I ever confessed a deep, taboo fetish to a partner that made my heart pound with anxiety before saying it.",
+      "Never have I ever been pinned flat to a bed, wall, or floor and felt a thrill at being completely overpowered.",
+      "Never have I ever experienced sensory deprivation so deep that I lost track of time and where my body ended.",
+      "Never have I ever played with power dynamics where one person was fully clothed and the other completely exposed.",
+      "Never have I ever been told 'look at me' in a commanding voice during sex and obeyed instantly.",
+      "Never have I ever had an encounter so intense that we both collapsed from physical exhaustion without saying a word.",
+      "Never have I ever wanted to be claimed so thoroughly that I carried the ache in my muscles for two full days.",
+      "Never have I ever asked a partner to punish me with physical pleasure for breaking a rule.",
+      "Never have I ever felt turned on by dirty praise or degrading language growled into my ear in the heat of the moment.",
+      "Never have I ever explored breath play, collars, leashes, or symbolic ownership gear in private.",
+      "Never have I ever surrendered complete decision-making authority over our entire bedroom weekend.",
+      "Never have I ever experienced an orgasm so intense and overwhelming that it made my hands shake and vision blur."
+    ]
+  }
+};
+

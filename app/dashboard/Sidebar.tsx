@@ -78,6 +78,27 @@ export default function Sidebar({ logo }: SidebarProps) {
             🎟️ Between Us Pass
           </Link>
           <Link
+            href="/dashboard/randomizer"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+          >
+            🎲 Randomizer Games
+          </Link>
+          <Link
+            href="/dashboard/games"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+          >
+            ✨ Card Games
+          </Link>
+          <Link
+            href="/dashboard/literature"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+          >
+            📖 Erotic Stories
+          </Link>
+          <Link
             href="/dashboard/roleplay"
             onClick={() => setIsOpen(false)}
             className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
@@ -85,18 +106,11 @@ export default function Sidebar({ logo }: SidebarProps) {
             🎭 Role Play
           </Link>
           <Link
-            href="/dashboard/literature"
+            href="/dashboard/favorites"
             onClick={() => setIsOpen(false)}
             className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
           >
-            📖 Erotic Literature
-          </Link>
-          <Link
-            href="/dashboard/randomizer"
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
-          >
-            🎲 Randomizer
+            ❤️ Your Favorites
           </Link>
         </div>
 
