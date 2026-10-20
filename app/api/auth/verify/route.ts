@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { email, code, share_id, pass_token, pass } = await req.json();
+    const { email, code, share_id, pass_token, pass, invite_token, token } = await req.json();
 
     if (!email || !code) {
       return NextResponse.json({ error: 'Email and code are required.' }, { status: 400 });
@@ -111,7 +111,10 @@ export async function POST(req: Request) {
     }
 
     // Process Guest Pass Claim & Automated Inbox Delivery if present
-    const rawPassToken = pass_token || pass || cookieStore.get('pass_token')?.value || cookieStore.get('pass')?.value || null;
+    const rawPassToken = invite_token || token || pass_token || pass || 
+      cookieStore.get('invite_token')?.value || 
+      cookieStore.get('pass_token')?.value || 
+      cookieStore.get('pass')?.value || null;
     const effectivePassToken = rawPassToken ? String(rawPassToken).trim() : null;
 
     if (effectivePassToken) {
@@ -129,12 +132,31 @@ export async function POST(req: Request) {
             .update({ status: 'claimed' })
             .eq('id', invitation.id);
 
-          // 2. Fetch sender details & Guest Pass Config
-          const senderId = invitation.sender_id;
+          // 2. Fetch sender details & extract secure JSON payload
+          const senderId = invitation.sender_id || invitation.creator_id;
           let senderName = "Your Partner";
           let boundariesText = "Standard intimate boundaries";
           let kinksText = "None specified";
           let instructionsText = "No special instructions provided.";
+
+          // Check if payload is on invitation record
+          const rawPayload = (invitation as any).payload || (invitation as any).metadata || (invitation as any).config;
+          if (rawPayload) {
+            try {
+              const parsed = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+              if (Array.isArray(parsed.boundaries) && parsed.boundaries.length > 0) {
+                boundariesText = parsed.boundaries.join(', ');
+              }
+              if (Array.isArray(parsed.kinks) && parsed.kinks.length > 0) {
+                kinksText = parsed.kinks.join(', ');
+              } else if (typeof parsed.kinks === 'string' && parsed.kinks.trim()) {
+                kinksText = parsed.kinks.trim();
+              }
+              if (parsed.instructions && parsed.instructions.trim()) {
+                instructionsText = parsed.instructions.trim();
+              }
+            } catch (e) {}
+          }
 
           if (senderId) {
             const { data: senderProfile } = await supabaseAdmin
@@ -147,30 +169,32 @@ export async function POST(req: Request) {
               senderName = senderProfile.nickname || senderProfile.anonymous_alias;
             }
 
-            const { data: prefRow } = await supabaseAdmin
-              .from('intimacy_preferences')
-              .select('kinks_override')
-              .eq('user_id', senderId)
-              .eq('category_tag', 'Guest Pass Config')
-              .maybeSingle();
+            if (boundariesText === "Standard intimate boundaries" && instructionsText === "No special instructions provided.") {
+              const { data: prefRow } = await supabaseAdmin
+                .from('intimacy_preferences')
+                .select('kinks_override')
+                .eq('user_id', senderId)
+                .eq('category_tag', 'Guest Pass Config')
+                .maybeSingle();
 
-            if (prefRow?.kinks_override) {
-              try {
-                const parsed = JSON.parse(prefRow.kinks_override);
-                if (Array.isArray(parsed.boundaries) && parsed.boundaries.length > 0) {
-                  boundariesText = parsed.boundaries.join(', ');
-                }
-                if (Array.isArray(parsed.kinks) && parsed.kinks.length > 0) {
-                  kinksText = parsed.kinks.join(', ');
-                } else if (typeof parsed.kinks === 'string' && parsed.kinks.trim()) {
-                  kinksText = parsed.kinks.trim();
-                }
-                if (parsed.instructions && parsed.instructions.trim()) {
-                  instructionsText = parsed.instructions.trim();
-                }
-              } catch {
-                if (typeof prefRow.kinks_override === 'string') {
-                  instructionsText = prefRow.kinks_override;
+              if (prefRow?.kinks_override) {
+                try {
+                  const parsed = JSON.parse(prefRow.kinks_override);
+                  if (Array.isArray(parsed.boundaries) && parsed.boundaries.length > 0) {
+                    boundariesText = parsed.boundaries.join(', ');
+                  }
+                  if (Array.isArray(parsed.kinks) && parsed.kinks.length > 0) {
+                    kinksText = parsed.kinks.join(', ');
+                  } else if (typeof parsed.kinks === 'string' && parsed.kinks.trim()) {
+                    kinksText = parsed.kinks.trim();
+                  }
+                  if (parsed.instructions && parsed.instructions.trim()) {
+                    instructionsText = parsed.instructions.trim();
+                  }
+                } catch {
+                  if (typeof prefRow.kinks_override === 'string' && prefRow.kinks_override.trim()) {
+                    instructionsText = prefRow.kinks_override.trim();
+                  }
                 }
               }
             }
@@ -184,11 +208,12 @@ export async function POST(req: Request) {
           }, { onConflict: 'id' });
 
           // 4. Physically deliver sender instructions & boundaries to recipient's inbox
+          const subjectTitle = `Guest Pass from ${senderName}: Instructions & Desires`;
           const { data: existingMsg } = await supabaseAdmin
             .from('in_app_messages')
             .select('id')
             .eq('user_id', data.user.id)
-            .ilike('subject', `%Guest Pass from ${senderName}%`)
+            .eq('subject', subjectTitle)
             .maybeSingle();
 
           if (!existingMsg) {
@@ -200,13 +225,18 @@ export async function POST(req: Request) {
 
             await supabaseAdmin.from('in_app_messages').insert({
               user_id: data.user.id,
-              subject: `Guest Pass from ${senderName}: Instructions & Desires`,
+              subject: subjectTitle,
               message: formattedMessage,
               is_read: false
             });
           }
 
-          // Clear pass token cookie
+          // Clear pass token cookies
+          cookiesToSetBuffer.push({
+            name: 'invite_token',
+            value: '',
+            options: { path: '/', maxAge: 0 }
+          });
           cookiesToSetBuffer.push({
             name: 'pass_token',
             value: '',
@@ -258,13 +288,22 @@ export async function POST(req: Request) {
         value: '',
         options: { path: '/', maxAge: 0 }
       });
+    } else if (effectivePassToken) {
+      destination = '/dashboard';
     } else if (!isProfileComplete) {
       destination = '/onboarding';
     } else {
       destination = '/dashboard';
     }
 
-    const response = NextResponse.json({ destination });
+    const response = NextResponse.json({ 
+      destination,
+      user: { id: data.user.id, email: cleanEmail },
+      session: data.session ? {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      } : null
+    });
     cookiesToSetBuffer.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, options);
     });

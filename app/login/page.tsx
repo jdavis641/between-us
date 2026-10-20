@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 
 const supabase = createClient()
 
-function SignInContent() {
+function SignInContent({ initialInviteToken }: { initialInviteToken?: string | null }) {
   const searchParams = useSearchParams()
   
   const [email, setEmail] = useState('')
@@ -17,7 +17,14 @@ function SignInContent() {
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resendMessage, setResendMessage] = useState('')
   const [shareId, setShareId] = useState<string | null>(null)
-  const [passToken, setPassToken] = useState<string | null>(null)
+  const [inviteToken, setInviteToken] = useState<string | null>(() => {
+    return initialInviteToken || 
+           searchParams.get('invite_token') || 
+           searchParams.get('token') || 
+           searchParams.get('pass') || 
+           searchParams.get('pass_token') || 
+           null;
+  })
 
   const router = useRouter()
 
@@ -50,27 +57,33 @@ function SignInContent() {
       }
     }
 
-    const urlPassToken = searchParams.get('pass') || searchParams.get('pass_token')
-    if (urlPassToken) {
-      setPassToken(urlPassToken)
+    const urlInviteToken = searchParams.get('invite_token') || 
+                           searchParams.get('token') || 
+                           searchParams.get('pass') || 
+                           searchParams.get('pass_token') || 
+                           initialInviteToken;
+    if (urlInviteToken) {
+      setInviteToken(urlInviteToken)
       try {
-        sessionStorage.setItem('pass_token', urlPassToken)
-        document.cookie = `pass_token=${encodeURIComponent(urlPassToken)}; path=/; max-age=86400; SameSite=Lax`
+        sessionStorage.setItem('invite_token', urlInviteToken)
+        sessionStorage.setItem('pass_token', urlInviteToken)
+        document.cookie = `invite_token=${encodeURIComponent(urlInviteToken)}; path=/; max-age=86400; SameSite=Lax`
+        document.cookie = `pass_token=${encodeURIComponent(urlInviteToken)}; path=/; max-age=86400; SameSite=Lax`
       } catch (e) {}
     } else {
       try {
-        const storedPass = sessionStorage.getItem('pass_token')
-        if (storedPass) {
-          setPassToken(storedPass)
+        const storedInvite = sessionStorage.getItem('invite_token') || sessionStorage.getItem('pass_token')
+        if (storedInvite) {
+          setInviteToken(storedInvite)
         } else {
-          const matchPass = document.cookie.match(/(?:^|;\s*)pass_token=([^;]+)/)
-          if (matchPass && matchPass[1]) {
-            setPassToken(decodeURIComponent(matchPass[1]))
+          const matchInvite = document.cookie.match(/(?:^|;\s*)(?:invite_token|pass_token|pass)=([^;]+)/)
+          if (matchInvite && matchInvite[1]) {
+            setInviteToken(decodeURIComponent(matchInvite[1]))
           }
         }
       } catch (e) {}
     }
-  }, [searchParams])
+  }, [searchParams, initialInviteToken])
   
   const handleSendOtp = async () => {
     if (!email) return
@@ -99,9 +112,14 @@ function SignInContent() {
         try { return sessionStorage.getItem('share_id') } catch(e) { return null }
       })()
 
-      const effectivePassToken = passToken || searchParams.get('pass') || searchParams.get('pass_token') || (() => {
-        try { return sessionStorage.getItem('pass_token') } catch(e) { return null }
-      })()
+      const effectiveInviteToken = inviteToken || 
+                                   searchParams.get('invite_token') || 
+                                   searchParams.get('token') || 
+                                   searchParams.get('pass') || 
+                                   searchParams.get('pass_token') || 
+                                   (() => {
+                                     try { return sessionStorage.getItem('invite_token') || sessionStorage.getItem('pass_token') } catch(e) { return null }
+                                   })()
 
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
@@ -110,7 +128,9 @@ function SignInContent() {
           email, 
           code: otp,
           share_id: effectiveShareId,
-          pass_token: effectivePassToken
+          invite_token: effectiveInviteToken,
+          pass_token: effectiveInviteToken,
+          pass: effectiveInviteToken
         })
       });
 
@@ -120,19 +140,47 @@ function SignInContent() {
         setAuthMessage(data.error || 'Verification failed');
         setLoading(false);
       } else {
-        const target = data.destination || '/onboarding';
+        // Immediately after the OTP succeeds and session cookie is planted,
+        // evaluate if an invite_token exists in state
+        const tokenToClaim = inviteToken || effectiveInviteToken;
+        if (tokenToClaim) {
+          try {
+            await fetch('/api/invite/claim', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                ...(data.session?.access_token ? { 'Authorization': `Bearer ${data.session.access_token}` } : {})
+              },
+              body: JSON.stringify({ 
+                invite_token: tokenToClaim,
+                token: tokenToClaim,
+                pass: tokenToClaim,
+                userId: data.user?.id,
+                userEmail: data.user?.email || email
+              })
+            });
+          } catch (claimErr) {
+            console.error('Error claiming guest pass post-OTP:', claimErr);
+          }
+        }
+
+        const target = (inviteToken || effectiveInviteToken) ? '/dashboard' : (data.destination || '/dashboard');
 
         // Clear persisted state
+        try {
+          sessionStorage.removeItem('invite_token');
+          sessionStorage.removeItem('pass_token');
+          document.cookie = 'invite_token=; path=/; max-age=0';
+          document.cookie = 'pass_token=; path=/; max-age=0';
+          document.cookie = 'pass=; path=/; max-age=0';
+        } catch(e) {}
+
         if (target.includes('/dashboard/experience/')) {
           try {
             sessionStorage.removeItem('share_id');
             document.cookie = 'share_id=; path=/; max-age=0';
           } catch(e) {}
         }
-        try {
-          sessionStorage.removeItem('pass_token');
-          document.cookie = 'pass_token=; path=/; max-age=0';
-        } catch(e) {}
 
         // Direct navigation to server-determined destination (drops active users straight to dashboard or Stripe)
         window.location.href = target;
@@ -247,10 +295,10 @@ function SignInContent() {
   )
 }
 
-export default function SignInFlow() {
+export default function SignInFlow({ initialInviteToken }: { initialInviteToken?: string | null }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-zinc-950 text-white p-8 flex items-center justify-center">Loading...</div>}>
-      <SignInContent />
+      <SignInContent initialInviteToken={initialInviteToken} />
     </Suspense>
   )
 }
