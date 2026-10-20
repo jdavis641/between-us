@@ -138,7 +138,6 @@ export default function LiteratureClient() {
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
-  const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
 
   // User Scroll Override & Smart Auto-Scroll States
@@ -185,7 +184,6 @@ export default function LiteratureClient() {
     setError(null);
     setPreviewError(null);
     setRegenerationCount(0);
-    setGenerationMetric(null);
     setIsAutoScrollPaused(false);
     setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -621,12 +619,6 @@ export default function LiteratureClient() {
           data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
         }
         setScenario(data);
-        const elapsed = Math.round(performance.now() - startTime);
-        const source = (data as any).source || ((data as any).cached ? 'supabase_library' : 'euryale_ai');
-        setGenerationMetric({
-          source,
-          speedMs: (data as any).generationSpeedMs || elapsed
-        });
         if (currentRegen >= 2) {
           setRegenerationCount(0);
         }
@@ -965,23 +957,6 @@ export default function LiteratureClient() {
                 <span className="text-xs text-zinc-400">{pacing}</span>
               </div>
             )}
-            {generationMetric && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-                {generationMetric.source === 'semantic_library_cache' || (generationMetric.source || '').includes('semantic') ? (
-                  <span className="text-cyan-400 flex items-center gap-1">
-                    <span className="text-cyan-300 font-bold">⚡</span> Semantic Vector Cache Hit ({generationMetric.speedMs}ms)
-                  </span>
-                ) : generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' || (generationMetric.source || '').includes('library') || (generationMetric.source || '').includes('supabase') ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
-                  </span>
-                ) : (
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <span className="text-red-500 font-bold">🔥</span> Generated via Euryale AI ({Math.round(generationMetric.speedMs / 100) / 10}s)
-                  </span>
-                )}
-              </span>
-            )}
             {((scenario as any)?.status === 'chapter_1_ready' || (scenario as any)?.status === 'chapter_2_ready') && (
               <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-amber-950/40 border-amber-800 text-amber-200 animate-pulse">
                 <span>📖</span> Chapter {(scenario as any)?.chapter || 1} of 3 — Assembling remaining chapters in background...
@@ -1050,7 +1025,7 @@ export default function LiteratureClient() {
               className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
               <span>🔄</span>
-              {regenerationCount >= 1 ? "Regenerate (Fresh AI via Euryale)" : `Regenerate (${regenerationCount + 1}/2 from Library)`}
+              Regenerate
             </button>
             <button
               onClick={handleContinueStory}

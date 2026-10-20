@@ -135,7 +135,6 @@ export default function RolePlayClient() {
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
-  const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
 
   // User Scroll Override & Smart Auto-Scroll States
@@ -178,7 +177,6 @@ export default function RolePlayClient() {
     setScenario(null);
     setStreamProgress("");
     setRegenerationCount(0);
-    setGenerationMetric(null);
     setIsAutoScrollPaused(false);
     setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -471,12 +469,6 @@ export default function RolePlayClient() {
           data.fullScript = (data as any).script || (data as any).body || (data as any).text || data.overview || rawText || streamProgress;
         }
         setScenario(data);
-        const elapsed = Math.round(performance.now() - startTime);
-        const source = (data as any).source || ((data as any).cached ? 'supabase_library' : 'euryale_ai');
-        setGenerationMetric({
-          source,
-          speedMs: (data as any).generationSpeedMs || elapsed
-        });
         if (currentRegen >= 2) {
           setRegenerationCount(0);
         }
@@ -716,22 +708,6 @@ export default function RolePlayClient() {
             ← Configure a new scenario
           </button>
           
-          {generationMetric && (
-            <div className="mb-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-                {generationMetric.source === 'supabase_library' || generationMetric.source === 'supabase-library' || (generationMetric.source || '').includes('library') || (generationMetric.source || '').includes('supabase') ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <span className="text-amber-400 font-bold">⚡</span> Retrieved from Supabase Library ({generationMetric.speedMs}ms)
-                  </span>
-                ) : (
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <span className="text-red-500 font-bold">🔥</span> Generated via Euryale AI ({Math.round(generationMetric.speedMs / 100) / 10}s)
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
-          
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8 shadow-inner">
@@ -889,7 +865,7 @@ export default function RolePlayClient() {
               className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
               <span>🔄</span>
-              {regenerationCount >= 1 ? "Regenerate (Fresh AI via Euryale)" : `Regenerate (${regenerationCount + 1}/2 from Library)`}
+              Regenerate
             </button>
             <button
               onClick={handleContinueStory}
