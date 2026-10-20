@@ -122,7 +122,7 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
 
   if (previousContent) {
     sys += `STORY CONTINUATION DIRECTIVE:
-You are continuing an ongoing narrative. Continue the narrative seamlessly from the provided text. Read the previous content and write the next subsequent chapters or scenes. Do not summarize or repeat the existing text. Match the exact tone, pacing, and explicit vocabulary established in the previous text.\n\n`;
+You are continuing an ongoing narrative. Read the previous content and immediately write the next subsequent paragraphs of the scene. Critical Rule: DO NOT output a table of contents, chapter lists, or outlines. You must respond strictly with narrative prose, continuing seamlessly from the exact point the previous text ended.\n\n`;
   }
 
   // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
@@ -158,7 +158,11 @@ ${styleReference.excerpt.trim()}
 
     const pacingInstruction = `Pacing: ${currentPacing}. Strict Pacing Mechanic: "${pacingRule}"`;
 
-    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\nUse Markdown headers (e.g., '## Chapter 1: [Title]') for the chapter. Do not summarize; write the full scene.\n\n`;
+    const headerInstruction = previousContent
+      ? `Do NOT output a table of contents, chapter lists, or outlines. Write continuous narrative prose directly.`
+      : `Use Markdown headers (e.g., '## Chapter 1: [Title]') for the chapter. Do not summarize; write the full scene.`;
+
+    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\n${headerInstruction}\n\n`;
 
     if (activeTrope) {
       const tropeTitle = typeof activeTrope === 'object' ? activeTrope.title : '';
@@ -922,7 +926,11 @@ export async function POST(req: Request) {
       const tropeDetails = activeTrope
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
-      userPrompt = `Write Chapter 1 (max 1,500 words) of this story according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+      if (!previousContent) {
+        userPrompt = `Write Chapter 1 (max 1,500 words) of this story according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+      } else {
+        userPrompt = `Continue the story narrative prose seamlessly according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+      }
     } else if (contentType === 'roleplay') {
       userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
     }
@@ -949,7 +957,9 @@ export async function POST(req: Request) {
         apiKey: process.env.OPENROUTER_API_KEY,
       });
 
-      streamResult = await openai.chat.completions.create({
+      const isContinuation = Boolean(previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0);
+
+      const openRouterPayload: any = {
         model: "sao10k/l3.1-euryale-70b",
         messages: [
           { role: "system", content: systemInstruction },
@@ -957,18 +967,28 @@ export async function POST(req: Request) {
         ],
         temperature: 0.85,
         top_p: 0.9,
+        ...(isContinuation ? {
+          presence_penalty: 0.3,
+          frequency_penalty: 0.5,
+        } : {}),
         max_tokens: maxTokens,
         response_format: { type: "json_object" },
         stream: true,
         extra_body: {
           max_tokens: maxTokens,
+          ...(isContinuation ? {
+            presence_penalty: 0.3,
+            frequency_penalty: 0.5,
+          } : {}),
           models: [
             "sao10k/l3.1-euryale-70b",
             "neversleep/llama-3.1-lumimaid-70b",
             "cognitivecomputations/dolphin-mistral-24b-venice-edition"
           ]
         }
-      } as any, { signal: abortController.signal });
+      };
+
+      streamResult = await openai.chat.completions.create(openRouterPayload, { signal: abortController.signal });
 
       clearTimeout(timeoutId);
     } catch (apiError: any) {
