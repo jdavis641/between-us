@@ -125,7 +125,10 @@ export default function SettingsPage() {
     if (e) e.preventDefault()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      await supabase.from('profiles').update({ base_tolerance: baseTolerance }).eq('id', session.user.id)
+      await supabase.from('profiles').update({ 
+        base_tolerance: baseTolerance,
+        last_survey_prompted_at: new Date().toISOString()
+      }).eq('id', session.user.id)
       
       const { data: existing } = await supabase.from('intimacy_preferences')
         .select('id')

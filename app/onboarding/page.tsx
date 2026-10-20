@@ -338,7 +338,8 @@ function OnboardingContent() {
           pronouns: pronouns.trim(),
           mobile_number: formatE164Phone(countryCode, mobileNumber) || null,
           literature_prompt_status: 'completed',
-          is_active: true
+          is_active: true,
+          last_survey_prompted_at: new Date().toISOString()
         })
         .eq('id', userId)
 
