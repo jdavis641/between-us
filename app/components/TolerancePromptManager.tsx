@@ -4,10 +4,18 @@ import { createClient } from '../../src/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function TolerancePromptManager() {
-  const [showPrompt, setShowPrompt] = useState(false)
+  const [showRecurringSurvey, setShowRecurringSurvey] = useState(false)
+  const showPrompt = showRecurringSurvey
+  const setShowPrompt = setShowRecurringSurvey
   const [doNotShow, setDoNotShow] = useState(false)
   const [profile, setProfile] = useState<any>(null)
-  const supabase = createClient()
+  const [supabase] = useState(() =>
+    createClient({
+      global: {
+        fetch: (url: any, options: any = {}) => fetch(url, { ...options, cache: 'no-store' })
+      }
+    })
+  )
   const router = useRouter()
 
   useEffect(() => {
@@ -26,9 +34,12 @@ export default function TolerancePromptManager() {
       }
       if (!activeUserId) return
 
+      // Bust the timestamp cache: bypass Next.js cache with no-store headers & fetch options
       const { data } = await supabase
         .from('profiles')
         .select('account_created_at, last_survey_prompted_at')
+        .setHeader('Cache-Control', 'no-cache, no-store')
+        .setHeader('Pragma', 'no-cache')
         .eq('id', activeUserId)
         .maybeSingle()
 
@@ -45,12 +56,12 @@ export default function TolerancePromptManager() {
         if (daysSinceCreation < 30) {
           // Prompt weekly
           if (daysSinceLastPrompt >= 7) {
-            setShowPrompt(true)
+            setShowRecurringSurvey(true)
           }
         } else {
           // Prompt monthly
           if (daysSinceLastPrompt >= 30) {
-            setShowPrompt(true)
+            setShowRecurringSurvey(true)
           }
         }
       }
@@ -59,20 +70,28 @@ export default function TolerancePromptManager() {
   }, [supabase])
 
   const handleUpdate = async () => {
+    // 1. Immediate State Unmount at the very top so the UI physically disappears immediately
+    setShowRecurringSurvey(false)
+    setShowPrompt(false)
+
     if (doNotShow && typeof window !== 'undefined') {
       localStorage.setItem('hideBoundaryModal', 'true');
     }
     await recordPrompt()
+    router.refresh()
     router.push('/dashboard/settings')
-    setShowPrompt(false)
   }
 
   const handleNotNow = async () => {
+    // 1. Immediate State Unmount at the very top so the UI physically disappears immediately
+    setShowRecurringSurvey(false)
+    setShowPrompt(false)
+
     if (doNotShow && typeof window !== 'undefined') {
       localStorage.setItem('hideBoundaryModal', 'true');
     }
     await recordPrompt()
-    setShowPrompt(false)
+    router.refresh()
   }
 
   const recordPrompt = async () => {
@@ -89,10 +108,11 @@ export default function TolerancePromptManager() {
         .from('profiles')
         .update({ last_survey_prompted_at: new Date().toISOString() })
         .eq('id', activeUserId)
+      router.refresh()
     }
   }
 
-  if (!showPrompt) return null
+  if (!showRecurringSurvey) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">

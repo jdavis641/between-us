@@ -415,6 +415,8 @@ function OnboardingContent() {
         })
         .eq('id', userId)
 
+      router.refresh()
+
       // 2. Save Base Tolerance to intimacy_preferences
       const { data: existingTolerance } = await supabase
         .from('intimacy_preferences')
@@ -724,7 +726,25 @@ function OnboardingContent() {
                 <div className="flex flex-col sm:flex-row gap-4 pt-2">
                   <button
                     type="button"
-                    onClick={() => router.push('/dashboard')}
+                    onClick={async () => {
+                      try {
+                        let activeUserId = session?.user?.id;
+                        if (!activeUserId) {
+                          const { data: { user } } = await supabase.auth.getUser();
+                          activeUserId = user?.id;
+                        }
+                        if (activeUserId) {
+                          await supabase.from('profiles').update({
+                            last_survey_prompted_at: new Date().toISOString(),
+                            literature_prompt_status: 'completed'
+                          }).eq('id', activeUserId);
+                          router.refresh();
+                        }
+                      } catch (err) {
+                        console.error('Error deferring assessment:', err);
+                      }
+                      router.push('/dashboard');
+                    }}
                     className="flex-1 py-4 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-colors text-base text-center shadow-lg shadow-red-950"
                   >
                     Proceed to Dashboard

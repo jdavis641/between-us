@@ -11,7 +11,11 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [supabase] = useState(() => createClient());
+  const [supabase] = useState(() => createClient({
+    global: {
+      fetch: (url, opts = {}) => fetch(url, { ...opts, cache: 'no-store' })
+    }
+  }));
   const router = useRouter();
   const [isOnboardingVerified, setIsOnboardingVerified] = useState(false);
 
@@ -38,6 +42,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_active, nickname, literature_prompt_status')
+          .setHeader('Cache-Control', 'no-cache, no-store')
+          .setHeader('Pragma', 'no-cache')
           .eq('id', authUser.id)
           .maybeSingle();
 

@@ -2,12 +2,18 @@
 
 import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import LogoutButton from '../../components/LogoutButton'
 
 export default function SettingsPage() {
-  const [supabase] = useState(() => createClient());
+  const router = useRouter();
+  const [supabase] = useState(() => createClient({
+    global: {
+      fetch: (url, opts = {}) => fetch(url, { ...opts, cache: 'no-store' })
+    }
+  }));
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -33,6 +39,7 @@ export default function SettingsPage() {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
+          .setHeader('Cache-Control', 'no-cache, no-store')
           .eq('id', session.user.id)
           .single()
 
@@ -129,6 +136,7 @@ export default function SettingsPage() {
         base_tolerance: baseTolerance,
         last_survey_prompted_at: new Date().toISOString()
       }).eq('id', session.user.id)
+      router.refresh()
       
       const { data: existing } = await supabase.from('intimacy_preferences')
         .select('id')
