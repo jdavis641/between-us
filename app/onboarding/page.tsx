@@ -333,6 +333,7 @@ function OnboardingContent() {
           base_tolerance: confirmedTier,
           pronouns: pronouns.trim(),
           mobile_number: mobileNumber.trim() || null,
+          literature_prompt_status: 'completed',
           is_active: true
         })
         .eq('id', userId)

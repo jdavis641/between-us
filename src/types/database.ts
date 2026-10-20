@@ -196,6 +196,32 @@ export interface Database {
           created_at?: string | null;
         };
       };
+      saved_pass_configs: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          config_name: string | null;
+          selected_boundaries: any | null;
+          instructions: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          config_name?: string | null;
+          selected_boundaries?: any | null;
+          instructions?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          config_name?: string | null;
+          selected_boundaries?: any | null;
+          instructions?: string | null;
+          created_at?: string | null;
+        };
+      };
     };
   };
 }

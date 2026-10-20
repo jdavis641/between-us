@@ -223,10 +223,12 @@ export async function POST(req: Request) {
     if (targetPhone) {
       if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         try {
-          const digitsOnly = targetPhone.replace(/[^\d+]/g, '');
-          const formattedPhone = targetPhone.startsWith('+')
-            ? targetPhone
-            : (digitsOnly.length === 10 ? `+1${digitsOnly}` : `+${digitsOnly}`);
+          // Before executing Twilio dispatch, strip all non-numeric characters from the provided mobile number
+          const numericDigits = targetPhone.replace(/\D/g, '');
+          // If the number is 10 digits (US), automatically prepend +1 to format it to E.164 standard
+          const formattedPhone = numericDigits.length === 10
+            ? `+1${numericDigits}`
+            : (numericDigits.length === 11 && numericDigits.startsWith('1') ? `+${numericDigits}` : `+${numericDigits}`);
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
           const formData = new URLSearchParams();

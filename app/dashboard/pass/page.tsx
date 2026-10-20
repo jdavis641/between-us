@@ -18,6 +18,12 @@ export default function GuestPassHub() {
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   
+  // Saved Pass Configurations State
+  const [savedConfigs, setSavedConfigs] = useState<any[]>([]);
+  const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
+  const [saveConfigForLater, setSaveConfigForLater] = useState(false);
+  const [configName, setConfigName] = useState("");
+
   const [activePasses, setActivePasses] = useState<any[]>([]);
 
   const [supabase] = useState(() => createClient());
@@ -26,6 +32,21 @@ export default function GuestPassHub() {
     async function fetchPrefs() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // Fetch saved pass configurations
+        try {
+          const { data: configs } = await supabase
+            .from('saved_pass_configs')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false });
+
+          if (configs) {
+            setSavedConfigs(configs);
+          }
+        } catch (e) {
+          console.warn("Could not query saved_pass_configs:", e);
+        }
+
         const { data } = await supabase.from('intimacy_preferences')
           .select('category_tag, preference_level, kinks_override')
           .eq('user_id', session.user.id);
@@ -84,7 +105,7 @@ export default function GuestPassHub() {
       }
     }
     fetchPrefs();
-  }, []);
+  }, [supabase]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -92,6 +113,30 @@ export default function GuestPassHub() {
 
   const toggleKink = (kink: string) => {
     setSelectedKinks(prev => prev.includes(kink) ? prev.filter(k => k !== kink) : [...prev, kink]);
+  };
+
+  const handleSelectSavedConfig = (config: any) => {
+    setSelectedConfigId(config.id);
+
+    // Auto-populate boundary checkboxes
+    if (config.selected_boundaries) {
+      let parsedBoundaries: string[] = [];
+      if (Array.isArray(config.selected_boundaries)) {
+        parsedBoundaries = config.selected_boundaries;
+      } else if (typeof config.selected_boundaries === 'string') {
+        try {
+          parsedBoundaries = JSON.parse(config.selected_boundaries);
+        } catch {
+          parsedBoundaries = [config.selected_boundaries];
+        }
+      }
+      setSelectedTags(parsedBoundaries);
+    }
+
+    // Auto-populate instructions text box
+    if (typeof config.instructions === 'string') {
+      setInstructions(config.instructions);
+    }
   };
 
   const handleSendInvite = async () => {
@@ -111,6 +156,28 @@ export default function GuestPassHub() {
           }),
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id, category_tag' });
+
+        // If "Save this configuration for later" is toggled, insert into saved_pass_configs
+        if (saveConfigForLater) {
+          try {
+            const { data: insertedConfig } = await supabase
+              .from('saved_pass_configs')
+              .insert({
+                user_id: session.user.id,
+                config_name: configName.trim() || 'Saved Configuration',
+                selected_boundaries: selectedTags,
+                instructions: instructions.trim() || null
+              })
+              .select()
+              .maybeSingle();
+
+            if (insertedConfig) {
+              setSavedConfigs(prev => [insertedConfig, ...prev]);
+            }
+          } catch (configErr) {
+            console.warn("Could not insert saved_pass_configs:", configErr);
+          }
+        }
       }
 
       const res = await fetch("/api/invite", {
@@ -184,6 +251,70 @@ export default function GuestPassHub() {
         <p className="text-zinc-400">Securely invite a partner and selectively share your desires.</p>
       </header>
 
+      {/* Saved Configurations Section */}
+      <section className="mb-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Saved Configurations</h2>
+            <p className="text-xs text-zinc-400">Select a pre-saved Between Us Pass setup to auto-populate boundaries and instructions.</p>
+          </div>
+          {selectedConfigId && (
+            <button
+              type="button"
+              onClick={() => setSelectedConfigId(null)}
+              className="text-xs text-zinc-400 hover:text-white underline transition-colors"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+
+        {savedConfigs.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {savedConfigs.map((cfg) => {
+              const isSelected = selectedConfigId === cfg.id;
+              const boundaryCount = Array.isArray(cfg.selected_boundaries)
+                ? cfg.selected_boundaries.length
+                : 0;
+              return (
+                <label
+                  key={cfg.id}
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    isSelected
+                      ? "bg-red-950/40 border-red-800 text-white shadow-md shadow-red-950/20"
+                      : "bg-zinc-950/60 border-zinc-800/80 hover:border-zinc-700 text-zinc-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="saved_pass_config"
+                    checked={isSelected}
+                    onChange={() => handleSelectSavedConfig(cfg)}
+                    className="mt-1 text-red-600 focus:ring-red-500 bg-zinc-900 border-zinc-700"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm truncate">{cfg.config_name || "Untitled Configuration"}</span>
+                      <span className="text-[10px] text-zinc-500 shrink-0">
+                        {cfg.created_at ? new Date(cfg.created_at).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-1 line-clamp-1">
+                      {boundaryCount} {boundaryCount === 1 ? "boundary" : "boundaries"}
+                      {cfg.instructions ? ` • "${cfg.instructions}"` : ""}
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-4 bg-zinc-950/40 border border-dashed border-zinc-800 rounded-xl text-center">
+            <p className="text-xs text-zinc-500">No saved configurations yet. Toggle &quot;Save this configuration for later&quot; below to reuse your setup anytime.</p>
+          </div>
+        )}
+      </section>
+
       {!inviteSent ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8">
           
@@ -254,6 +385,31 @@ export default function GuestPassHub() {
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-zinc-200 focus:border-red-500 focus:outline-none transition-colors min-h-[160px] resize-y mb-6"
               />
 
+              {/* Save Configuration For Later */}
+              <div className="mb-6 p-4 bg-zinc-950/60 border border-zinc-800 rounded-xl">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={saveConfigForLater}
+                    onChange={(e) => setSaveConfigForLater(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
+                  />
+                  <span className="text-sm font-medium text-zinc-200">Save this configuration for later</span>
+                </label>
+                {saveConfigForLater && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Configuration Name</label>
+                    <input 
+                      type="text"
+                      value={configName}
+                      onChange={(e) => setConfigName(e.target.value)}
+                      placeholder="e.g. Mild Date Night, Spicy Boundaries, First Hookup"
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-4">
                 <button 
                   onClick={() => setStep(1)}
@@ -272,6 +428,27 @@ export default function GuestPassHub() {
                         preference_level: 'System',
                         kinks_override: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks, instructions })
                       }, { onConflict: 'user_id, category_tag' });
+
+                      if (saveConfigForLater) {
+                        try {
+                          const { data: inserted } = await supabase
+                            .from('saved_pass_configs')
+                            .insert({
+                              user_id: session.user.id,
+                              config_name: configName.trim() || 'Saved Configuration',
+                              selected_boundaries: selectedTags,
+                              instructions: instructions.trim() || null
+                            })
+                            .select()
+                            .maybeSingle();
+
+                          if (inserted) {
+                            setSavedConfigs(prev => [inserted, ...prev]);
+                          }
+                        } catch (e) {
+                          console.warn("Could not insert saved_pass_configs:", e);
+                        }
+                      }
                       alert("Configuration saved to your profile!");
                     }
                     setLoading(false);
@@ -344,6 +521,31 @@ export default function GuestPassHub() {
                 </div>
               </div>
 
+              {/* Save Configuration For Later */}
+              <div className="mb-6 p-4 bg-zinc-950/60 border border-zinc-800 rounded-xl">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={saveConfigForLater}
+                    onChange={(e) => setSaveConfigForLater(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
+                  />
+                  <span className="text-sm font-medium text-zinc-200">Save this configuration for later</span>
+                </label>
+                {saveConfigForLater && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Configuration Name</label>
+                    <input 
+                      type="text"
+                      value={configName}
+                      onChange={(e) => setConfigName(e.target.value)}
+                      placeholder="e.g. Mild Date Night, Spicy Boundaries, First Hookup"
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                )}
+              </div>
+
               {contactInfo.trim() !== '' && (
                 <div className="mb-8 p-4 bg-zinc-950/50 border border-zinc-800 rounded-lg flex items-start gap-3">
                   <input 
@@ -396,7 +598,7 @@ export default function GuestPassHub() {
 
           <div>
             <button 
-              onClick={() => { setInviteSent(false); setStep(1); setContactInfo(""); setSelectedTags([]); setInstructions(""); setConsentChecked(false); }}
+              onClick={() => { setInviteSent(false); setStep(1); setContactInfo(""); setSelectedTags([]); setInstructions(""); setConsentChecked(false); setSelectedConfigId(null); setSaveConfigForLater(false); setConfigName(""); }}
               className="text-zinc-400 hover:text-white underline text-sm transition-colors"
             >
               Generate another pass
@@ -409,53 +611,60 @@ export default function GuestPassHub() {
       <section className="mt-10 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 overflow-hidden">
         <h2 className="text-xl font-semibold mb-6">Active Passes</h2>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs text-zinc-500 uppercase bg-zinc-950/50 border-b border-zinc-800">
-              <tr>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Recipient</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Expires</th>
-                <th className="px-4 py-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activePasses.map((pass) => (
-                <tr key={pass.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-4 py-4 font-medium text-zinc-200">{pass.type}</td>
-                  <td className="px-4 py-4 text-zinc-300 font-mono text-xs truncate max-w-[160px]" title={pass.recipient}>
-                    {pass.recipient || '—'}
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${
-                      pass.status === 'Active' ? 'bg-green-950 text-green-400 border border-green-900/50' : 
-                      pass.status === 'Used' ? 'bg-zinc-800 text-zinc-400' : 
-                      'bg-red-950 text-red-400 border border-red-900/50'
-                    }`}>
-                      {pass.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-zinc-400">
-                    {new Date(pass.expires_at || pass.expires).toLocaleDateString('en-US')}
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    {pass.status === "Active" && (
-                      <button 
-                        onClick={() => handleRevoke(pass.id, pass.token)}
-                        className="text-red-400 hover:text-red-300 text-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer"
-                      >
-                        Revoke
-                      </button>
-                    )}
-                  </td>
+        {activePasses.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-zinc-400">
+              <thead className="border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500">
+                <tr>
+                  <th className="pb-3 font-semibold">Type</th>
+                  <th className="pb-3 font-semibold">Recipient</th>
+                  <th className="pb-3 font-semibold">Status</th>
+                  <th className="pb-3 font-semibold">Expires</th>
+                  <th className="pb-3 font-semibold text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                {activePasses.map((pass) => (
+                  <tr key={pass.id} className="hover:bg-zinc-800/20 transition-colors">
+                    <td className="py-4 text-zinc-200 font-medium">{pass.type}</td>
+                    <td className="py-4">{pass.recipient || "Anonymous"}</td>
+                    <td className="py-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        pass.status === 'Active' 
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' 
+                          : pass.status === 'Revoked'
+                          ? 'bg-red-950 text-red-400 border border-red-800'
+                          : 'bg-zinc-800 text-zinc-400'
+                      }`}>
+                        {pass.status}
+                      </span>
+                    </td>
+                    <td className="py-4 text-xs">
+                      {new Date(pass.expires_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </td>
+                    <td className="py-4 text-right">
+                      {pass.status === 'Active' ? (
+                        <button
+                          onClick={() => handleRevoke(pass.id, pass.token)}
+                          className="px-3 py-1 bg-red-950/60 hover:bg-red-900 border border-red-800 text-red-300 rounded text-xs transition-colors"
+                        >
+                          Revoke
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-600 select-none">Revoked</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-8 text-center text-zinc-500 text-sm">
+            No active passes generated yet.
+          </div>
+        )}
       </section>
-
     </main>
   );
 }

@@ -57,7 +57,22 @@ export default function InvitePartnerPage() {
     const searchTerm = searchValue.trim()
     if (!searchTerm) return
     setIsSearching(true)
+
+    // 1. First attempt secure RPC search_partner to bypass strict RLS on profiles
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('search_partner', {
+        search_term: searchTerm
+      })
+      if (!rpcErr && rpcData && rpcData.length > 0) {
+        setFoundUser({ id: rpcData[0].id, username: rpcData[0].anonymous_alias || searchTerm })
+        setIsSearching(false)
+        return
+      }
+    } catch (e) {
+      console.warn("search_partner RPC call fallback to direct query:", e)
+    }
     
+    // 2. Fallback direct table query
     let query = supabase.from('profiles').select('id, anonymous_alias, nickname, mobile_number')
     if (searchMethod === 'username') {
       query = query.or(`anonymous_alias.ilike.%${searchTerm}%,nickname.ilike.%${searchTerm}%`)
