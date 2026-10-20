@@ -11,7 +11,7 @@ export default function Footer() {
           <Link href="/privacy" className="hover:text-zinc-300 transition-colors">
             Privacy Policy
           </Link>
-          <a href="mailto:support@betweenusapp.io" className="hover:text-zinc-300 transition-colors">
+          <a href="mailto:Support@betweenusapp.io" className="hover:text-zinc-300 transition-colors">
             Support
           </a>
         </div>
@@ -20,9 +20,11 @@ export default function Footer() {
           <div className="flex flex-col gap-1">
             <div className="text-xs text-zinc-400 font-medium">
               <p>Between Us</p>
-              <p className="text-zinc-500">1043 S. Roselle Rd, #1048</p>
-              <p className="text-zinc-500">Schaumburg, IL 60193</p>
-              <p className="text-zinc-500">Support Line: 224-223-8077</p>
+              <p className="text-zinc-500">
+                <a href="mailto:Support@betweenusapp.io" className="hover:text-zinc-300 transition-colors">
+                  Need help? Email us: Support@betweenusapp.io
+                </a>
+              </p>
             </div>
             <span className="text-xs text-zinc-600 mt-1">&copy; 2026 Between Us. All rights reserved.</span>
           </div>
