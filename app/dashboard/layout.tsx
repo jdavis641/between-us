@@ -8,7 +8,7 @@ import TolerancePromptManager from "../components/TolerancePromptManager";
 import TourModal from "./components/TourModal";
 import { Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient());
@@ -18,17 +18,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     async function checkProfileOnMount() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
+        let authUser: any = null;
+        // Absolute server-side session validation rather than stale client-side cache to prevent incognito looping
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (user && !userError) {
+          authUser = user;
+        } else {
+          const { data: { session: cachedSession } } = await supabase.auth.getSession();
+          if (cachedSession?.user) {
+            authUser = cachedSession.user;
+          }
+        }
+
+        if (!authUser) {
           router.replace('/login');
-          redirect('/login');
           return;
         }
 
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_active, nickname, literature_prompt_status')
-          .eq('id', session.user.id)
+          .eq('id', authUser.id)
           .maybeSingle();
 
         if (profile) {
@@ -38,14 +48,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           if (isActive && (isNicknameMissing || isPromptPending)) {
             router.replace('/onboarding');
-            redirect('/onboarding');
             return;
           }
         }
       } catch (err: any) {
-        if (err?.digest?.startsWith('NEXT_REDIRECT')) {
-          throw err;
-        }
         console.error("Error verifying profile onboarding status:", err);
       } finally {
         setIsOnboardingVerified(true);

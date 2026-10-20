@@ -16,13 +16,20 @@ export default function TolerancePromptManager() {
         return;
       }
 
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      let activeUserId: string | null = null
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (user && !userError) {
+        activeUserId = user.id
+      } else {
+        const { data: { session } } = await supabase.auth.getSession()
+        activeUserId = session?.user?.id || null
+      }
+      if (!activeUserId) return
 
       const { data } = await supabase
         .from('profiles')
         .select('account_created_at, last_survey_prompted_at')
-        .eq('id', session.user.id)
+        .eq('id', activeUserId)
         .maybeSingle()
 
       if (data) {
@@ -69,12 +76,19 @@ export default function TolerancePromptManager() {
   }
 
   const recordPrompt = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
+    let activeUserId: string | null = null
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (user && !userError) {
+      activeUserId = user.id
+    } else {
+      const { data: { session } } = await supabase.auth.getSession()
+      activeUserId = session?.user?.id || null
+    }
+    if (activeUserId) {
       await supabase
         .from('profiles')
         .update({ last_survey_prompted_at: new Date().toISOString() })
-        .eq('id', session.user.id)
+        .eq('id', activeUserId)
     }
   }
 

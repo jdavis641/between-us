@@ -18,13 +18,21 @@ export default function DashboardHome() {
 
   useEffect(() => {
     async function fetchActiveContent() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
+      let activeUserId: string | null = null
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (user && !userError) {
+        activeUserId = user.id
+      } else {
+        const { data: { session } } = await supabase.auth.getSession()
+        activeUserId = session?.user?.id || null
+      }
+
+      if (activeUserId) {
         // Fetch the most recent active generated story or roleplay
         const { data } = await supabase
           .from('generated_content')
           .select('id, title, content_type')
-          .eq('user_id', session.user.id)
+          .eq('user_id', activeUserId)
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(1)
@@ -36,7 +44,7 @@ export default function DashboardHome() {
         const { data: member } = await supabase
           .from('group_members')
           .select('connection_groups(group_type)')
-          .eq('user_id', session.user.id)
+          .eq('user_id', activeUserId)
           .limit(1)
           .maybeSingle()
           

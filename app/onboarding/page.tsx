@@ -124,13 +124,28 @@ function OnboardingContent() {
   // Fetch session & profile
   useEffect(() => {
     async function fetchSession() {
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      if (currentSession) {
+      // Use absolute server-side session validation rather than stale client-side cache
+      let activeUser: any = null
+      let currentSession: any = null
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (user && !userError) {
+        activeUser = user
+        const { data: { session } } = await supabase.auth.getSession()
+        currentSession = session || { user }
+      } else {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          activeUser = session.user
+          currentSession = session
+        }
+      }
+
+      if (activeUser) {
         setSession(currentSession)
         const { data } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', currentSession.user.id)
+          .eq('id', activeUser.id)
           .maybeSingle()
         
         setProfile(data)
@@ -283,6 +298,59 @@ function OnboardingContent() {
   // Final confirmed tier: starts as null (unselected), updated when user picks an option or matrix assigns it
   const confirmedTier: Tier | null = selectedTier || calculatedTier || null
 
+  // Dynamic post-survey suggestion tailored to confirmed preferences & tolerance tier
+  const suggestionDetails = useMemo(() => {
+    const tier = confirmedTier || 'Playful'
+
+    switch (tier) {
+      case 'Sensory':
+        return {
+          tierBadge: 'Level 1 • Sensory Intimacy',
+          badgeColor: 'border-sky-500/40 text-sky-400 bg-sky-950/40',
+          title: 'Gentle Intimacy Games & Touch',
+          description: 'Based on your gentle and romantic intimacy preferences, we recommend beginning with our Sensory Intimacy card decks—focused on slow-burn tension, tactile touch, and deep emotional connection.',
+          actionLabel: 'Explore Intimacy Games →',
+          actionHref: '/dashboard/games'
+        }
+      case 'Playful':
+        return {
+          tierBadge: 'Level 2 • Playful & Teasing',
+          badgeColor: 'border-amber-500/40 text-amber-400 bg-amber-950/40',
+          title: 'Spicy Truth or Dare & Prompt Randomizer',
+          description: 'Your profile thrives on playful teasing, adventurous banter, and light roleplay. Jump straight into our zero-wait prompt randomizer.',
+          actionLabel: 'Launch Spicy Truth or Dare →',
+          actionHref: '/dashboard/randomizer?game=truth_or_dare'
+        }
+      case 'Intense':
+        return {
+          tierBadge: 'Level 3 • High-Intensity & Power',
+          badgeColor: 'border-rose-500/40 text-rose-400 bg-rose-950/40',
+          title: 'Erotic Literature & Power Dynamics',
+          description: 'With your preferences tuned for heavier sensations and power dynamics, our Literature Engine can generate immersive romantic fiction tailored to your exact boundaries.',
+          actionLabel: 'Generate Erotic Story →',
+          actionHref: '/dashboard/literature'
+        }
+      case 'Extreme':
+        return {
+          tierBadge: 'Level 4 • Uninhibited & Edge Play',
+          badgeColor: 'border-purple-500/40 text-purple-400 bg-purple-950/40',
+          title: 'Deep Fantasy & Custom Roleplay',
+          description: 'Your boundaries accommodate psychological scenarios and edge play. Discover deep custom literature and roleplay scenarios tailored to your uninhibited desires.',
+          actionLabel: 'Explore Literature Engine →',
+          actionHref: '/dashboard/literature'
+        }
+      default:
+        return {
+          tierBadge: 'Recommended Initial Action',
+          badgeColor: 'border-red-500/40 text-red-400 bg-red-950/40',
+          title: 'Curated Intimacy Games',
+          description: 'Your preferences have been calibrated. Jump into our curated library of interactive games designed to deepen connection and desire.',
+          actionLabel: 'Explore Intimacy Games →',
+          actionHref: '/dashboard/games'
+        }
+    }
+  }, [confirmedTier])
+
   // Handlers - Extracts the weight property of each selected item and auto-assigns tier based on point weights
   const handleToggleOption = (option: TaxonomyOption) => {
     setSelectedItems(prev => {
@@ -321,11 +389,15 @@ function OnboardingContent() {
 
   const handleStep4Submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!session?.user?.id) return
     setIsSubmitting(true)
 
     try {
-      const userId = session.user.id
+      let userId = session?.user?.id
+      if (!userId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        userId = user?.id
+      }
+      if (!userId) throw new Error('No active user session found')
       const finalAlias = username.trim()
 
       // 1. Save to profiles table
@@ -416,10 +488,6 @@ function OnboardingContent() {
       }
 
       setIsCompleted(true)
-      // Strictly route to /dashboard?tour=true after brief celebration
-      setTimeout(() => {
-        window.location.href = '/dashboard?tour=true'
-      }, 1800)
     } catch (err) {
       console.error('Error saving onboarding data:', err)
       alert('There was an issue saving your preferences. Please try again.')
@@ -949,25 +1017,79 @@ function OnboardingContent() {
                 </div>
               </form>
             ) : (
-              <div className="py-8 text-center space-y-4 animate-in fade-in duration-500">
+              <div className="py-6 text-center space-y-6 animate-in fade-in duration-500">
                 <div className="w-16 h-16 mx-auto bg-green-950/60 border border-green-800/80 rounded-2xl flex items-center justify-center text-3xl shadow-inner text-green-400">
                   ✓
                 </div>
-                <h3 className="text-2xl font-serif font-medium text-zinc-100">Profile Complete!</h3>
-                <p className="text-sm text-zinc-300 max-w-md mx-auto leading-relaxed">
-                  Your preferences have been saved. You can update these anytime in Settings.
-                </p>
-                <p className="text-xs text-zinc-500 animate-pulse">
-                  Redirecting to your personalized dashboard tour...
-                </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => { window.location.href = '/dashboard?tour=true' }}
-                    className="px-6 py-3 bg-red-900 hover:bg-red-800 text-white rounded-xl text-sm font-medium transition-colors"
-                  >
-                    Enter Dashboard Now →
-                  </button>
+                
+                <div>
+                  <h3 className="text-2xl sm:text-3xl font-serif font-medium text-zinc-100">
+                    Preferences Saved & Calibrated!
+                  </h3>
+                  <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed mt-2 font-light">
+                    Your boundaries, tolerance matrix, and intimacy desires are securely configured. You can update these anytime in your Settings.
+                  </p>
+                </div>
+
+                {/* Dynamic Suggestion Block */}
+                <div className="p-6 bg-zinc-950/90 border border-zinc-800 rounded-2xl text-left space-y-4 shadow-xl relative overflow-hidden">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${suggestionDetails.badgeColor}`}>
+                      {suggestionDetails.tierBadge}
+                    </span>
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+                      Recommended Initial Action
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-serif font-medium text-zinc-100">
+                      {suggestionDetails.title}
+                    </h4>
+                    <p className="text-sm text-zinc-400 leading-relaxed mt-1 font-light">
+                      {suggestionDetails.description}
+                    </p>
+                  </div>
+
+                  {selectedItems.length > 0 && (
+                    <div className="pt-3 border-t border-zinc-800/80">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 block mb-2">
+                        Active Desires & Themes:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedItems.slice(0, 5).map(item => (
+                          <span
+                            key={item.label}
+                            className="text-xs px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg"
+                          >
+                            {item.label}
+                          </span>
+                        ))}
+                        {selectedItems.length > 5 && (
+                          <span className="text-xs px-2 py-1 text-zinc-500">
+                            +{selectedItems.length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-3 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={() => router.push(suggestionDetails.actionHref)}
+                      className="flex-1 py-3.5 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-sm flex items-center justify-center gap-2 group"
+                    >
+                      <span>{suggestionDetails.actionLabel}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/dashboard?tour=true')}
+                      className="py-3.5 px-6 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-medium rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-sm"
+                    >
+                      Enter Dashboard (Tour) →
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
