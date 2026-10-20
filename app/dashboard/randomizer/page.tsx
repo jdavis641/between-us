@@ -151,7 +151,7 @@ function RandomizerHubContent() {
             </h1>
           </div>
           <p className="text-zinc-400 text-sm md:text-base font-light leading-relaxed">
-            Fast, zero-wait intimate prompts: The Original Randomizer, spicy Truth or Dare, and Never Have I Ever—calibrated across Sensory, Playful, and Intense tiers.
+            Fast, zero-wait intimate prompts: The Original Randomizer, Spicy Truth or Dare, and Never Have I Ever—calibrated across Sensory, Playful, and Intense tiers.
           </p>
         </header>
 
@@ -178,7 +178,7 @@ function RandomizerHubContent() {
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
                       activeGame === 'original'
@@ -188,15 +188,6 @@ function RandomizerHubContent() {
                   >
                     🎲
                   </div>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      activeGame === 'original'
-                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                    }`}
-                  >
-                    1,020 Prompts
-                  </span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-white mb-1 group-hover:text-emerald-200 transition-colors">
                   The Original Randomizer
@@ -224,7 +215,7 @@ function RandomizerHubContent() {
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
                       activeGame === 'truth_or_dare'
@@ -234,15 +225,6 @@ function RandomizerHubContent() {
                   >
                     🎭
                   </div>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      activeGame === 'truth_or_dare'
-                        ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                    }`}
-                  >
-                    120 Prompts
-                  </span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-white mb-1 group-hover:text-amber-200 transition-colors">
                   Truth or Dare
@@ -270,7 +252,7 @@ function RandomizerHubContent() {
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
                       activeGame === 'never_have_i_ever'
@@ -280,15 +262,6 @@ function RandomizerHubContent() {
                   >
                     🥂
                   </div>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      activeGame === 'never_have_i_ever'
-                        ? 'bg-rose-950/80 text-rose-300 border-rose-800'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                    }`}
-                  >
-                    75 Statements
-                  </span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-white mb-1 group-hover:text-rose-200 transition-colors">
                   Never Have I Ever
