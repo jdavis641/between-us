@@ -110,7 +110,7 @@ export default function FlameLoader({
       {/* Status Messages */}
       <div className="mt-3 text-center z-10 space-y-1.5">
         <p className="text-zinc-200 font-serif text-lg tracking-wide animate-pulse">
-          {progressText || "Igniting intimate narrative..."}
+          {progressText || "Reviewing your preferences... Creating your content... This is going to be great!"}
         </p>
         <p className="text-zinc-500 text-xs tracking-widest uppercase font-sans">
           Building tension, pacing & visceral desires

@@ -25,7 +25,7 @@ export default function LiteraturePage() {
 
         <Suspense fallback={
           <div className="flex flex-col items-center justify-center py-20">
-            <FlameLoader isGenerating={true} progressText="Connecting to literature engine..." />
+            <FlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... This is going to be great!" />
           </div>
         }>
           <LiteratureClient />

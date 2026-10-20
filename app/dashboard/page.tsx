@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
 import LogoutButton from '../components/LogoutButton'
+import DashboardTicker from './components/DashboardTicker'
 import { getActiveHoliday, HolidayConfig } from '@/utils/holidayTheme'
 
 const supabase = createClient()
@@ -61,15 +62,7 @@ export default function DashboardHome() {
         
         {/* Settings Notification Banner */}
         <section>
-          <div className="bg-gray-800 p-4 md:p-6 rounded-xl border border-gray-700 text-center">
-            <p className="text-sm text-zinc-400 font-normal">
-              Choose your tolerance level from Sensory, Playful, Intense or Extreme in the{' '}
-              <Link href="/dashboard/settings" className="text-blue-400 hover:text-blue-300 underline transition-colors">
-                settings menu
-              </Link>
-              . You can also contribute to the community anonymously.
-            </p>
-          </div>
+          <DashboardTicker />
         </section>
 
         {/* Main Navigation Grid */}

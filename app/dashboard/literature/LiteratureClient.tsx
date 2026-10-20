@@ -105,7 +105,7 @@ export function LiteratureMarkdown({ content, isGenerating = false }: { content:
   if (isGenerating && wordCount < 1000) {
     return (
       <div className="py-6">
-        <FlameLoader isGenerating={true} progressText="Crafting the narrative..." />
+        <FlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... This is going to be great!" />
       </div>
     );
   }
@@ -139,6 +139,7 @@ export default function LiteratureClient() {
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [generationMetric, setGenerationMetric] = useState<{ source: string; speedMs: number } | null>(null);
+  const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
 
   // User Scroll Override & Smart Auto-Scroll States
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
@@ -186,6 +187,7 @@ export default function LiteratureClient() {
     setRegenerationCount(0);
     setGenerationMetric(null);
     setIsAutoScrollPaused(false);
+    setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -489,6 +491,11 @@ export default function LiteratureClient() {
     }
 
     const currentRegen = typeof regenOverride === 'number' ? regenOverride : regenerationCount;
+    if (currentRegen >= 2 || (typeof regenOverride === 'number' && regenOverride >= 2)) {
+      setLoadingText("It looks like we missed the mark. No worries, we're generating something special for you.");
+    } else {
+      setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
+    }
     setLoading(true);
     setIsAutoScrollPaused(false);
     setError(null);
@@ -654,6 +661,11 @@ export default function LiteratureClient() {
   const handleRegenerate = async () => {
     const nextCount = regenerationCount + 1;
     setRegenerationCount(nextCount);
+    if (nextCount >= 2 || regenerationCount >= 1) {
+      setLoadingText("It looks like we missed the mark. No worries, we're generating something special for you.");
+    } else {
+      setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
+    }
     await handleGenerate(nextCount);
   };
 
@@ -813,7 +825,7 @@ export default function LiteratureClient() {
                 <div className="mt-8">
                   <FlameLoader 
                     isGenerating={loading} 
-                    progressText="Crafting the narrative..." 
+                    progressText={loadingText} 
                   />
                 </div>
               )}
@@ -1053,7 +1065,7 @@ export default function LiteratureClient() {
             <div className="mt-4 mb-8">
               <FlameLoader
                 isGenerating={isContinuing}
-                progressText="Crafting the narrative..."
+                progressText="Reviewing your preferences... Creating your content... This is going to be great!"
               />
             </div>
           )}
