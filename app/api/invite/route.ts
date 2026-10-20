@@ -1,3 +1,4 @@
+import { cleanTwilioPhone } from "@/utils/phone";
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createClientBase } from "@supabase/supabase-js";
@@ -223,12 +224,8 @@ export async function POST(req: Request) {
     if (targetPhone) {
       if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         try {
-          // Before executing Twilio dispatch, strip all non-numeric characters from the provided mobile number
-          const numericDigits = targetPhone.replace(/\D/g, '');
-          // If the number is 10 digits (US), automatically prepend +1 to format it to E.164 standard
-          const formattedPhone = numericDigits.length === 10
-            ? `+1${numericDigits}`
-            : (numericDigits.length === 11 && numericDigits.startsWith('1') ? `+${numericDigits}` : `+${numericDigits}`);
+          // Strip any spaces, dashes, or formatting characters and dispatch the exact E.164 string assembled by the frontend UI
+          const formattedPhone = cleanTwilioPhone(targetPhone);
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
           const formData = new URLSearchParams();

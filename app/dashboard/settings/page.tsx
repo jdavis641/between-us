@@ -1,4 +1,6 @@
-'use client'
+'use client';
+
+import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
@@ -12,6 +14,9 @@ export default function SettingsPage() {
   // Username Modification State
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [pronouns, setPronouns] = useState("")
+  const [countryCode, setCountryCode] = useState("+1")
+  const [mobileNumber, setMobileNumber] = useState("")
+  const [mobileSaved, setMobileSaved] = useState(false)
   const [baseTolerance, setBaseTolerance] = useState("")
   const [toleranceSaved, setToleranceSaved] = useState(false)
   const [newUsername, setNewUsername] = useState('')
@@ -46,6 +51,9 @@ export default function SettingsPage() {
         })
         setPronouns(profileData?.pronouns || '')
         setBaseTolerance(tolerance)
+        const splitMobile = splitPhone(profileData?.mobile_number)
+        setCountryCode(splitMobile.countryCode)
+        setMobileNumber(splitMobile.nationalNumber)
 
         // Fetch user contributions
         try {
@@ -71,6 +79,26 @@ export default function SettingsPage() {
 
 
   const [pronounsSaved, setPronounsSaved] = useState(false)
+
+  const handleSaveMobile = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const combined = formatE164Phone(countryCode, mobileNumber) || null
+      const { error } = await supabase
+        .from('profiles')
+        .update({ mobile_number: combined })
+        .eq('id', session.user.id)
+
+      if (!error) {
+        setProfile((prev: any) => ({ ...prev, mobile_number: combined }))
+        setMobileSaved(true)
+        setTimeout(() => setMobileSaved(false), 3000)
+      } else {
+        alert('Error saving mobile number: ' + error.message)
+      }
+    }
+  }
 
   const handleSavePronouns = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
@@ -360,6 +388,37 @@ export default function SettingsPage() {
                 <button onClick={handleSaveTolerance} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
                 </div>
                 {toleranceSaved && <p className="text-green-500 text-xs mt-2 font-medium">Saved!</p>}
+            </div>
+
+            <div>
+              <p className="text-sm text-zinc-500 mb-1">Mobile Number (SMS)</p>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500 shrink-0"
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
+                  placeholder="(555) 000-0000"
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500"
+                />
+                <button 
+                  onClick={handleSaveMobile} 
+                  className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+              {mobileSaved && <p className="text-green-500 text-xs mt-2 font-medium">Mobile number saved!</p>}
             </div>
           </div>
         </section>

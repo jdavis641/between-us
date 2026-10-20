@@ -1,5 +1,6 @@
-"use client";
+'use client';
 
+import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -23,6 +24,7 @@ export default function GuestPassHub() {
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const [saveConfigForLater, setSaveConfigForLater] = useState(false);
   const [configName, setConfigName] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
 
   const [activePasses, setActivePasses] = useState<any[]>([]);
 
@@ -191,9 +193,9 @@ export default function GuestPassHub() {
           kinkSummary: selectedKinks.join('\n\n'),
           instructions,
           contactMethod,
-          contactInfo: contactInfo.trim(),
-          phoneNumber: contactMethod === 'sms' ? contactInfo.trim() : undefined,
-          mobileNumber: contactMethod === 'sms' ? contactInfo.trim() : undefined,
+          contactInfo: contactMethod === 'sms' ? formatE164Phone(countryCode, contactInfo) : contactInfo.trim(),
+          phoneNumber: contactMethod === 'sms' ? formatE164Phone(countryCode, contactInfo) : undefined,
+          mobileNumber: contactMethod === 'sms' ? formatE164Phone(countryCode, contactInfo) : undefined,
           expirationHours
         })
       });
@@ -493,13 +495,36 @@ export default function GuestPassHub() {
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
                   {contactMethod === 'email' ? 'Recipient Nickname or Email Address' : 'Mobile Number (SMS)'}
                 </label>
-                <input
-                  type={contactMethod === 'sms' ? 'tel' : 'text'}
-                  value={contactInfo}
-                  onChange={(e) => setContactInfo(e.target.value)}
-                  placeholder={contactMethod === 'email' ? 'partner@example.com or Nickname' : '+1 (555) 000-0000'}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
-                />
+                {contactMethod === 'sms' ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-3 text-zinc-200 text-sm focus:outline-none focus:border-red-500 shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      value={contactInfo}
+                      onChange={(e) => setContactInfo(e.target.value)}
+                      placeholder="(555) 000-0000"
+                      className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={contactInfo}
+                    onChange={(e) => setContactInfo(e.target.value)}
+                    placeholder="partner@example.com or Nickname"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
+                  />
+                )}
                 <p className="mt-1.5 text-xs text-zinc-500">
                   {contactMethod === 'email' 
                     ? 'Enter a registered user nickname or any email address (for new users).' 
@@ -556,7 +581,7 @@ export default function GuestPassHub() {
                     className="mt-1 w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-900"
                   />
                   <label htmlFor="liability-consent" className="text-sm text-zinc-400">
-                    I understand that I am sharing my public facing information with {contactInfo}.
+                    I understand that I am sharing my public facing information with {contactMethod === 'sms' ? formatE164Phone(countryCode, contactInfo) : contactInfo}.
                   </label>
                 </div>
               )}

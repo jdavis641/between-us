@@ -1,5 +1,6 @@
-'use client'
+'use client';
 
+import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect, Suspense, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -71,6 +72,7 @@ function OnboardingContent() {
 
   // Step 1: Username selection state
   const [username, setUsername] = useState('')
+  const [countryCode, setCountryCode] = useState('+1')
   const [mobileNumber, setMobileNumber] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -142,7 +144,9 @@ function OnboardingContent() {
           setPronouns(data.pronouns)
         }
         if (data?.mobile_number) {
-          setMobileNumber(data.mobile_number)
+          const split = splitPhone(data.mobile_number)
+          setCountryCode(split.countryCode)
+          setMobileNumber(split.nationalNumber)
         }
 
         const effectiveShareId = searchParams.get('share_id') || (() => {
@@ -308,7 +312,7 @@ function OnboardingContent() {
         .update({
           nickname: username.trim(),
           anonymous_alias: username.trim(),
-          mobile_number: mobileNumber.trim() || null
+          mobile_number: formatE164Phone(countryCode, mobileNumber) || null
         })
         .eq('id', session.user.id)
     }
@@ -332,7 +336,7 @@ function OnboardingContent() {
           anonymous_alias: finalAlias,
           base_tolerance: confirmedTier,
           pronouns: pronouns.trim(),
-          mobile_number: mobileNumber.trim() || null,
+          mobile_number: formatE164Phone(countryCode, mobileNumber) || null,
           literature_prompt_status: 'completed',
           is_active: true
         })
@@ -556,13 +560,26 @@ function OnboardingContent() {
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
                   Mobile Number (Optional)
                 </label>
-                <input
-                  type="tel"
-                  placeholder="e.g., +1 (555) 000-0000"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  className="w-full p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="p-4 bg-zinc-950 text-white border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors shrink-0"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    placeholder="(555) 000-0000"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                    className="flex-1 p-4 bg-zinc-950 text-white placeholder-zinc-500 border border-zinc-800 rounded-xl text-base focus:outline-none focus:border-zinc-600 transition-colors"
+                  />
+                </div>
                 <p className="text-xs text-zinc-500 mt-1.5 font-light">
                   (this is encouraged to link accounts)
                 </p>

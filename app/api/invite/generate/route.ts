@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server";
 import { POST as handleInvite } from "../route";
+import { cleanTwilioPhone } from "@/utils/phone";
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Strips all non-numeric characters from a mobile number and formats it to E.164 standard.
- * If 10 digits (US), automatically prepends +1.
+ * Strips any spaces or dashes from the incoming payload and dispatches the E.164 formatted string
+ * exactly as assembled by the frontend UI.
  */
 export function formatTwilioE164(mobileNumber: string): string {
-  const digitsOnly = mobileNumber.replace(/\D/g, '');
-  if (digitsOnly.length === 10) {
-    return `+1${digitsOnly}`;
-  }
-  if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
-    return `+${digitsOnly}`;
-  }
-  return `+${digitsOnly}`;
+  return cleanTwilioPhone(mobileNumber);
 }
 
 export async function POST(req: Request) {
