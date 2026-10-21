@@ -60,7 +60,11 @@ export default async function GameDetail({ params }: GameParams) {
         {game.category === 'movie' && <MovieGameGenerator gameTitle={game.title} />}
         
         {/* Rules & Content Section */}
-        <div className="space-y-8 py-4">
+        <div
+          className="space-y-8 py-4 select-none"
+          onCopy={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>
           {game.content?.rules ? (
             <ol className="space-y-4 list-decimal list-inside">

@@ -263,7 +263,9 @@ export default function ExperienceReader({ params }: { params: any }) {
   const handleCopyDirectLink = async () => {
     const directUrl = `https://betweenusapp.io/dashboard/experience/${storyId}`;
     try {
-      await navigator.clipboard.writeText(directUrl);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(directUrl);
+      }
       setCopiedLink(true);
       setShareToast('Story link copied to clipboard');
       setTimeout(() => {
@@ -273,6 +275,28 @@ export default function ExperienceReader({ params }: { params: any }) {
     } catch (err) {
       console.error("Failed to copy link:", err);
     }
+  };
+
+  const handleShareClick = async () => {
+    const directUrl = `https://betweenusapp.io/dashboard/experience/${storyId}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        const contentObj = experience?.parsedData || {};
+        const title = contentObj.title || experience?.title || "Between Us Story";
+        await navigator.share({
+          title,
+          url: directUrl,
+        });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.error("Navigator share failed, falling back:", err);
+      }
+    }
+    // Fallback: copy link and open modal
+    await handleCopyDirectLink();
+    setIsShareModalOpen(true);
+    setShareError(null);
   };
 
   const handleToggleFavorite = async () => {
@@ -450,7 +474,12 @@ export default function ExperienceReader({ params }: { params: any }) {
           </div>
         )}
 
-        <article style={{ overflowAnchor: 'none' }} className={`prose prose-invert prose-zinc max-w-none ${textSize} leading-loose space-y-12 transition-all duration-300`}>
+        <article
+          style={{ overflowAnchor: 'none' }}
+          onCopy={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+          className={`select-none prose prose-invert prose-zinc max-w-none ${textSize} leading-loose space-y-12 transition-all duration-300`}
+        >
           
           {/* Partner Lenses */}
           {activeMode === "partner-a" && isRoleplay && (
@@ -562,8 +591,8 @@ export default function ExperienceReader({ params }: { params: any }) {
               Download Story
             </button>
             <button
-              onClick={() => { setIsShareModalOpen(true); setShareError(null); }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-900/60 hover:border-red-700 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 group cursor-pointer"
+              onClick={handleShareClick}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-900/60 hover:border-red-700 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 group cursor-pointer select-none pointer-events-auto"
             >
               <span className="text-lg group-hover:scale-110 transition-transform">📤</span>
               Share
