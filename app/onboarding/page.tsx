@@ -6,7 +6,11 @@ import { createClient } from '@/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import preferenceMatrix from '../lib/taxonomy/preference-matrix.json'
 
-const supabase = createClient()
+const supabase = createClient({
+  global: {
+    fetch: (url: any, opts: any = {}) => fetch(url, { ...opts, cache: 'no-store' })
+  }
+})
 
 type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme'
 
@@ -385,6 +389,86 @@ function OnboardingContent() {
         .eq('id', session.user.id)
     }
     setStep(2)
+  }
+
+  const handleEnterDashboard = async (targetHref: string = '/dashboard?tour=true') => {
+    setIsSubmitting(true)
+    try {
+      let userId = session?.user?.id
+      if (!userId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        userId = user?.id
+      }
+      if (!userId) {
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
+        userId = currentSession?.user?.id
+      }
+
+      if (userId) {
+        const finalAlias = (username || '').trim() || profile?.nickname || profile?.anonymous_alias || 'Member'
+        const finalTier = confirmedTier || profile?.base_tolerance || 'Sensory'
+        const finalPhone = formatE164Phone(countryCode, mobileNumber) || profile?.mobile_number || null
+        const currentTimestamp = new Date().toISOString()
+
+        // 1. Enforce Database Persistence: await successful Supabase UPDATE before routing
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            nickname: finalAlias,
+            anonymous_alias: finalAlias,
+            base_tolerance: finalTier,
+            pronouns: (pronouns || '').trim() || profile?.pronouns || null,
+            mobile_number: finalPhone,
+            literature_prompt_status: 'completed',
+            is_active: true,
+            last_survey_prompted_at: currentTimestamp
+          })
+          .eq('id', userId)
+
+        if (profileError) {
+          console.error("Error updating profile before entering dashboard:", profileError)
+        }
+
+        // Ensure intimacy_preferences has Base Tolerance
+        try {
+          const { data: existingTolerance } = await supabase
+            .from('intimacy_preferences')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('category_tag', 'Base Tolerance')
+            .maybeSingle()
+
+          if (existingTolerance) {
+            await supabase
+              .from('intimacy_preferences')
+              .update({ preference_level: finalTier })
+              .eq('id', existingTolerance.id)
+          } else {
+            await supabase
+              .from('intimacy_preferences')
+              .insert({
+                user_id: userId,
+                category_tag: 'Base Tolerance',
+                preference_level: finalTier
+              })
+          }
+        } catch (prefErr) {
+          console.warn("Could not ensure intimacy_preferences row:", prefErr)
+        }
+      }
+
+      // 2. Bust Client-Side Cache immediately after successful DB update and before routing
+      router.refresh()
+
+      // Then execute the navigation
+      router.push(targetHref)
+    } catch (err) {
+      console.error("Error persisting profile before entering dashboard:", err)
+      router.refresh()
+      router.push(targetHref)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleStep4Submit = async (e: React.FormEvent) => {
@@ -1097,17 +1181,19 @@ function OnboardingContent() {
                   <div className="pt-3 flex flex-col sm:flex-row gap-3">
                     <button
                       type="button"
-                      onClick={() => router.push(suggestionDetails.actionHref)}
-                      className="flex-1 py-3.5 px-6 bg-red-900 hover:bg-red-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-sm flex items-center justify-center gap-2 group"
+                      disabled={isSubmitting}
+                      onClick={() => handleEnterDashboard(suggestionDetails.actionHref)}
+                      className="flex-1 py-3.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-950 text-sm flex items-center justify-center gap-2 group cursor-pointer"
                     >
                       <span>{suggestionDetails.actionLabel}</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => router.push('/dashboard?tour=true')}
-                      className="py-3.5 px-6 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-medium rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-sm"
+                      disabled={isSubmitting}
+                      onClick={() => handleEnterDashboard('/dashboard?tour=true')}
+                      className="py-3.5 px-6 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-300 font-medium rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-sm cursor-pointer"
                     >
-                      Enter Dashboard (Tour) →
+                      {isSubmitting ? 'Entering Dashboard...' : 'Enter Dashboard (Tour) →'}
                     </button>
                   </div>
                 </div>

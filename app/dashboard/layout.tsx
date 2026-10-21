@@ -48,9 +48,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .maybeSingle();
 
         if (profile) {
-          const isActive = Boolean(profile.is_active);
-          const isNicknameMissing = !profile.nickname || profile.nickname.trim().length === 0;
-          const isPromptPending = !profile.literature_prompt_status || profile.literature_prompt_status === 'pending';
+          let isActive = Boolean(profile.is_active);
+          let isNicknameMissing = !profile.nickname || profile.nickname.trim().length === 0;
+          let isPromptPending = !profile.literature_prompt_status || profile.literature_prompt_status === 'pending';
+
+          // If evaluation indicates pending or incomplete, perform an instantaneous un-cached verification
+          // to bypass stale Next.js cache and eliminate race conditions when navigating from onboarding
+          if (isActive && (isNicknameMissing || isPromptPending)) {
+            const { data: freshProfile } = await supabase
+              .from('profiles')
+              .select('is_active, nickname, literature_prompt_status')
+              .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+              .setHeader('Pragma', 'no-cache')
+              .eq('id', authUser.id)
+              .maybeSingle();
+
+            if (freshProfile) {
+              isActive = Boolean(freshProfile.is_active);
+              isNicknameMissing = !freshProfile.nickname || freshProfile.nickname.trim().length === 0;
+              isPromptPending = !freshProfile.literature_prompt_status || freshProfile.literature_prompt_status === 'pending';
+            }
+          }
 
           if (isActive && (isNicknameMissing || isPromptPending)) {
             router.replace('/onboarding');
