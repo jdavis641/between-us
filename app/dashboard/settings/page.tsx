@@ -130,29 +130,44 @@ export default function SettingsPage() {
 
   const handleSaveTolerance = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
+    let userId: string | null = null
     const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      await supabase.from('profiles').update({ 
+    if (session?.user?.id) {
+      userId = session.user.id
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      userId = user?.id || null
+    }
+
+    if (userId) {
+      const currentTimestamp = new Date().toISOString()
+      const { error: profileError } = await supabase.from('profiles').update({ 
         base_tolerance: baseTolerance,
-        last_survey_prompted_at: new Date().toISOString()
-      }).eq('id', session.user.id)
-      router.refresh()
+        last_survey_prompted_at: currentTimestamp
+      }).eq('id', userId)
+
+      if (profileError) {
+        console.error("Error updating profile tolerance timestamp:", profileError)
+      }
       
       const { data: existing } = await supabase.from('intimacy_preferences')
         .select('id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .eq('category_tag', 'Primary Directive')
         .maybeSingle();
 
       if (existing) {
         await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existing.id);
       } else {
-        await supabase.from('intimacy_preferences').insert({ user_id: session.user.id, category_tag: 'Primary Directive', preference_level: baseTolerance });
+        await supabase.from('intimacy_preferences').insert({ user_id: userId, category_tag: 'Primary Directive', preference_level: baseTolerance });
       }
 
-      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance }))
+      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance, last_survey_prompted_at: currentTimestamp }))
       setToleranceSaved(true)
       setTimeout(() => setToleranceSaved(false), 3000)
+
+      // Execute router.refresh() after update awaits successfully
+      router.refresh()
     }
   }
 

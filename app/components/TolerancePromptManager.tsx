@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../src/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -9,6 +9,10 @@ export default function TolerancePromptManager() {
   const setShowPrompt = setShowRecurringSurvey
   const [doNotShow, setDoNotShow] = useState(false)
   const [profile, setProfile] = useState<any>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const userIdRef = useRef<string | null>(null)
+  const hasDismissedRef = useRef(false)
+
   const [supabase] = useState(() =>
     createClient({
       global: {
@@ -20,6 +24,7 @@ export default function TolerancePromptManager() {
 
   useEffect(() => {
     async function checkPrompt() {
+      if (hasDismissedRef.current) return;
       if (typeof window !== 'undefined' && localStorage.getItem('hideBoundaryModal') === 'true') {
         return;
       }
@@ -33,17 +38,19 @@ export default function TolerancePromptManager() {
         activeUserId = session?.user?.id || null
       }
       if (!activeUserId) return
+      setUserId(activeUserId)
+      userIdRef.current = activeUserId
 
       // Bust the timestamp cache: bypass Next.js cache with no-store headers & fetch options
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('account_created_at, last_survey_prompted_at')
+        .select('id, account_created_at, last_survey_prompted_at')
         .setHeader('Cache-Control', 'no-cache, no-store')
         .setHeader('Pragma', 'no-cache')
         .eq('id', activeUserId)
         .maybeSingle()
 
-      if (data) {
+      if (data && !hasDismissedRef.current) {
         setProfile(data)
         
         const now = new Date()
@@ -69,50 +76,70 @@ export default function TolerancePromptManager() {
     checkPrompt()
   }, [supabase])
 
-  const handleUpdate = async () => {
-    // 1. Immediate State Unmount at the very top so the UI physically disappears immediately
+  const recordPrompt = async () => {
+    let targetUserId = userIdRef.current || userId
+    if (!targetUserId) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (user && !userError) {
+        targetUserId = user.id
+      } else {
+        const { data: { session } } = await supabase.auth.getSession()
+        targetUserId = session?.user?.id || null
+      }
+    }
+    if (targetUserId) {
+      const currentTimestamp = new Date().toISOString()
+      const { error } = await supabase
+        .from('profiles')
+        .update({ last_survey_prompted_at: currentTimestamp })
+        .eq('id', targetUserId)
+      
+      if (error) {
+        console.error("Error updating last_survey_prompted_at in profiles:", error)
+      } else {
+        setProfile((prev: any) => ({ ...prev, last_survey_prompted_at: currentTimestamp }))
+      }
+    }
+  }
+
+  const handleSubmit = async () => {
+    // 1. Immediate State Unmount at the VERY TOP so UI physically disappears immediately
     setShowRecurringSurvey(false)
     setShowPrompt(false)
+    hasDismissedRef.current = true
 
     if (doNotShow && typeof window !== 'undefined') {
       localStorage.setItem('hideBoundaryModal', 'true');
     }
+
+    // 2. Fix Database Timestamp Update: explicitly update user profiles row setting last_survey_prompted_at to current timestamp
     await recordPrompt()
+
+    // 3. After Supabase update awaits successfully, execute router.refresh()
     router.refresh()
     router.push('/dashboard/settings')
   }
 
+  const handleUpdate = handleSubmit
+
   const handleNotNow = async () => {
-    // 1. Immediate State Unmount at the very top so the UI physically disappears immediately
+    // 1. Immediate State Unmount at the VERY TOP so UI physically disappears immediately
     setShowRecurringSurvey(false)
     setShowPrompt(false)
+    hasDismissedRef.current = true
 
     if (doNotShow && typeof window !== 'undefined') {
       localStorage.setItem('hideBoundaryModal', 'true');
     }
+
+    // 2. Fix Database Timestamp Update
     await recordPrompt()
+
+    // 3. After Supabase update awaits successfully, execute router.refresh()
     router.refresh()
   }
 
-  const recordPrompt = async () => {
-    let activeUserId: string | null = null
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (user && !userError) {
-      activeUserId = user.id
-    } else {
-      const { data: { session } } = await supabase.auth.getSession()
-      activeUserId = session?.user?.id || null
-    }
-    if (activeUserId) {
-      await supabase
-        .from('profiles')
-        .update({ last_survey_prompted_at: new Date().toISOString() })
-        .eq('id', activeUserId)
-      router.refresh()
-    }
-  }
-
-  if (!showRecurringSurvey) return null
+  if (hasDismissedRef.current || !showRecurringSurvey) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
@@ -137,7 +164,7 @@ export default function TolerancePromptManager() {
 
         <div className="space-y-3">
           <button 
-            onClick={handleUpdate}
+            onClick={handleSubmit}
             className="w-full py-3 bg-red-900 text-white rounded-xl font-medium hover:bg-red-800 transition-colors"
           >
             Update Preferences Now
