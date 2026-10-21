@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +12,11 @@ export async function POST(req: Request) {
       emailData = payload.data;
     }
 
-    const { subject, from, to, text, html } = emailData;
+    let subject = emailData.subject || payload.subject;
+    const from = emailData.from || payload.from;
+    const to = emailData.to || payload.to;
+    let text = emailData.text || payload.text;
+    let html = emailData.html || payload.html;
 
     // Check if the email was sent to our support or jd3 inbox
     const recipientList = Array.isArray(to) ? to.join(',') : (to || '');
@@ -23,21 +28,36 @@ export async function POST(req: Request) {
     const adminEmail = 'jdcdjd664411@proton.me';
     
     if (process.env.RESEND_API_KEY) {
-      // 1. Forward the parsed email to the designated admin inbox
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: 'Between Us Support Forwarder <alerts@betweenusapp.io>',
-          to: adminEmail,
-          reply_to: from, // Allow admin to reply directly to the user
-          subject: `[SUPPORT TICKET] ${subject || 'No Subject'}`,
-          text: `Original Sender: ${from}\n\n${text || 'No text content'}`,
-          html: `<div><p><strong>Original Sender:</strong> ${from}</p><hr/>${html || text || '<p>No content</p>'}</div>`
-        })
+      const resend = new Resend(process.env.RESEND_API_KEY);
+
+      // If text/html body is missing and email_id is available, fetch full email content via Resend API
+      const emailId = emailData.email_id || emailData.id || payload.email_id;
+      if (emailId && (!text && !html)) {
+        try {
+          const { data: inboundEmail } = await resend.emails.receiving.get(emailId);
+          if (inboundEmail) {
+            if (inboundEmail.subject && !subject) subject = inboundEmail.subject;
+            if (inboundEmail.text) text = inboundEmail.text;
+            if (inboundEmail.html) html = inboundEmail.html;
+          }
+        } catch (fetchErr) {
+          console.warn('Could not fetch full email via Resend receiving API:', fetchErr);
+        }
+      }
+
+      // Explicitly map incoming parsed subject, text, and html
+      const emailSubject = subject || 'No Subject';
+      const emailText = text || 'No text content';
+      const emailHtml = html || (text ? `<div>${text.replace(/\n/g, '<br/>')}</div>` : '<p>No content</p>');
+
+      // 1. Forward the parsed email to the designated admin inbox using Resend SDK
+      await resend.emails.send({
+        from: 'Between Us Support Forwarder <alerts@betweenusapp.io>',
+        to: adminEmail,
+        replyTo: from, // Allow admin to reply directly to the user
+        subject: `[SUPPORT TICKET] ${emailSubject}`,
+        text: `Original Sender: ${from}\n\n${emailText}`,
+        html: `<div><p><strong>Original Sender:</strong> ${from}</p><hr/>${emailHtml}</div>`
       });
       console.log(`Support email from ${from} forwarded to ${adminEmail}`);
 
@@ -46,24 +66,17 @@ export async function POST(req: Request) {
         const userEmail = from.match(/<([^>]+)>/)?.[1] || from;
         const autoReplyCopy = "Please allow 48 hours for a reply. If you do not receive a response within 48 hours, feel free to give us a call at (224) 479-1076.";
 
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'Between Us Support <support@betweenusapp.io>',
-            to: userEmail,
-            subject: `Re: ${subject || 'Your Support Request - Between Us'}`,
-            text: `Thank you for contacting Between Us Support.\n\n${autoReplyCopy}\n\nBest regards,\nBetween Us Support Team`,
-            html: `<div>
-              <p>Thank you for contacting Between Us Support.</p>
-              <p>${autoReplyCopy}</p>
-              <br/>
-              <p>Best regards,<br/>Between Us Support Team</p>
-            </div>`
-          })
+        await resend.emails.send({
+          from: 'Between Us Support <support@betweenusapp.io>',
+          to: userEmail,
+          subject: `Re: ${emailSubject}`,
+          text: `Thank you for contacting Between Us Support.\n\n${autoReplyCopy}\n\nBest regards,\nBetween Us Support Team`,
+          html: `<div>
+            <p>Thank you for contacting Between Us Support.</p>
+            <p>${autoReplyCopy}</p>
+            <br/>
+            <p>Best regards,<br/>Between Us Support Team</p>
+          </div>`
         });
         console.log(`Support auto-reply sent to ${userEmail}`);
       }
