@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient({
     global: {
-      fetch: (url, opts = {}) => fetch(url, { ...opts, cache: 'no-store' })
+      fetch: (url: any, opts: any = {}) => fetch(url, { ...opts, cache: 'no-store' })
     }
   }));
   const router = useRouter();
@@ -39,9 +39,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
+        // Live un-cached profile fetch explicitly checking onboarding_completed column
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_active, nickname, literature_prompt_status')
+          .select('is_active, nickname, literature_prompt_status, onboarding_completed')
           .setHeader('Cache-Control', 'no-cache, no-store')
           .setHeader('Pragma', 'no-cache')
           .eq('id', authUser.id)
@@ -49,15 +50,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         if (profile) {
           let isActive = Boolean(profile.is_active);
+          let isOnboardingCompleted = Boolean(profile.onboarding_completed === true);
           let isNicknameMissing = !profile.nickname || profile.nickname.trim().length === 0;
           let isPromptPending = !profile.literature_prompt_status || profile.literature_prompt_status === 'pending';
 
+          // User belongs in dashboard if onboarding_completed is true, or fallback to completed prompt & nickname
+          let isComplete = isOnboardingCompleted || (!isNicknameMissing && !isPromptPending);
+
           // If evaluation indicates pending or incomplete, perform an instantaneous un-cached verification
           // to bypass stale Next.js cache and eliminate race conditions when navigating from onboarding
-          if (isActive && (isNicknameMissing || isPromptPending)) {
+          if (isActive && !isComplete) {
             const { data: freshProfile } = await supabase
               .from('profiles')
-              .select('is_active, nickname, literature_prompt_status')
+              .select('is_active, nickname, literature_prompt_status, onboarding_completed')
               .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
               .setHeader('Pragma', 'no-cache')
               .eq('id', authUser.id)
@@ -65,12 +70,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             if (freshProfile) {
               isActive = Boolean(freshProfile.is_active);
-              isNicknameMissing = !freshProfile.nickname || freshProfile.nickname.trim().length === 0;
-              isPromptPending = !freshProfile.literature_prompt_status || freshProfile.literature_prompt_status === 'pending';
+              const freshOnboardingCompleted = Boolean(freshProfile.onboarding_completed === true);
+              const freshNicknameMissing = !freshProfile.nickname || freshProfile.nickname.trim().length === 0;
+              const freshPromptPending = !freshProfile.literature_prompt_status || freshProfile.literature_prompt_status === 'pending';
+              isComplete = freshOnboardingCompleted || (!freshNicknameMissing && !freshPromptPending);
             }
           }
 
-          if (isActive && (isNicknameMissing || isPromptPending)) {
+          if (isActive && !isComplete) {
             router.replace('/onboarding');
             return;
           }

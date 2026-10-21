@@ -420,6 +420,7 @@ function OnboardingContent() {
             pronouns: (pronouns || '').trim() || profile?.pronouns || null,
             mobile_number: finalPhone,
             literature_prompt_status: 'completed',
+            onboarding_completed: true,
             is_active: true,
             last_survey_prompted_at: currentTimestamp
           })
@@ -494,6 +495,7 @@ function OnboardingContent() {
           pronouns: pronouns.trim(),
           mobile_number: formatE164Phone(countryCode, mobileNumber) || null,
           literature_prompt_status: 'completed',
+          onboarding_completed: true,
           is_active: true,
           last_survey_prompted_at: new Date().toISOString()
         })
