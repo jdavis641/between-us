@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       // 2. Automated email reply for inbound messages to support@betweenusapp.io
       if (recipientList.includes('support@betweenusapp.io') && from) {
         const userEmail = from.match(/<([^>]+)>/)?.[1] || from;
-        const autoReplyCopy = "Please allow 48 hours for a reply. If you do not receive a response within 48 hours, feel free to give us a call at 224-223-8077.";
+        const autoReplyCopy = "Please allow 48 hours for a reply. If you do not receive a response within 48 hours, feel free to give us a call at (224) 479-1076.";
 
         await fetch('https://api.resend.com/emails', {
           method: 'POST',

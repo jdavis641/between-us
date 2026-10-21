@@ -118,16 +118,18 @@ async function runHeadlessQA() {
 
   const footerPath = path.join(process.cwd(), 'src', 'components', 'Footer.tsx');
   const footerContent = fs.readFileSync(footerPath, 'utf8');
-  assert(footerContent.includes('1043 S. Roselle Rd, #1048'), "Commercial address active in Footer.tsx");
-  assert(footerContent.includes('224-223-8077'), "VoIP support line active in Footer.tsx");
+  assert(!footerContent.includes('1043 S. Roselle Rd, #1048') && !footerContent.includes('224-223-8077') && !footerContent.includes('(224) 479-1076'), "Physical address and phone numbers removed from Footer.tsx");
+  assert(footerContent.includes('support@betweenusapp.io'), "Email-only support active in Footer.tsx");
 
   const termsPath = path.join(process.cwd(), 'app', 'terms', 'page.tsx');
   const termsContent = fs.readFileSync(termsPath, 'utf8');
-  assert(termsContent.includes('1043 S. Roselle Rd, #1048') && termsContent.includes('224-223-8077'), "Commercial address and VoIP line active in Terms of Service");
+  assert(!termsContent.includes('1043 S. Roselle Rd, #1048') && !termsContent.includes('224-223-8077') && !termsContent.includes('(224) 479-1076'), "Physical address and phone numbers removed from Terms of Service");
+  assert(termsContent.includes('support@betweenusapp.io'), "Email-only support active in Terms of Service");
 
   const privacyPath = path.join(process.cwd(), 'app', 'privacy', 'page.tsx');
   const privacyContent = fs.readFileSync(privacyPath, 'utf8');
-  assert(privacyContent.includes('1043 S. Roselle Rd, #1048') && privacyContent.includes('224-223-8077'), "Commercial address and VoIP line active in Privacy Policy");
+  assert(!privacyContent.includes('1043 S. Roselle Rd, #1048') && !privacyContent.includes('224-223-8077') && !privacyContent.includes('(224) 479-1076'), "Physical address and phone numbers removed from Privacy Policy");
+  assert(privacyContent.includes('support@betweenusapp.io'), "Email-only support active in Privacy Policy");
 
   // -------------------------------------------------------------------------
   // 5. CMO AGENT DEPLOYMENT ASSETS VERIFICATION
