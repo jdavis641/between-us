@@ -7,22 +7,25 @@ import { notFound } from 'next/navigation'
 export const revalidate = 0 // dynamically fetch data on every request
 
 type GameParams = {
-  params: { id: string }
+  params: Promise<{ id: string }> | { id: string }
 }
 
 export default async function GameDetail({ params }: GameParams) {
-  const { id } = await params;
+  const resolvedParams = await params;
+  const gameId = resolvedParams.id;
   const supabase = await createClient()
 
   const { data: game } = await supabase
     .from('intimacy_games')
     .select('*')
-    .eq('id', id)
+    .eq('id', gameId)
     .maybeSingle()
 
   if (!game) {
     return <div className="p-12 text-center text-zinc-400">Game not found.</div>
   }
+
+  if (!game?.content?.rules) return <div>No rules found.</div>;
 
   const getIntensityBadge = (intensity: string) => {
     switch (intensity) {

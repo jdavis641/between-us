@@ -13,10 +13,22 @@ export async function POST(req: Request) {
       emailBody = `Hey! Let's connect on Between Us to share our boundaries and curiosities in a private, judgement-free setting. This app allows us to securely communicate our preferences to ensure everyone is on the same page and comfortable. This single-use link will expire as soon as you click it so it cannot be shared with anyone else.\n\nJoin here: ${joinLink}`;
     }
 
-    // In a real application, you would use Resend or Nodemailer here.
-    // e.g. await resend.emails.send({ from: '...', to: email, subject: '...', text: emailBody })
-    console.log(`[Email Dispatcher Mock] Sending to: ${email}`);
-    console.log(`[Email Body]: ${emailBody}`);
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { Resend } = await import('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: 'Between Us Alerts <alerts@betweenusapp.io>',
+          to: email,
+          subject: "Between Us: New Notification",
+          text: emailBody,
+          html: `<div><p>${emailBody.replace(/\n\n/g, '</p><p>')}</p><p><a href="${joinLink}">Join here: ${joinLink}</a></p></div>`
+        });
+      } catch (err) {
+        console.error("Failed to send invite via Resend:", err);
+      }
+    }
+    console.log(`[Email Dispatcher] Sent to: ${email}`);
 
     return NextResponse.json({ success: true, message: "Invite sent successfully" });
   } catch (error: any) {

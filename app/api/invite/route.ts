@@ -1,5 +1,6 @@
 import { cleanTwilioPhone } from "@/utils/phone";
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createClientBase } from "@supabase/supabase-js";
 
@@ -180,35 +181,35 @@ export async function POST(req: Request) {
     if (recipientEmail) {
       if (process.env.RESEND_API_KEY) {
         try {
-          const resendRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: 'Between Us <invites@betweenusapp.io>',
-              to: recipientEmail,
-              subject: `You have a Between Us Guest Pass from ${senderName}`,
-              html: `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 32px; border-radius: 12px; max-width: 580px; margin: 0 auto; border: 1px solid #27272a;">
-                  <h2 style="color: #ffffff; margin-top: 0; font-size: 22px;">You've been invited to a secure Between Us Guest Pass</h2>
-                  <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">${senderName} has shared specific desires, kinks, and instructions for a memorable experience. Please log in and check your Between Us inbox for details.</p>
-                  <p style="margin: 28px 0; text-align: center;">
-                    <a href="${guestPassUrl}" style="background-color: #7f1d1d; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(127, 29, 29, 0.4);">
-                      Log In & Check Inbox
-                    </a>
-                  </p>
-                  <p style="font-size: 12px; color: #71717a; text-align: center;">Direct link: <a href="${guestPassUrl}" style="color: #ef4444;">${guestPassUrl}</a></p>
-                </div>
-              `
-            })
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailSubject = "Between Us: New Notification";
+          const alertMessage = `${senderName} has shared specific desires, kinks, and instructions for a memorable experience. Please log in and check your Between Us inbox for details.`;
+          const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 32px; border-radius: 12px; max-width: 580px; margin: 0 auto; border: 1px solid #27272a;">
+              <h2 style="color: #ffffff; margin-top: 0; font-size: 22px;">You've been invited to a secure Between Us Guest Pass</h2>
+              <p style="color: #d4d4d8; font-size: 15px; line-height: 1.6;">${alertMessage}</p>
+              <p style="margin: 28px 0; text-align: center;">
+                <a href="${guestPassUrl}" style="background-color: #7f1d1d; color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(127, 29, 29, 0.4);">
+                  Log In & Check Inbox
+                </a>
+              </p>
+              <p style="font-size: 12px; color: #71717a; text-align: center;">Direct link: <a href="${guestPassUrl}" style="color: #ef4444;">${guestPassUrl}</a></p>
+            </div>
+          `;
+          const emailText = `${alertMessage}\n\nInvite link: ${guestPassUrl}`;
+
+          const { error: resendError } = await resend.emails.send({
+            from: 'Between Us Alerts <alerts@betweenusapp.io>',
+            to: recipientEmail,
+            subject: emailSubject,
+            text: emailText,
+            html: emailHtml
           });
-          if (resendRes.ok) {
+
+          if (!resendError) {
             dispatchResults.email = true;
           } else {
-            const errText = await resendRes.text();
-            console.error("Resend invite email dispatch error:", errText);
+            console.error("Resend invite email dispatch error:", resendError);
           }
         } catch (resendErr) {
           console.error("Failed to send invite email via Resend:", resendErr);

@@ -92,13 +92,17 @@ export default function SettingsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const combined = formatE164Phone(countryCode, mobileNumber) || null
+      const alias = profile?.anonymous_alias || profile?.nickname || ''
       const { error } = await supabase
         .from('profiles')
-        .update({ mobile_number: combined })
+        .update({ 
+          anonymous_alias: alias,
+          mobile_number: combined 
+        })
         .eq('id', session.user.id)
 
       if (!error) {
-        setProfile((prev: any) => ({ ...prev, mobile_number: combined }))
+        setProfile((prev: any) => ({ ...prev, anonymous_alias: alias, mobile_number: combined }))
         setMobileSaved(true)
         setTimeout(() => setMobileSaved(false), 3000)
       } else {
@@ -212,11 +216,13 @@ export default function SettingsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const cleanNickname = usernameToSave.trim()
+      const combined = formatE164Phone(countryCode, mobileNumber) || profile?.mobile_number || null
       const { error } = await supabase
         .from('profiles')
         .update({ 
           nickname: cleanNickname, 
-          anonymous_alias: cleanNickname
+          anonymous_alias: cleanNickname,
+          mobile_number: combined
         })
         .eq('id', session.user.id)
       
@@ -224,7 +230,8 @@ export default function SettingsPage() {
         setProfile((prev: any) => ({ 
           ...prev, 
           nickname: cleanNickname, 
-          anonymous_alias: cleanNickname
+          anonymous_alias: cleanNickname,
+          mobile_number: combined
         }))
         setIsEditingUsername(false)
         setNewUsername('')

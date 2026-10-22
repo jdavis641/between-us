@@ -122,7 +122,7 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
 
   if (previousContent) {
     sys += `STORY CONTINUATION DIRECTIVE:
-You are continuing an ongoing narrative. Read the previous content and immediately write the next subsequent paragraphs of the scene. Critical Rule: DO NOT output a table of contents, chapter lists, or outlines. You must respond strictly with narrative prose, continuing seamlessly from the exact point the previous text ended.\n\n`;
+You are continuing an existing story. Read the provided previous text and immediately write the NEXT sequential scene. CRITICAL RULE: Do NOT repeat, rephrase, or output the existing text. Do NOT output standalone chapter titles like 'Chapter 2'. Immediately begin writing the next paragraphs of prose to advance the plot.\n\n`;
   }
 
   // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
@@ -968,7 +968,7 @@ export async function POST(req: Request) {
         temperature: 0.85,
         top_p: 0.9,
         ...(isContinuation ? {
-          presence_penalty: 0.3,
+          presence_penalty: 0.6,
           frequency_penalty: 0.5,
         } : {}),
         max_tokens: maxTokens,
@@ -977,7 +977,7 @@ export async function POST(req: Request) {
         extra_body: {
           max_tokens: maxTokens,
           ...(isContinuation ? {
-            presence_penalty: 0.3,
+            presence_penalty: 0.6,
             frequency_penalty: 0.5,
           } : {}),
           models: [

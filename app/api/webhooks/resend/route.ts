@@ -46,9 +46,9 @@ export async function POST(req: Request) {
       }
 
       // Explicitly map incoming parsed subject, text, and html
-      const emailSubject = subject || 'No Subject';
-      const emailText = text || 'No text content';
-      const emailHtml = html || (text ? `<div>${text.replace(/\n/g, '<br/>')}</div>` : '<p>No content</p>');
+      const emailSubject = subject || 'Between Us: New Notification';
+      const emailText = text || 'Between Us: New Notification';
+      const emailHtml = html || (text ? `<div>${text.replace(/\n/g, '<br/>')}</div>` : '<p>Between Us: New Notification</p>');
 
       // 1. Forward the parsed email to the designated admin inbox using Resend SDK
       await resend.emails.send({
