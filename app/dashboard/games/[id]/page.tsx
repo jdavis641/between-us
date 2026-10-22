@@ -11,29 +11,78 @@ type GameParams = {
 }
 
 export default async function GameDetail({ params }: GameParams) {
-  const resolvedParams = await params;
-  const gameId = resolvedParams.id;
-  const supabase = await createClient()
+  let game: any = null;
 
-  const { data: game } = await supabase
-    .from('intimacy_games')
-    .select('*')
-    .eq('id', gameId)
-    .maybeSingle()
+  try {
+    const resolvedParams = await params;
+    const gameId = resolvedParams?.id;
+    if (!gameId) {
+      return (
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 flex flex-col items-center justify-center">
+          <p className="text-zinc-400 text-lg mb-4">Game not found.</p>
+          <Link href="/dashboard/games" className="text-red-400 hover:text-red-300 underline">&larr; Back to Games Hub</Link>
+        </div>
+      );
+    }
 
-  if (!game) {
-    return <div className="p-12 text-center text-zinc-400">Game not found.</div>
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('intimacy_games')
+      .select('*')
+      .eq('id', gameId)
+      .maybeSingle()
+
+    if (error) {
+      console.error("Error fetching game from Supabase:", error);
+    }
+    game = data;
+  } catch (err) {
+    console.error("GameDetail server fetch error:", err);
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 flex flex-col items-center justify-center">
+        <p className="text-zinc-400 text-lg mb-4">Failed to load game. Please try again later.</p>
+        <Link href="/dashboard/games" className="text-red-400 hover:text-red-300 underline">&larr; Back to Games Hub</Link>
+      </div>
+    );
   }
 
-  if (!game?.content?.rules) return <div>No rules found.</div>;
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 flex flex-col items-center justify-center">
+        <p className="text-zinc-400 text-lg mb-4">Game not found.</p>
+        <Link href="/dashboard/games" className="text-red-400 hover:text-red-300 underline">&larr; Back to Games Hub</Link>
+      </div>
+    );
+  }
+
+  // Safely parse rules as an array with fallback UI to prevent mapping crashes
+  let parsedRules: string[] = [];
+  try {
+    let contentObj = game.content;
+    if (typeof contentObj === 'string') {
+      try {
+        contentObj = JSON.parse(contentObj);
+      } catch {}
+    }
+    if (Array.isArray(contentObj?.rules)) {
+      parsedRules = contentObj.rules;
+    } else if (Array.isArray(contentObj)) {
+      parsedRules = contentObj;
+    } else if (typeof contentObj?.rules === 'string') {
+      parsedRules = [contentObj.rules];
+    }
+  } catch (parseErr) {
+    console.error("Error parsing game rules array:", parseErr);
+  }
 
   const getIntensityBadge = (intensity: string) => {
     switch (intensity) {
-      case 'Sensory': return 'dYO Sensory'
-      case 'Playful': return 'dYO ,? Playful'
-      case 'Intense': return 'dY" Intense'
-      case 'Extreme': return 'dY " Extreme'
-      default: return `dYO ${intensity || 'Sensory'}`
+      case 'Sensory': return 'Sensory'
+      case 'Playful': return 'Playful'
+      case 'Intense': return 'Intense'
+      case 'Extreme': return 'Extreme'
+      default: return intensity || 'Sensory'
     }
   }
 
@@ -49,7 +98,7 @@ export default async function GameDetail({ params }: GameParams) {
           <div className="flex justify-between items-start">
             <h1 className="text-4xl md:text-5xl font-serif font-medium text-zinc-100">{game.title}</h1>
             <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-md">
-              {game.category.replace('_', ' ')}
+              {game.category ? game.category.replace('_', ' ') : 'Game'}
             </span>
           </div>
           
@@ -69,9 +118,9 @@ export default async function GameDetail({ params }: GameParams) {
           onContextMenu={(e) => e.preventDefault()}
         >
           <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>
-          {game.content?.rules ? (
+          {parsedRules && parsedRules.length > 0 ? (
             <ol className="space-y-4 list-decimal list-inside">
-              {game.content.rules.map((rule: string, index: number) => (
+              {parsedRules.map((rule: string, index: number) => (
                 <li key={index} className="flex space-x-4 bg-zinc-900 p-5 rounded-xl border border-zinc-800 shadow-sm">
                   <span className="text-red-500 font-bold text-lg leading-none">{index + 1}.</span>
                   <span className="text-zinc-300 font-light leading-relaxed">{rule}</span>
@@ -79,9 +128,10 @@ export default async function GameDetail({ params }: GameParams) {
               ))}
             </ol>
           ) : (
-            <p className="text-zinc-500 italic font-light p-6 bg-zinc-900/50 rounded-xl border border-zinc-800 border-dashed text-center">
-              No specific rules provided for this scenario.
-            </p>
+            <div className="text-zinc-400 p-6 bg-zinc-900/50 rounded-xl border border-zinc-800 border-dashed text-center">
+              <p className="font-medium text-zinc-300">No rules found.</p>
+              <p className="text-sm text-zinc-500 mt-1">No specific rules or instructions could be parsed for this scenario.</p>
+            </div>
           )}
         </div>
 

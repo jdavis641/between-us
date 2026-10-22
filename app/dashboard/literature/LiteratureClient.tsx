@@ -238,9 +238,13 @@ export default function LiteratureClient() {
     return () => clearInterval(interval);
   }, [scenario?.title, (scenario as any)?.status, (scenario as any)?.body?.length, supabase]);
 
-  const handleContinueStory = async () => {
-    if (!scenario) return;
-    const currentStoryText = scenario.body || scenario.overview || "";
+  const handleContinueStory = async (explicitLatestContent?: string) => {
+    const latestGeneratedContent = (typeof explicitLatestContent === 'string' && explicitLatestContent.trim().length > 0)
+      ? explicitLatestContent.trim()
+      : ((cleanContent || scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || "") as string).trim();
+
+    if (!latestGeneratedContent && !scenario) return;
+    const currentStoryText = latestGeneratedContent;
     setIsContinuing(true);
     setIsAutoScrollPaused(false);
     setError(null);
@@ -798,7 +802,7 @@ export default function LiteratureClient() {
               {/* Action Buttons: Generate Story (disabled until trope selected) & Generate New Previews */}
               <div className="flex flex-wrap items-center gap-4">
                 <button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={!activeTrope || loading}
                   className="px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
@@ -886,7 +890,7 @@ export default function LiteratureClient() {
                     </span>
                     {scenario && (
                       <button
-                        onClick={handleContinueStory}
+                        onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
                         disabled={isContinuing}
                         className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
                       >
@@ -902,7 +906,7 @@ export default function LiteratureClient() {
                     </div>
                     {scenario && (
                       <button
-                        onClick={handleContinueStory}
+                        onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
                         disabled={isContinuing}
                         className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
                       >
@@ -986,7 +990,7 @@ export default function LiteratureClient() {
                   Click continue story to expand.
                 </span>
                 <button
-                  onClick={handleContinueStory}
+                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
                   disabled={isContinuing}
                   className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
                 >
@@ -1000,7 +1004,7 @@ export default function LiteratureClient() {
                   <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                 </div>
                 <button
-                  onClick={handleContinueStory}
+                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
                   disabled={isContinuing}
                   className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
                 >
@@ -1028,7 +1032,7 @@ export default function LiteratureClient() {
               Regenerate
             </button>
             <button
-              onClick={handleContinueStory}
+              onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
               disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >

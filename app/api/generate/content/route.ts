@@ -967,19 +967,15 @@ export async function POST(req: Request) {
         ],
         temperature: 0.85,
         top_p: 0.9,
-        ...(isContinuation ? {
-          presence_penalty: 0.6,
-          frequency_penalty: 0.5,
-        } : {}),
+        presence_penalty: 0.6,
+        frequency_penalty: 0.5,
         max_tokens: maxTokens,
         response_format: { type: "json_object" },
         stream: true,
         extra_body: {
           max_tokens: maxTokens,
-          ...(isContinuation ? {
-            presence_penalty: 0.6,
-            frequency_penalty: 0.5,
-          } : {}),
+          presence_penalty: 0.6,
+          frequency_penalty: 0.5,
           models: [
             "sao10k/l3.1-euryale-70b",
             "neversleep/llama-3.1-lumimaid-70b",

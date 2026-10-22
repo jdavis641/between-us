@@ -100,7 +100,6 @@ export default function Sidebar({ logo }: SidebarProps) {
           </Link>
           <Link
             href="/dashboard/roleplay"
-            onClick={() => setIsOpen(false)}
             className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
           >
             🎭 Role Play

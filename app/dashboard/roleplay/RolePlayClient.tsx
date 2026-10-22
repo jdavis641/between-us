@@ -182,11 +182,13 @@ export default function RolePlayClient() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleContinueStory = async () => {
+  const handleContinueStory = async (explicitLatestContent?: string) => {
     if (!scenario) return;
-    const currentStoryText = scenario.fullScript
-      ? `Setting the Scene:\n${scenario.overview}\n\nAction Script:\n${scenario.fullScript}`
-      : scenario.overview || "";
+    const currentStoryText = (typeof explicitLatestContent === 'string' && explicitLatestContent.trim().length > 0)
+      ? explicitLatestContent.trim()
+      : ((scenario as any)?.body || (scenario as any)?.text || (scenario.fullScript
+          ? `Setting the Scene:\n${scenario.overview}\n\nAction Script:\n${scenario.fullScript}`
+          : scenario.overview || "")).trim();
     setIsContinuing(true);
     setIsAutoScrollPaused(false);
     setError(null);
@@ -595,7 +597,7 @@ export default function RolePlayClient() {
           </div>
           
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={loading}
             className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
           >
@@ -669,7 +671,7 @@ export default function RolePlayClient() {
                 </span>
                 {scenario && (
                   <button
-                    onClick={handleContinueStory}
+                    onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
                     disabled={isContinuing}
                     className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
                   >
@@ -685,7 +687,7 @@ export default function RolePlayClient() {
                 </div>
                 {scenario && (
                   <button
-                    onClick={handleContinueStory}
+                    onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
                     disabled={isContinuing}
                     className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
                   >
@@ -826,7 +828,7 @@ export default function RolePlayClient() {
                   Click continue story to expand.
                 </span>
                 <button
-                  onClick={handleContinueStory}
+                  onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
                   disabled={isContinuing}
                   className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
                 >
@@ -840,7 +842,7 @@ export default function RolePlayClient() {
                   <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                 </div>
                 <button
-                  onClick={handleContinueStory}
+                  onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
                   disabled={isContinuing}
                   className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
                 >
@@ -868,7 +870,7 @@ export default function RolePlayClient() {
               Regenerate
             </button>
             <button
-              onClick={handleContinueStory}
+              onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
               disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >

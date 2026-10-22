@@ -1,47 +1,158 @@
 'use client';
 
 import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import Link from 'next/link'
-import LogoutButton from '../../components/LogoutButton'
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import Link from 'next/link';
+import LogoutButton from '../../components/LogoutButton';
+import preferenceMatrix from '../../lib/taxonomy/preference-matrix.json';
+
+type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme';
+
+interface TaxonomyOption {
+  label: string;
+  weight: number;
+}
+
+interface CategoryData {
+  category: string;
+  weight?: number;
+  description?: string;
+  items: TaxonomyOption[];
+}
+
+const WEIGHT_TIER_MAP: Record<number, Tier> = {
+  1: 'Sensory',
+  2: 'Playful',
+  3: 'Intense',
+  4: 'Extreme'
+};
+
+const TIER_OPTIONS: { name: Tier; description: string; badge: string }[] = [
+  {
+    name: 'Sensory',
+    badge: 'Level 1',
+    description: 'Gentle touch, romantic intimacy, deep emotional connection, and slow sensual exploration.'
+  },
+  {
+    name: 'Playful',
+    badge: 'Level 2',
+    description: 'Adventurous teasing, light bondage, roleplay games, toy exploration, and humorous banter.'
+  },
+  {
+    name: 'Intense',
+    badge: 'Level 3',
+    description: 'Heavy sensations, power dynamics, impact play, BDSM themes, and uninhibited physical exploration.'
+  },
+  {
+    name: 'Extreme',
+    badge: 'Level 4',
+    description: 'Edge play, taboo scenarios, psychological roleplay, surreal fantasies, and heavy boundary pushes.'
+  }
+];
+
+const calculateBaseToleranceTier = (weights: number[]): Tier | null => {
+  if (!weights || weights.length === 0) return null;
+  const sorted = [...weights].sort((a, b) => b - a);
+  const highestWeight = sorted[0];
+  return WEIGHT_TIER_MAP[highestWeight] || (highestWeight >= 4 ? 'Extreme' : 'Sensory');
+};
 
 export default function SettingsPage() {
   const router = useRouter();
   const [supabase] = useState(() => createClient({
     global: {
-      fetch: (url, opts = {}) => fetch(url, { ...opts, cache: 'no-store' })
+      fetch: (url: any, opts: any = {}) => fetch(url, { ...opts, cache: 'no-store' })
     }
   }));
-  const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Username Modification State
-  const [isEditingUsername, setIsEditingUsername] = useState(false)
-  const [pronouns, setPronouns] = useState("")
-  const [countryCode, setCountryCode] = useState("+1")
-  const [mobileNumber, setMobileNumber] = useState("")
-  const [mobileSaved, setMobileSaved] = useState(false)
-  const [baseTolerance, setBaseTolerance] = useState("")
-  const [toleranceSaved, setToleranceSaved] = useState(false)
-  const [newUsername, setNewUsername] = useState('')
-  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [savingUsername, setSavingUsername] = useState(false)
-  const [contributions, setContributions] = useState<any[]>([])
-  const [contributionsLoading, setContributionsLoading] = useState(true)
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [pronouns, setPronouns] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [mobileSaved, setMobileSaved] = useState(false);
+
+  // Tolerance & Boundary Survey State
+  const [baseTolerance, setBaseTolerance] = useState("");
+  const [toleranceSaved, setToleranceSaved] = useState(false);
+  const [savingTolerance, setSavingTolerance] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<TaxonomyOption[]>([]);
+
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [contributions, setContributions] = useState<any[]>([]);
+  const [contributionsLoading, setContributionsLoading] = useState(true);
+  const [pronounsSaved, setPronounsSaved] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Parse categories from preference matrix
+  const categoriesList: CategoryData[] = useMemo(() => {
+    const rawMatrix = preferenceMatrix as any;
+    const weightSystem: Record<string, number> = rawMatrix?.weight_system || {
+      Sensory: 1,
+      Playful: 2,
+      Intense: 3,
+      Extreme: 4
+    };
+
+    if (Array.isArray(rawMatrix?.categories)) {
+      return rawMatrix.categories.map((c: any) => {
+        const catName = c.category || c.name || '';
+        const catWeight = c.weight ?? weightSystem[catName] ?? 1;
+        return {
+          category: catName,
+          weight: catWeight,
+          description: c.description || '',
+          items: Array.isArray(c.items)
+            ? c.items.map((it: any) => {
+                if (typeof it === 'string') {
+                  return { label: it, weight: catWeight };
+                }
+                return {
+                  label: it.label || it.name || '',
+                  weight: it.weight ?? catWeight
+                };
+              })
+            : []
+        };
+      });
+    }
+    return [];
+  }, []);
+
+  const handleToggleOption = (option: TaxonomyOption) => {
+    setSelectedItems(prev => {
+      const exists = prev.some(item => item.label === option.label);
+      const next = exists
+        ? prev.filter(item => item.label !== option.label)
+        : [...prev, { label: option.label, weight: option.weight }];
+
+      const newWeights = next.map(i => i.weight);
+      const newCalculatedTier = calculateBaseToleranceTier(newWeights);
+      if (newCalculatedTier) {
+        setBaseTolerance(newCalculatedTier);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     async function fetchProfile() {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
           .setHeader('Cache-Control', 'no-cache, no-store')
           .eq('id', session.user.id)
-          .single()
+          .single();
 
         const { data: prefData } = await supabase
           .from('intimacy_preferences')
@@ -55,12 +166,12 @@ export default function SettingsPage() {
         setProfile({
           ...profileData,
           base_tolerance: tolerance || 'Not set'
-        })
-        setPronouns(profileData?.pronouns || '')
-        setBaseTolerance(tolerance)
-        const splitMobile = splitPhone(profileData?.mobile_number)
-        setCountryCode(splitMobile.countryCode)
-        setMobileNumber(splitMobile.nationalNumber)
+        });
+        setPronouns(profileData?.pronouns || '');
+        setBaseTolerance(tolerance);
+        const splitMobile = splitPhone(profileData?.mobile_number);
+        setCountryCode(splitMobile.countryCode);
+        setMobileNumber(splitMobile.nationalNumber);
 
         // Fetch user contributions
         try {
@@ -79,79 +190,82 @@ export default function SettingsPage() {
       } else {
         setContributionsLoading(false);
       }
-      setLoading(false)
+      setLoading(false);
     }
-    fetchProfile()
-  }, [])
+    fetchProfile();
+  }, [supabase]);
 
-
-  const [pronounsSaved, setPronounsSaved] = useState(false)
-
+  // Handle Save Mobile with explicit payload, .select(), and error logging
   const handleSaveMobile = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault()
-    const { data: { session } } = await supabase.auth.getSession()
+    if (e) e.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const combined = formatE164Phone(countryCode, mobileNumber) || null
-      const alias = profile?.anonymous_alias || profile?.nickname || ''
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          anonymous_alias: alias,
-          mobile_number: combined 
-        })
-        .eq('id', session.user.id)
+      const formPhone = formatE164Phone(countryCode, mobileNumber) || (mobileNumber.trim() ? mobileNumber.trim() : null);
+      console.log("[Settings] Updating mobile_number payload:", { mobile_number: formPhone });
 
-      if (!error) {
-        setProfile((prev: any) => ({ ...prev, anonymous_alias: alias, mobile_number: combined }))
-        setMobileSaved(true)
-        setTimeout(() => setMobileSaved(false), 3000)
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ mobile_number: formPhone })
+        .eq('id', session.user.id)
+        .select();
+
+      if (error) {
+        console.error("[Settings] Database rejected mobile_number commit:", error);
+        alert('Error saving mobile number: ' + error.message);
       } else {
-        alert('Error saving mobile number: ' + error.message)
+        console.log("[Settings] Database committed mobile_number successfully:", data);
+        setProfile((prev: any) => ({ ...prev, mobile_number: formPhone }));
+        setMobileSaved(true);
+        setTimeout(() => setMobileSaved(false), 3000);
       }
     }
-  }
+  };
 
   const handleSavePronouns = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault()
-    const { data: { session } } = await supabase.auth.getSession()
+    if (e) e.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          pronouns
-        })
-        .eq('id', session.user.id)
+        .update({ pronouns })
+        .eq('id', session.user.id);
 
       if (!error) {
-        setProfile((prev: any) => ({ ...prev, pronouns }))
-        setPronounsSaved(true)
-        setTimeout(() => setPronounsSaved(false), 3000)
+        setProfile((prev: any) => ({ ...prev, pronouns }));
+        setPronounsSaved(true);
+        setTimeout(() => setPronounsSaved(false), 3000);
       } else {
-        alert('Error saving pronouns: ' + error.message)
+        alert('Error saving pronouns: ' + error.message);
       }
     }
-  }
+  };
 
   const handleSaveTolerance = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault()
-    let userId: string | null = null
-    const { data: { session } } = await supabase.auth.getSession()
+    if (e) e.preventDefault();
+    if (!baseTolerance) {
+      alert("Please select a tolerance tier before saving.");
+      return;
+    }
+
+    setSavingTolerance(true);
+    let userId: string | null = null;
+    const { data: { session } } = await supabase.auth.getSession();
     if (session?.user?.id) {
-      userId = session.user.id
+      userId = session.user.id;
     } else {
-      const { data: { user } } = await supabase.auth.getUser()
-      userId = user?.id || null
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id || null;
     }
 
     if (userId) {
-      const currentTimestamp = new Date().toISOString()
+      const currentTimestamp = new Date().toISOString();
       const { error: profileError } = await supabase.from('profiles').update({ 
         base_tolerance: baseTolerance,
         last_survey_prompted_at: currentTimestamp
-      }).eq('id', userId)
+      }).eq('id', userId);
 
       if (profileError) {
-        console.error("Error updating profile tolerance timestamp:", profileError)
+        console.error("Error updating profile tolerance timestamp:", profileError);
       }
       
       const { data: existing } = await supabase.from('intimacy_preferences')
@@ -166,109 +280,124 @@ export default function SettingsPage() {
         await supabase.from('intimacy_preferences').insert({ user_id: userId, category_tag: 'Primary Directive', preference_level: baseTolerance });
       }
 
-      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance, last_survey_prompted_at: currentTimestamp }))
-      setToleranceSaved(true)
-      setTimeout(() => setToleranceSaved(false), 3000)
+      // Also ensure Base Tolerance row is updated
+      try {
+        const { data: existingBase } = await supabase.from('intimacy_preferences')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('category_tag', 'Base Tolerance')
+          .maybeSingle();
 
-      // Execute router.refresh() after update awaits successfully
-      router.refresh()
+        if (existingBase) {
+          await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existingBase.id);
+        } else {
+          await supabase.from('intimacy_preferences').insert({ user_id: userId, category_tag: 'Base Tolerance', preference_level: baseTolerance });
+        }
+      } catch (err) {
+        console.warn("Could not upsert Base Tolerance tag:", err);
+      }
+
+      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance, last_survey_prompted_at: currentTimestamp }));
+      setToleranceSaved(true);
+      setTimeout(() => setToleranceSaved(false), 3000);
+
+      router.refresh();
     }
-  }
+    setSavingTolerance(false);
+  };
 
   // Debounced Username Availability Check
   useEffect(() => {
-    const currentName = profile?.anonymous_alias || profile?.nickname
+    const currentName = profile?.anonymous_alias || profile?.nickname;
     if (!newUsername || newUsername.trim() === '' || newUsername.trim() === currentName) {
-      setUsernameStatus('idle')
-      setSuggestions([])
-      return
+      setUsernameStatus('idle');
+      setSuggestions([]);
+      return;
     }
 
     const timer = setTimeout(async () => {
-      setUsernameStatus('checking')
+      setUsernameStatus('checking');
       try {
         const res = await fetch('/api/check-nickname', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nickname: newUsername.trim() })
-        })
-        const data = await res.json()
+        });
+        const data = await res.json();
         if (data.available) {
-          setUsernameStatus('available')
-          setSuggestions([])
+          setUsernameStatus('available');
+          setSuggestions([]);
         } else {
-          setUsernameStatus('taken')
-          setSuggestions(data.suggestions || [])
+          setUsernameStatus('taken');
+          setSuggestions(data.suggestions || []);
         }
       } catch (err) {
-        console.error(err)
-        setUsernameStatus('idle')
+        console.error(err);
+        setUsernameStatus('idle');
       }
-    }, 500)
+    }, 500);
 
-    return () => clearTimeout(timer)
-  }, [newUsername, profile])
+    return () => clearTimeout(timer);
+  }, [newUsername, profile]);
 
   const handleSaveUsername = async (e: React.MouseEvent | React.FormEvent, usernameToSave: string) => {
-    if (e) e.preventDefault()
-    if (!usernameToSave || usernameToSave.trim() === '') return
-    setSavingUsername(true)
-    const { data: { session } } = await supabase.auth.getSession()
+    if (e) e.preventDefault();
+    if (!usernameToSave || usernameToSave.trim() === '') return;
+    setSavingUsername(true);
+    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const cleanNickname = usernameToSave.trim()
-      const combined = formatE164Phone(countryCode, mobileNumber) || profile?.mobile_number || null
+      const cleanNickname = usernameToSave.trim();
+      const formPhone = formatE164Phone(countryCode, mobileNumber) || profile?.mobile_number || null;
       const { error } = await supabase
         .from('profiles')
         .update({ 
           nickname: cleanNickname, 
           anonymous_alias: cleanNickname,
-          mobile_number: combined
+          mobile_number: formPhone
         })
-        .eq('id', session.user.id)
+        .eq('id', session.user.id);
       
       if (!error) {
         setProfile((prev: any) => ({ 
           ...prev, 
           nickname: cleanNickname, 
           anonymous_alias: cleanNickname,
-          mobile_number: combined
-        }))
-        setIsEditingUsername(false)
-        setNewUsername('')
+          mobile_number: formPhone
+        }));
+        setIsEditingUsername(false);
+        setNewUsername('');
       } else {
-        alert("Error saving username: " + error.message)
+        alert("Error saving username: " + error.message);
       }
     }
-    setSavingUsername(false)
-  }
-
-  const [isRedirecting, setIsRedirecting] = useState(false)
+    setSavingUsername(false);
+  };
 
   const handleManageBilling = async () => {
     try {
-      setIsRedirecting(true)
-      const res = await fetch('/api/stripe/portal', { method: 'POST' })
-      const data = await res.json()
+      setIsRedirecting(true);
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
       
       if (data.url) {
-        window.location.href = data.url
+        window.location.href = data.url;
       } else {
-        alert("Could not generate billing portal link: " + (data.error || "Unknown error"))
-        setIsRedirecting(false)
+        alert("Could not generate billing portal link: " + (data.error || "Unknown error"));
+        setIsRedirecting(false);
       }
     } catch (err) {
-      console.error(err)
-      alert("Failed to load billing portal.")
-      setIsRedirecting(false)
+      console.error(err);
+      alert("Failed to load billing portal.");
+      setIsRedirecting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen p-8 text-zinc-500 animate-pulse">
         Loading settings...
       </div>
-    )
+    );
   }
 
   return (
@@ -277,9 +406,10 @@ export default function SettingsPage() {
         
         <header className="border-b border-zinc-800 pb-6">
           <h1 className="text-3xl font-serif font-medium text-zinc-100">Account Settings</h1>
-          <p className="text-zinc-500 mt-2">Manage your preferences and billing securely.</p>
+          <p className="text-zinc-500 mt-2">Manage your preferences, boundaries, and subscription securely.</p>
         </header>
 
+        {/* Account Status */}
         <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
           <h2 className="text-xl font-medium text-zinc-200">Account Status</h2>
           
@@ -309,14 +439,15 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-6 pt-4 border-t border-zinc-800/50">
+            {/* Nickname / Anonymous Alias */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm text-zinc-500">Nickname / Anonymous Alias</p>
                 {!isEditingUsername && (
                   <button 
                     onClick={() => {
-                      setIsEditingUsername(true)
-                      setNewUsername(profile?.anonymous_alias || profile?.nickname || '')
+                      setIsEditingUsername(true);
+                      setNewUsername(profile?.anonymous_alias || profile?.nickname || '');
                     }}
                     className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
                   >
@@ -350,8 +481,8 @@ export default function SettingsPage() {
                     </button>
                     <button
                       onClick={() => {
-                        setIsEditingUsername(false)
-                        setNewUsername('')
+                        setIsEditingUsername(false);
+                        setNewUsername('');
                       }}
                       className="text-zinc-400 hover:text-zinc-300 px-2 py-2"
                     >
@@ -389,6 +520,7 @@ export default function SettingsPage() {
               )}
             </div>
             
+            {/* Pronouns */}
             <div>
               <p className="text-sm text-zinc-500 mb-1">Pronouns</p>
               <div className="flex items-center gap-2">
@@ -404,25 +536,7 @@ export default function SettingsPage() {
               {pronounsSaved && <p className="text-green-500 text-xs mt-2 font-medium">Pronouns saved!</p>}
             </div>
 
-            <div>
-              <p className="text-sm text-zinc-500 mb-1">Base Tolerance Tier</p>
-              <div className="flex items-center gap-2">
-                <select
-                  value={baseTolerance}
-                  onChange={(e) => setBaseTolerance(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
-                >
-                  <option value="">Select a baseline</option>
-                  <option value="Sensory">Sensory</option>
-                  <option value="Playful">Playful</option>
-                  <option value="Intense">Intense</option>
-                  <option value="Extreme">Extreme</option>
-                </select>
-                <button onClick={handleSaveTolerance} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase">Save</button>
-                </div>
-                {toleranceSaved && <p className="text-green-500 text-xs mt-2 font-medium">Saved!</p>}
-            </div>
-
+            {/* Mobile Number with Explicit Payload & DB Logger */}
             <div>
               <p className="text-sm text-zinc-500 mb-1">Mobile Number (SMS)</p>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -453,6 +567,121 @@ export default function SettingsPage() {
               </div>
               {mobileSaved && <p className="text-green-500 text-xs mt-2 font-medium">Mobile number saved!</p>}
             </div>
+          </div>
+        </section>
+
+        {/* DEDICATED PROGRESSIVE BOUNDARY MATRIX SURVEY SECTION */}
+        <section id="boundary-survey" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Safety</span>
+              {baseTolerance && (
+                <span className="text-xs font-semibold text-zinc-400 bg-zinc-800/80 px-2.5 py-1 rounded-full border border-zinc-700">
+                  Current: {baseTolerance}
+                </span>
+              )}
+            </div>
+            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Boundary Matrix &amp; Tolerance Tier</h2>
+            <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
+              Calibrate your baseline comfort tier. This directly guides the intensity of your generated literature, roleplay scenarios, and intimacy games.
+            </p>
+          </div>
+
+          {/* 4 Explicit Tolerance Option Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {TIER_OPTIONS.map((t) => {
+              const isSelected = baseTolerance === t.name;
+              return (
+                <button
+                  key={t.name}
+                  type="button"
+                  onClick={() => setBaseTolerance(t.name)}
+                  className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-red-950/50 border-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)] ring-1 ring-red-500'
+                      : 'bg-zinc-950/70 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full mb-1.5">
+                    <span className="font-serif font-medium text-lg text-zinc-100">{t.name}</span>
+                    <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">{t.badge}</span>
+                  </div>
+                  <p className="text-xs text-zinc-400 font-light leading-relaxed">
+                    {t.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Progressive Checklist Helper */}
+          <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-3">
+            <p className="text-sm text-zinc-300 leading-relaxed font-light">
+              Not sure which tier fits best?{' '}
+              <button
+                type="button"
+                onClick={() => setShowChecklist(prev => !prev)}
+                className="text-red-400 hover:text-red-300 underline underline-offset-4 font-medium transition-colors"
+              >
+                {showChecklist ? "Hide checklist" : "Click the link"}
+              </button>{' '}
+              to choose specific interests and let our taxonomy matrix recommend your tier.
+            </p>
+
+            {/* Expandable Taxonomy Checklist */}
+            {showChecklist && (
+              <div className="space-y-6 pt-4 border-t border-zinc-800/60 animate-in fade-in duration-200">
+                <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
+                  Select activities or sensations you enjoy:
+                </p>
+                <div className="space-y-5 max-h-96 overflow-y-auto pr-2">
+                  {categoriesList.map((cat) => (
+                    <div key={cat.category} className="space-y-2">
+                      <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{cat.category}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {cat.items.map((item) => {
+                          const isChecked = selectedItems.some(i => i.label === item.label);
+                          return (
+                            <label
+                              key={item.label}
+                              className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-red-950/40 border-red-800/80 text-white'
+                                  : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleOption(item)}
+                                className="w-3.5 h-3.5 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
+                              />
+                              <span className="truncate">{item.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+              <span className="text-xs text-zinc-400">
+                Selected Baseline:{' '}
+                <strong className="text-zinc-200 font-medium">{baseTolerance || 'None (Please choose a tier)'}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveTolerance}
+                disabled={savingTolerance || !baseTolerance}
+                className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
+              >
+                {savingTolerance ? 'Saving...' : 'Save Boundary Preferences'}
+              </button>
+            </div>
+            {toleranceSaved && <p className="text-green-500 text-xs font-medium">Boundary preferences saved successfully!</p>}
           </div>
         </section>
 
@@ -546,6 +775,5 @@ export default function SettingsPage() {
 
       </div>
     </div>
-  )
+  );
 }
-
