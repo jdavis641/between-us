@@ -32,12 +32,35 @@ const defaultOptions = {
 };
 
 export function createClient(options?: any) {
+  const customFetch = options?.global?.fetch;
+  const wrappedFetch = (url: any, opts: any = {}) => {
+    let headers: Headers;
+    if (opts.headers instanceof Headers) {
+      headers = new Headers(opts.headers);
+    } else if (opts.headers) {
+      headers = new Headers(opts.headers);
+    } else {
+      headers = new Headers();
+    }
+    if (defaultAnonKey && defaultAnonKey !== 'placeholder-anon-key' && !headers.has('apikey')) {
+      headers.set('apikey', defaultAnonKey);
+    }
+    const finalOpts = { ...opts, headers };
+    return customFetch ? customFetch(url, finalOpts) : fetch(url, { ...finalOpts, cache: 'no-store' });
+  };
+
   const mergedOptions = {
     ...defaultOptions,
     ...options,
     global: {
       ...defaultOptions.global,
-      ...options?.global
+      ...options?.global,
+      headers: {
+        ...defaultOptions.global.headers,
+        ...options?.global?.headers,
+        ...(defaultAnonKey ? { apikey: defaultAnonKey } : {})
+      },
+      fetch: wrappedFetch
     }
   };
 

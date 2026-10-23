@@ -1,12 +1,61 @@
-export const maxDuration = 300;
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { NextResponse, after } from "next/server";
+import { createClient as createServerSupabase } from "@/utils/supabase/server";
+import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { getActiveHoliday } from "@/utils/holidayTheme";
 import { getSemanticEmbedding, cosineSimilarity, formatVectorForPg } from "@/lib/embeddings";
 import { computeAndAppendChaptersAsync } from "@/lib/async-chapters";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+
+  return createAdminSupabase(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+async function resolveUser(req: Request) {
+  const admin = getAdminClient();
+  let user: any = null;
+
+  // 1. Try Authorization header Bearer token first
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token && token !== 'undefined' && token !== 'null') {
+      try {
+        const { data: jwtData, error: jwtError } = await admin.auth.getUser(token);
+        if (jwtData?.user && !jwtError) {
+          user = jwtData.user;
+        }
+      } catch (e) {
+        console.warn('[Content Auth] admin.auth.getUser(token) failed:', e);
+      }
+    }
+  }
+
+  // 2. Try cookie-based session via createServerSupabase()
+  if (!user) {
+    try {
+      const supabase = await createServerSupabase();
+      const { data: cookieUserData, error: cookieAuthError } = await supabase.auth.getUser();
+      if (cookieUserData?.user && !cookieAuthError) {
+        user = cookieUserData.user;
+      }
+    } catch (e) {
+      console.warn('[Content Auth] Cookie-based getUser() failed:', e);
+    }
+  }
+
+  return user;
+}
 
 export class StreamingTextResponse extends Response {
   constructor(res: ReadableStream, init?: ResponseInit) {
@@ -497,30 +546,17 @@ export async function POST(req: Request) {
     const validModes = ["couple", "group"];
     const playMode = validModes.includes(body.playMode?.toLowerCase()) ? body.playMode.toLowerCase() : "couple";
     
-    // Auth Check
-    let authHeader = req.headers.get('Authorization'); 
-    let explicitToken = authHeader?.replace('Bearer ', '')?.trim();
-    if (!explicitToken || explicitToken === 'undefined' || explicitToken === 'null') {
-        return NextResponse.json({ error: 'Auth Rejected: Token explicitly missing or undefined' }, { status: 401 });
-      }
-
-    const supabase = await createClient();
-    
-    let { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if ((authError || !user) && explicitToken) {
-      const res = await supabase.auth.getUser(explicitToken);
-      user = res.data?.user || null;
-      authError = res.error;
-    }
-    
-    if (authError || !user) {
-      console.error("Supabase Auth Failed:", authError);
+    // Robust Auth Check supporting Bearer token and cookies
+    const user = await resolveUser(req);
+    if (!user) {
       return NextResponse.json(
-        { error: `Auth Rejected: ${authError?.message || 'No user found'}` }, 
+        { error: 'Auth Rejected: Session missing or expired. Please refresh your browser.' }, 
         { status: 401 }
       );
     }
+
+    const admin = getAdminClient();
+    const supabase = admin; // Every query (preferences, group, generated_content, style_references, history) uses service-role authority
 
     // Determine Group ID
     const { data: groupMember } = await supabase
@@ -948,14 +984,14 @@ export async function POST(req: Request) {
       userPrompt = `PREVIOUS STORY TEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the narrative seamlessly from the provided text. Do not summarize or repeat the previous text. Return valid JSON containing the new continuation text in the "body" and "text" fields. ${userPrompt}`;
     }
 
-    // Sub-30-second token allocation: 2500 max tokens for Chapter 1
-    const maxTokens = isLiterature ? 2500 : 8000;
+    // Sub-25-second token allocation: 1800 max tokens for Chapter 1
+    const maxTokens = isLiterature ? 1800 : 4000;
 
     let streamResult;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
-      abortController.abort(new Error("OpenRouter request timed out after 45s"));
-    }, 45000);
+      abortController.abort(new Error("OpenRouter request timed out after 35s"));
+    }, 35000);
 
     try {
       if (!process.env.OPENROUTER_API_KEY) {
@@ -987,8 +1023,8 @@ export async function POST(req: Request) {
           frequency_penalty: 0.5,
           models: [
             "sao10k/l3.1-euryale-70b",
-            "neversleep/llama-3.1-lumimaid-70b",
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+            "neversleep/llama-3.1-lumimaid-70b"
           ]
         }
       };
@@ -1107,26 +1143,7 @@ export async function POST(req: Request) {
 
             await supabase.from('generated_content').insert(payload);
 
-            // Asynchronous Progressive Generation:
-            // Trigger non-blocking background function to compute and append Chapters 2 & 3
-            if (isLiterature) {
-              computeAndAppendChaptersAsync({
-                storyId,
-                userId: user.id,
-                title: generatedContent.title || "Untitled Experience",
-                chapter1Text: generatedContent.body || generatedContent.text,
-                pacing: currentPacing,
-                pacingRule,
-                baseTolerance: effectiveTolerance || 'Moderate',
-                theme,
-                systemInstruction,
-                styleExcerpt: selectedStyleReference?.excerpt
-              }).catch((bgErr) => {
-                console.warn("[Async Chunking] Background chapter generation warning:", bgErr);
-              });
-            }
-
-            await supabase.from('activity_history').insert({
+            await admin.from('activity_history').insert({
               user_id: user.id,
               group_id: groupId || null,
               content_type: contentType,
@@ -1139,9 +1156,36 @@ export async function POST(req: Request) {
           }
 
           controller.close();
+
+          // Asynchronous Progressive Generation via Next.js after()
+          // Keeps lambda alive in background to generate Chapters 2 & 3 while user reads Chapter 1!
+          if (isLiterature && storyId && generatedContent) {
+            after(async () => {
+              try {
+                await computeAndAppendChaptersAsync({
+                  storyId,
+                  userId: user.id,
+                  title: generatedContent.title || "Untitled Experience",
+                  chapter1Text: generatedContent.body || generatedContent.text,
+                  pacing: currentPacing,
+                  pacingRule,
+                  baseTolerance: effectiveTolerance || 'Moderate',
+                  theme,
+                  systemInstruction,
+                  styleExcerpt: selectedStyleReference?.excerpt
+                });
+              } catch (bgErr) {
+                console.warn("[Async Chunking] Background chapter generation warning:", bgErr);
+              }
+            });
+          }
         } catch (streamErr) {
           console.error("Stream generation error:", streamErr);
-          controller.error(streamErr);
+          if (accumulatedText.length > 100) {
+            controller.close();
+          } else {
+            controller.error(streamErr);
+          }
         }
       }
     });

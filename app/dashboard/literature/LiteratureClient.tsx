@@ -556,7 +556,13 @@ export default function LiteratureClient() {
         } catch {
           try {
             const errText = await res.text();
-            if (errText) errorMsg = errText;
+            if (errText) {
+              if (errText.includes('<!DOCTYPE') || errText.includes('<html')) {
+                errorMsg = "The preview engine encountered a temporary network delay. Please try again.";
+              } else {
+                errorMsg = errText.slice(0, 150);
+              }
+            }
           } catch {}
         }
         if (res.status === 401) {
@@ -650,11 +656,21 @@ export default function LiteratureClient() {
         } catch {
           try {
             const errText = await res.text();
-            if (errText) errorMsg = errText;
+            if (errText) {
+              if (errText.includes('<!DOCTYPE') || errText.includes('<html')) {
+                errorMsg = "The content engine temporarily lost gateway connection. Please click Retry Generation.";
+              } else {
+                errorMsg = errText.slice(0, 150);
+              }
+            }
           } catch {}
         }
         if (res.status === 401) {
           errorMsg = "Auth Rejected: Session expired or missing.";
+        } else if (res.status === 404) {
+          errorMsg = "Generation endpoint temporarily unreachable. Please click Retry Generation.";
+        } else if (res.status === 504 || res.status === 408) {
+          errorMsg = "Generation timed out. Please click Retry Generation to load your story.";
         }
         throw new Error(errorMsg);
       }
@@ -1014,6 +1030,15 @@ export default function LiteratureClient() {
                       <span className="text-xl shrink-0">⚠️</span>
                       <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                     </div>
+                    {activeTrope && (
+                      <button
+                        onClick={() => handleGenerate()}
+                        disabled={loading}
+                        className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
+                      >
+                        {loading ? "Drafting..." : "Retry Generation"}
+                      </button>
+                    )}
                   </div>
                 )
               )}
@@ -1123,6 +1148,13 @@ export default function LiteratureClient() {
                   <span className="text-xl shrink-0">⚠️</span>
                   <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                 </div>
+                <button
+                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
+                  disabled={isContinuing}
+                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
+                >
+                  {isContinuing ? "Expanding..." : "Retry Continuation"}
+                </button>
               </div>
             )
           )}
