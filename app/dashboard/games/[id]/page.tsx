@@ -2,7 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import MovieGameGenerator from '@/components/MovieGameGenerator'
 import InteractionBar from '../../../components/InteractionBar'
-import { notFound } from 'next/navigation'
+import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0 // dynamically fetch data on every request
 
@@ -14,37 +14,48 @@ export default async function GameDetail({ params }: GameParams) {
   let game: any = null;
 
   try {
-    const resolvedParams = await params;
+    const resolvedParams = await Promise.resolve(params);
     const gameId = resolvedParams?.id;
-    if (!gameId) {
-      return (
-        <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 flex flex-col items-center justify-center">
-          <p className="text-zinc-400 text-lg mb-4">Game not found.</p>
-          <Link href="/dashboard/games" className="text-red-400 hover:text-red-300 underline">&larr; Back to Games Hub</Link>
-        </div>
-      );
+
+    if (gameId) {
+      try {
+        const supabase = await createClient()
+        const { data, error } = await supabase
+          .from('intimacy_games')
+          .select('*')
+          .eq('id', gameId)
+          .maybeSingle();
+
+        if (data && !error) {
+          game = data;
+        } else {
+          // Fallback matching by title / slug
+          const cleanSearch = String(gameId).replace(/[-_]/g, ' ');
+          const { data: byTitle } = await supabase
+            .from('intimacy_games')
+            .select('*')
+            .ilike('title', `%${cleanSearch}%`)
+            .limit(1)
+            .maybeSingle();
+          if (byTitle) game = byTitle;
+        }
+      } catch (dbErr) {
+        console.warn("GameDetail Supabase fetch error:", dbErr);
+      }
+
+      // If not found in database or error occurred, resolve from FALLBACK_GAMES catalog
+      if (!game) {
+        const normalizedId = String(gameId).toLowerCase().replace(/[-_]/g, '');
+        game = FALLBACK_GAMES.find(g => 
+          g.id === gameId || 
+          g.id.toLowerCase().replace(/[-_]/g, '') === normalizedId ||
+          g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedId ||
+          g.title.toLowerCase().includes(String(gameId).toLowerCase().replace(/[-_]/g, ' '))
+        ) || null;
+      }
     }
-
-    const supabase = await createClient()
-
-    const { data, error } = await supabase
-      .from('intimacy_games')
-      .select('*')
-      .eq('id', gameId)
-      .maybeSingle()
-
-    if (error) {
-      console.error("Error fetching game from Supabase:", error);
-    }
-    game = data;
   } catch (err) {
     console.error("GameDetail server fetch error:", err);
-    return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 flex flex-col items-center justify-center">
-        <p className="text-zinc-400 text-lg mb-4">Failed to load game. Please try again later.</p>
-        <Link href="/dashboard/games" className="text-red-400 hover:text-red-300 underline">&larr; Back to Games Hub</Link>
-      </div>
-    );
   }
 
   if (!game) {

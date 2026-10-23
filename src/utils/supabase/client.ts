@@ -7,6 +7,8 @@ declare global {
 }
 
 const defaultAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key');
+const defaultSupabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co');
+
 const defaultOptions = {
   global: {
     headers: {
@@ -21,7 +23,7 @@ const defaultOptions = {
       } else {
         headers = new Headers();
       }
-      if (defaultAnonKey && !headers.has('apikey')) {
+      if (defaultAnonKey && defaultAnonKey !== 'placeholder-anon-key' && !headers.has('apikey')) {
         headers.set('apikey', defaultAnonKey);
       }
       return fetch(url, { ...options, headers, cache: 'no-store' });
@@ -41,24 +43,24 @@ export function createClient(options?: any) {
 
   if (typeof window === 'undefined') {
     return createBrowserClient(
-      (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
-      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'),
+      defaultSupabaseUrl,
+      defaultAnonKey,
       mergedOptions
     );
   }
   
   if (options) {
     return createBrowserClient(
-      (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
-      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'),
+      defaultSupabaseUrl,
+      defaultAnonKey,
       mergedOptions
     );
   }
 
   if (!window.supabase) {
     window.supabase = createBrowserClient(
-      (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
-      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'),
+      defaultSupabaseUrl,
+      defaultAnonKey,
       mergedOptions
     );
   }

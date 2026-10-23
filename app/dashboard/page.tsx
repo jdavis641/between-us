@@ -13,6 +13,7 @@ export default function DashboardHome() {
   const [activeHoliday, setActiveHoliday] = useState<HolidayConfig | null>(() => getActiveHoliday())
   const [activeStory, setActiveStory] = useState<any>(null)
   const [baseTolerance, setBaseTolerance] = useState<string | null>(null)
+  const [isOnboardingIncomplete, setIsOnboardingIncomplete] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isGuest, setIsGuest] = useState(false)
 
@@ -28,14 +29,16 @@ export default function DashboardHome() {
       }
 
       if (activeUserId) {
-        // Fetch user profile to check base_tolerance
+        // Query user profile to verify boundary calibration and onboarding completion
         const { data: profile } = await supabase
           .from('profiles')
-          .select('base_tolerance')
+          .select('base_tolerance, onboarding_completed, nickname')
           .eq('id', activeUserId)
           .maybeSingle()
 
         setBaseTolerance(profile?.base_tolerance || null)
+        const isIncomplete = !profile?.base_tolerance || profile?.onboarding_completed !== true || !profile?.nickname;
+        setIsOnboardingIncomplete(isIncomplete);
 
         // Fetch the most recent active generated story or roleplay
         const { data } = await supabase
@@ -69,42 +72,23 @@ export default function DashboardHome() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white selection:bg-red-500/30">
-      {/* Dynamic Marquee Scrolling Banner at the absolute top of the page if base_tolerance is null */}
-      {!loading && !baseTolerance && (
-        <div className="w-full bg-gradient-to-r from-amber-950/90 via-red-950/90 to-amber-950/90 border-b border-amber-500/40 text-amber-200 py-3 px-4 overflow-hidden relative shadow-md">
-          <Link href="/dashboard/settings#boundary-survey" className="block hover:text-white transition-colors group">
-            <div className="flex whitespace-nowrap overflow-hidden">
-              <div className="inline-flex items-center gap-16 animate-marquee whitespace-nowrap font-medium text-sm">
-                <span className="flex items-center gap-2">
-                  <span>⚠️</span>
-                  <span>Visit Settings to complete your onboarding survey and curate your customized experience.</span>
-                  <span className="underline font-bold text-amber-300 group-hover:text-amber-200 ml-1">Go to Settings &rarr;</span>
-                </span>
-                <span className="flex items-center gap-2" aria-hidden="true">
-                  <span>⚠️</span>
-                  <span>Visit Settings to complete your onboarding survey and curate your customized experience.</span>
-                  <span className="underline font-bold text-amber-300 group-hover:text-amber-200 ml-1">Go to Settings &rarr;</span>
-                </span>
-                <span className="flex items-center gap-2" aria-hidden="true">
-                  <span>⚠️</span>
-                  <span>Visit Settings to complete your onboarding survey and curate your customized experience.</span>
-                  <span className="underline font-bold text-amber-300 group-hover:text-amber-200 ml-1">Go to Settings &rarr;</span>
-                </span>
-              </div>
+      {/* Prominent Dashboard Onboarding Completion Banner */}
+      {!loading && isOnboardingIncomplete && (
+        <div className="w-full bg-gradient-to-r from-rose-950 via-zinc-900 to-rose-950 border-b border-rose-500/40 py-4 px-6 shadow-2xl relative z-20">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl shrink-0">✨</span>
+              <p className="text-sm sm:text-base font-medium text-zinc-100 leading-relaxed">
+                Welcome! Please visit the <Link href="/dashboard/settings" className="text-rose-400 hover:text-rose-300 font-bold underline underline-offset-4 transition-colors">settings menu</Link> to complete your onboarding and customize your boundaries.
+              </p>
             </div>
-          </Link>
-          <style jsx>{`
-            @keyframes marquee {
-              0% { transform: translateX(0%); }
-              100% { transform: translateX(-50%); }
-            }
-            .animate-marquee {
-              animation: marquee 25s linear infinite;
-            }
-            .animate-marquee:hover {
-              animation-play-state: paused;
-            }
-          `}</style>
+            <Link 
+              href="/dashboard/settings" 
+              className="shrink-0 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition-colors w-fit"
+            >
+              Settings &rarr;
+            </Link>
+          </div>
         </div>
       )}
 
@@ -158,85 +142,116 @@ export default function DashboardHome() {
                           <span className="text-xs text-gray-400 font-medium">• {activeHoliday.name}</span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                          Holiday Spotlight: {activeHoliday.name}
+                          {activeHoliday.title}
                         </h3>
-                        <p className="text-gray-300 text-sm mt-1 max-w-xl">
+                        <p className="text-sm text-gray-300 mt-1">
                           Explore seasonal intimacy games containing the {activeHoliday.seasonal_tag} theme.
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end md:self-center font-bold text-sm" style={{ color: activeHoliday.textHex }}>
-                      <span>Browse Collection</span>
-                      <span className="text-2xl transition-transform group-hover:translate-x-1">→</span>
+                    <div className="hidden md:flex items-center space-x-2 text-white font-medium text-sm group-hover:translate-x-1 transition-transform">
+                      <span>Explore</span>
+                      <span>&rarr;</span>
                     </div>
                   </div>
                 </Link>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Randomizer Games Hub Link */}
-              <Link href="/dashboard/randomizer">
-                <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-emerald-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                  <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                    <span className="text-4xl">🎲</span>
-                  </div>
+              {/* Erotic Literature Card */}
+              <Link href="/dashboard/literature">
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Randomizer Games</h3>
-                    <p className="text-gray-400 text-sm">Instant zero-wait prompts: The Original Randomizer, Truth or Dare, and Never Have I Ever.</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Erotic Literature</h3>
+                      <span className="text-2xl">📖</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">Immersive romantic stories crafted strictly within your shared boundaries.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Generate Story &rarr;
                   </div>
                 </div>
               </Link>
 
-              {/* Card Games Hub Link */}
-              <Link href="/dashboard/games">
-                <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-yellow-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                  <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                    <span className="text-4xl">✨</span>
-                  </div>
+              {/* Role-Play Scenarios Card */}
+              <Link href="/dashboard/roleplay">
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Card Games</h3>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Role-Play Scripts</h3>
+                      <span className="text-2xl">🎭</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">Perspective-based dialogue and step-by-step actions for tonight.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Build Scenario &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* Intimacy Games Card */}
+              <Link href="/dashboard/games">
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Intimacy Games</h3>
+                      <span className="text-2xl">🎲</span>
+                    </div>
                     <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
                   </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Play Tonight &rarr;
+                  </div>
                 </div>
               </Link>
 
-              {/* Erotic Stories Hub Link */}
-              <Link href="/dashboard/literature">
-                <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-purple-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                  <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                    <span className="text-4xl">📖</span>
-                  </div>
+              {/* Relationship Randomizer Card */}
+              <Link href="/dashboard/randomizer">
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Erotic Stories</h3>
-                    <p className="text-gray-400 text-sm">Generate immersive, serialized romantic fiction tailored to your shared desires.</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">The Randomizer</h3>
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">Quick, spontaneous prompts: Truth or Dare, Intimacy Dice, and quick conversation sparks.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Roll Randomizer &rarr;
                   </div>
                 </div>
               </Link>
 
-              {/* Role Play Hub Link */}
-              <Link href="/dashboard/roleplay">
-                <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-red-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                  <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                    <span className="text-4xl">🎭</span>
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Role Play</h3>
-                    <p className="text-gray-400 text-sm">Explore scenarios for couple or group play.</p>
-                  </div>
-                </div>
-              </Link>
-
-              {/* Your Favorites Hub Link */}
+              {/* Favorites Hub Card */}
               <Link href="/dashboard/favorites">
-                <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 hover:bg-gray-750 hover:border-rose-500 transition-all cursor-pointer group flex flex-col items-center text-center space-y-4 h-full">
-                  <div className="bg-gray-900 p-4 rounded-full group-hover:scale-110 transition-transform">
-                    <span className="text-4xl">❤️</span>
-                  </div>
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Your Favorites</h3>
-                    <p className="text-gray-400 text-sm">Quickly revisit and replay your saved scenarios, stories, and preferred intimacy experiences.</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Saved Favorites</h3>
+                      <span className="text-2xl">❤️</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">Quickly revisit and replay your top-rated stories and intimacy scenarios.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    View Favorites &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* Settings / Tolerance Management Card */}
+              <Link href="/dashboard/settings">
+                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Settings & Boundaries</h3>
+                      <span className="text-2xl">🛡️</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">Adjust your base tolerance tier, review hard limits, or update your password.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Manage Limits &rarr;
                   </div>
                 </div>
               </Link>
@@ -244,59 +259,33 @@ export default function DashboardHome() {
             </div>
           </section>
 
-          {/* Account Actions */}
-          <section>
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Account Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Link href="/dashboard/pass">
-                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-pink-500 transition-all cursor-pointer group flex items-center space-x-4">
-                  <span className="text-3xl">🎟️</span>
-                  <div>
-                    <h3 className={`text-lg font-bold ${isGuest ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-                      {isGuest ? 'View Shared Between Us Pass' : 'Between Us Guest Pass'}
-                    </h3>
-                    <p className="text-gray-400 text-sm">
-                      {isGuest ? 'Click to see your partner\'s boundaries and instructions.' : 'Generate a temporary hookup pass.'}
-                    </p>
-                  </div>
+          {/* Active / Continue Story Section */}
+          {activeStory && (
+            <section className="bg-gray-800/30 border border-gray-700/40 rounded-xl p-6">
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Resume Where You Left Off</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-lg font-semibold text-white">{activeStory.title}</h4>
+                  <span className="text-xs text-gray-400 uppercase tracking-wider">{activeStory.content_type}</span>
                 </div>
-              </Link>
-
-              <Link href="/dashboard/partnerinvite">
-                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-blue-500 transition-all cursor-pointer group flex items-center space-x-4">
-                  <span className="text-3xl">🤝</span>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Invite Partner</h3>
-                    <p className="text-gray-400 text-sm">Connect by querying a username (anonymous alias).</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </section>
-
-          {/* AI Kink Override */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Custom Boundaries</h2>
-            </div>
-            <Link href="/dashboard/kinks" className="block">
-              <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-red-500/50 transition-all cursor-pointer group flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <span className="text-3xl">🔥</span>
-                  <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-red-400 transition-colors">Custom Kinks</h3>
-                    <p className="text-gray-400 text-sm">Define explicit desires that manually override AI boundaries.</p>
-                  </div>
-                </div>
-                <span className="text-2xl text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-all">→</span>
+                <Link
+                  href={`/dashboard/${activeStory.content_type}`}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Continue &rarr;
+                </Link>
               </div>
-            </Link>
+            </section>
+          )}
+
+          {/* Account & Profile Overview Section */}
+          <section className="pt-6 border-t border-gray-800 flex justify-between items-center text-sm text-gray-400">
+            <div>
+              Signed in as <span className="text-white font-medium">{isGuest ? 'Guest Partner' : 'Account Owner'}</span>
+            </div>
+            <LogoutButton />
           </section>
 
-          {/* Mobile Logout */}
-          <section className="pt-8 pb-12 md:hidden">
-            <LogoutButton className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-red-500 font-bold tracking-wide hover:bg-zinc-800 transition-colors" />
-          </section>
         </div>
       </div>
     </div>

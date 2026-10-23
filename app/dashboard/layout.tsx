@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Sidebar from "./Sidebar";
-import TolerancePromptManager from "../components/TolerancePromptManager";
 import TourModal from "./components/TourModal";
 import { Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
@@ -23,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     async function checkProfileOnMount() {
       try {
         let authUser: any = null;
-        // Absolute server-side session validation rather than stale client-side cache to prevent incognito looping
+        // Server-side session validation
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (user && !userError) {
           authUser = user;
@@ -38,52 +37,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           router.replace('/login');
           return;
         }
-
-        // Live un-cached profile fetch explicitly checking onboarding_completed column
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_active, nickname, literature_prompt_status, onboarding_completed')
-          .setHeader('Cache-Control', 'no-cache, no-store')
-          .setHeader('Pragma', 'no-cache')
-          .eq('id', authUser.id)
-          .maybeSingle();
-
-        if (profile) {
-          let isActive = Boolean(profile.is_active);
-          let isOnboardingCompleted = Boolean(profile.onboarding_completed === true);
-          let isNicknameMissing = !profile.nickname || profile.nickname.trim().length === 0;
-          let isPromptPending = !profile.literature_prompt_status || profile.literature_prompt_status === 'pending';
-
-          // User belongs in dashboard if onboarding_completed is true, or fallback to completed prompt & nickname
-          let isComplete = isOnboardingCompleted || (!isNicknameMissing && !isPromptPending);
-
-          // If evaluation indicates pending or incomplete, perform an instantaneous un-cached verification
-          // to bypass stale Next.js cache and eliminate race conditions when navigating from onboarding
-          if (isActive && !isComplete) {
-            const { data: freshProfile } = await supabase
-              .from('profiles')
-              .select('is_active, nickname, literature_prompt_status, onboarding_completed')
-              .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-              .setHeader('Pragma', 'no-cache')
-              .eq('id', authUser.id)
-              .maybeSingle();
-
-            if (freshProfile) {
-              isActive = Boolean(freshProfile.is_active);
-              const freshOnboardingCompleted = Boolean(freshProfile.onboarding_completed === true);
-              const freshNicknameMissing = !freshProfile.nickname || freshProfile.nickname.trim().length === 0;
-              const freshPromptPending = !freshProfile.literature_prompt_status || freshProfile.literature_prompt_status === 'pending';
-              isComplete = freshOnboardingCompleted || (!freshNicknameMissing && !freshPromptPending);
-            }
-          }
-
-          if (isActive && !isComplete) {
-            router.replace('/onboarding');
-            return;
-          }
-        }
       } catch (err: any) {
-        console.error("Error verifying profile onboarding status:", err);
+        console.error("Error verifying profile authentication:", err);
       } finally {
         setIsOnboardingVerified(true);
       }
@@ -122,7 +77,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 overflow-x-hidden flex flex-col relative w-full">
         {children}
       </div>
-      <TolerancePromptManager />
       <Suspense fallback={null}>
         <TourModal />
       </Suspense>

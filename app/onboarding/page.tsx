@@ -4,6 +4,7 @@ import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 const supabase = createClient({
   global: {
@@ -261,7 +262,10 @@ function OnboardingContent() {
       <div className="max-w-xl w-full">
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm animate-in fade-in duration-300">
           <div className="mb-8">
-            <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Quick Setup</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Quick Setup</span>
+              <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-300 underline underline-offset-4 transition-colors">Skip to Dashboard &rarr;</Link>
+            </div>
             <h1 className="text-3xl font-serif font-medium text-zinc-100 mt-1">Choose Your Anonymous Alias</h1>
             <p className="text-zinc-400 mt-2 text-sm leading-relaxed font-light">
               Your alias keeps your identity private on Between Us. You can curate your boundary preferences and tolerance tier anytime inside Account Settings.

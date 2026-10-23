@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import GameList from '@/components/GameList'
+import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0
 
@@ -15,55 +16,77 @@ export default async function GamesHub({
   const seasonalTag = params?.seasonal_tag || params?.tag;
   const supabase = await createClient()
 
-  // Fetch authenticated user
-  const { data: { user } } = await supabase.auth.getUser()
-
   let userBaseTolerance: string | null = null
 
-  if (user) {
-    // Fetch base_tolerance from intimacy_preferences table
-    const { data: preferences } = await supabase
-      .from('intimacy_preferences')
-      .select('*')
-      .eq('user_id', user.id)
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const prefRow = preferences?.find((p: any) => 
-      p.category_tag === 'Primary Directive' || 
-      p.category_tag === 'Base Tolerance' ||
-      p.category_tag === 'base_tolerance'
-    )
-    userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null
+    if (user) {
+      const { data: preferences } = await supabase
+        .from('intimacy_preferences')
+        .select('*')
+        .eq('user_id', user.id)
 
-    if (!userBaseTolerance) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('base_tolerance')
-        .eq('id', user.id)
-        .maybeSingle()
-      userBaseTolerance = profile?.base_tolerance || null
+      const prefRow = preferences?.find((p: any) => 
+        p.category_tag === 'Primary Directive' || 
+        p.category_tag === 'Base Tolerance' ||
+        p.category_tag === 'base_tolerance'
+      )
+      userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null
+
+      if (!userBaseTolerance) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('base_tolerance')
+          .eq('id', user.id)
+          .maybeSingle()
+        userBaseTolerance = profile?.base_tolerance || null
+      }
     }
+  } catch (authErr) {
+    console.warn("User auth verification in GamesHub:", authErr);
   }
 
-  const { data: games, error } = await supabase.from('intimacy_games').select('*')
-  if (error) console.error("Error fetching games:", error)
+  let dbGames: any[] | null = null;
+  try {
+    const { data, error } = await supabase.from('intimacy_games').select('*');
+    if (!error && data && data.length > 0) {
+      dbGames = data;
+    } else if (error) {
+      console.warn("GamesHub database fetch warning:", error.message || error);
+    }
+  } catch (fetchErr) {
+    console.warn("GamesHub database exception:", fetchErr);
+  }
 
-  // Strictly filter games where intensity matches the user's base_tolerance
+  // Use database games if available, otherwise seamlessly use fallback matrix catalog
+  const games: Game[] = (dbGames && dbGames.length > 0) ? dbGames : (FALLBACK_GAMES as any[]);
+
+  // Filter games matching user's base_tolerance
   let filteredGames = userBaseTolerance
     ? (games || []).filter((g: Game) => 
         g.intensity === userBaseTolerance || 
         g.intensity?.toLowerCase() === userBaseTolerance.toLowerCase()
       )
-    : (games || [])
+    : (games || []);
+
+  // If strict filter leaves 0 games, show all available games so user is never stranded
+  if (filteredGames.length === 0 && games.length > 0) {
+    filteredGames = games;
+  }
 
   // Filter for matching seasonal_tag if requested
   if (seasonalTag) {
-    filteredGames = filteredGames.filter((g: any) => 
+    const seasonalFiltered = filteredGames.filter((g: any) => 
       g.seasonal_tag === seasonalTag || 
       g.content?.seasonal_tag === seasonalTag ||
       (Array.isArray(g.content?.tags) && g.content.tags.includes(seasonalTag)) ||
       (typeof g.content?.tags === 'string' && g.content.tags.includes(seasonalTag)) ||
       (g.title && g.title.toLowerCase().includes(seasonalTag.toLowerCase()))
     );
+    if (seasonalFiltered.length > 0) {
+      filteredGames = seasonalFiltered;
+    }
   }
 
   const cardGames = filteredGames.filter((g: Game) => g.category === 'card' || g.category === 'Card Games')
@@ -109,22 +132,6 @@ export default async function GamesHub({
             <Link href="/dashboard/games" className="text-xs text-zinc-400 hover:text-white underline">
               Clear filter
             </Link>
-          </div>
-        )}
-        
-        {error && (
-          <div className="p-4 bg-red-950 border border-red-500 text-red-500 rounded-lg mb-6">
-            Database Error: {error.message} (Code: {error.code})
-          </div>
-        )}
-        
-        {!error && filteredGames.length === 0 && (
-          <div className="p-4 bg-yellow-950 border border-yellow-500 text-yellow-500 rounded-lg mb-6">
-            {seasonalTag
-              ? `No games found matching the seasonal tag "${seasonalTag}" under your current tolerance level.`
-              : userBaseTolerance 
-                ? `No games found matching your current tolerance level (${userBaseTolerance}).`
-                : 'Connection successful, but 0 games found. Seed required.'}
           </div>
         )}
 

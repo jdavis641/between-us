@@ -290,8 +290,6 @@ export async function POST(req: Request) {
       });
     } else if (effectivePassToken) {
       destination = '/dashboard';
-    } else if (!isProfileComplete) {
-      destination = '/onboarding';
     } else {
       destination = '/dashboard';
     }

@@ -4,7 +4,7 @@ import { createClient } from '../../../src/utils/supabase/server'
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/onboarding'
+  const next = requestUrl.searchParams.get('next') ?? '/dashboard'
   
   if (code) {
     const supabase = await createClient()
@@ -67,9 +67,6 @@ export async function GET(request: Request) {
         .maybeSingle()
         
       if (profile?.is_active) {
-        if (!profile.nickname) {
-          return NextResponse.redirect(`${requestUrl.origin}/onboarding`)
-        }
         return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
       } else {
         // Drop unpaid users into signup to pay
@@ -81,4 +78,3 @@ export async function GET(request: Request) {
   // Fallback redirect
   return NextResponse.redirect(`${requestUrl.origin}/login?error=auth-failed`)
 }
-
