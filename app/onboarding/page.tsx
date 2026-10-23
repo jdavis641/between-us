@@ -78,11 +78,31 @@ function OnboardingContent() {
 
       if (activeUser) {
         setSession(currentSession);
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', activeUser.id)
-          .maybeSingle();
+
+        let data: any = null;
+        try {
+          const res = await fetch('/api/profile', {
+            headers: currentSession?.access_token ? {
+              'Authorization': `Bearer ${currentSession.access_token}`
+            } : {},
+            cache: 'no-store'
+          });
+          if (res.ok) {
+            const json = await res.json();
+            data = json.profile;
+          }
+        } catch (e) {
+          console.warn('[Onboarding] Failed to fetch profile from /api/profile:', e);
+        }
+
+        if (!data) {
+          const { data: dbData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', activeUser.id)
+            .maybeSingle();
+          data = dbData;
+        }
 
         setProfile(data);
 
@@ -194,21 +214,27 @@ function OnboardingContent() {
 
       const formattedPhone = formatE164Phone(countryCode, mobileNumber) || null;
 
-      // Persist profile identity: nickname, anonymous_alias, optional mobile_number, and mark onboarding completed
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
+      // Persist profile identity via /api/profile service role pipeline
+      const sessionToken = session?.access_token;
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {})
+        },
+        body: JSON.stringify({
           nickname: cleanUsername,
           anonymous_alias: cleanUsername,
           mobile_number: formattedPhone,
           onboarding_completed: true,
           literature_prompt_status: 'completed'
         })
-        .eq('id', activeUserId);
+      });
 
-      if (updateError) {
-        console.error("Error saving minimal onboarding profile:", updateError);
-        setError("Could not save your profile. " + updateError.message);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Error saving minimal onboarding profile via /api/profile:", errorData);
+        setError("Could not save your profile. " + (errorData.error || 'Server error'));
         setIsSubmitting(false);
         return;
       }

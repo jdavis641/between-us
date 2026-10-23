@@ -75,6 +75,7 @@ export default function SettingsPage() {
   const [countryCode, setCountryCode] = useState("+1");
   const [mobileNumber, setMobileNumber] = useState("");
   const [mobileSaved, setMobileSaved] = useState(false);
+  const [savingMobile, setSavingMobile] = useState(false);
 
   // Tolerance & Boundary Survey State
   const [baseTolerance, setBaseTolerance] = useState("");
@@ -147,12 +148,31 @@ export default function SettingsPage() {
     async function fetchProfile() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .setHeader('Cache-Control', 'no-cache, no-store')
-          .eq('id', session.user.id)
-          .single();
+        let profileData: any = null;
+        try {
+          const res = await fetch('/api/profile', {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            cache: 'no-store'
+          });
+          if (res.ok) {
+            const json = await res.json();
+            profileData = json.profile;
+          }
+        } catch (e) {
+          console.warn('[Settings] Failed to fetch profile from /api/profile, falling back:', e);
+        }
+
+        if (!profileData) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .setHeader('Cache-Control', 'no-cache, no-store')
+            .eq('id', session.user.id)
+            .single();
+          profileData = data;
+        }
 
         const { data: prefData } = await supabase
           .from('intimacy_preferences')
@@ -195,29 +215,49 @@ export default function SettingsPage() {
     fetchProfile();
   }, [supabase]);
 
-  // Handle Save Mobile with explicit payload, .select(), and error logging
+  // Handle Save Mobile with explicit payload through /api/profile service role pipeline
   const handleSaveMobile = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      const formPhone = formatE164Phone(countryCode, mobileNumber) || (mobileNumber.trim() ? mobileNumber.trim() : null);
-      console.log("[Settings] Updating mobile_number payload:", { mobile_number: formPhone });
+    if (!session?.user?.id) {
+      alert('Please log in to save settings.');
+      return;
+    }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ mobile_number: formPhone })
-        .eq('id', session.user.id)
-        .select();
+    setSavingMobile(true);
+    const formPhone = formatE164Phone(countryCode, mobileNumber) || (mobileNumber.trim() ? mobileNumber.trim() : null);
+    console.log("[Settings] Updating mobile_number payload via /api/profile:", { mobile_number: formPhone });
 
-      if (error) {
-        console.error("[Settings] Database rejected mobile_number commit:", error);
-        alert('Error saving mobile number: ' + error.message);
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ mobile_number: formPhone })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("[Settings] API rejected mobile_number commit:", data);
+        alert('Error saving mobile number: ' + (data.error || 'Server error'));
       } else {
-        console.log("[Settings] Database committed mobile_number successfully:", data);
-        setProfile((prev: any) => ({ ...prev, mobile_number: formPhone }));
+        console.log("[Settings] API committed mobile_number successfully:", data);
+        const committedNumber = data.profile?.mobile_number ?? formPhone;
+        setProfile((prev: any) => ({ ...prev, mobile_number: committedNumber }));
+        const split = splitPhone(committedNumber);
+        setCountryCode(split.countryCode);
+        setMobileNumber(split.nationalNumber);
         setMobileSaved(true);
         setTimeout(() => setMobileSaved(false), 3000);
       }
+    } catch (err: any) {
+      console.error("[Settings] Network exception saving mobile_number:", err);
+      alert('Error saving mobile number: ' + (err.message || 'Network error'));
+    } finally {
+      setSavingMobile(false);
     }
   };
 
@@ -225,17 +265,26 @@ export default function SettingsPage() {
     if (e) e.preventDefault();
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ pronouns })
-        .eq('id', session.user.id);
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ pronouns })
+        });
 
-      if (!error) {
-        setProfile((prev: any) => ({ ...prev, pronouns }));
-        setPronounsSaved(true);
-        setTimeout(() => setPronounsSaved(false), 3000);
-      } else {
-        alert('Error saving pronouns: ' + error.message);
+        const data = await res.json();
+        if (res.ok) {
+          setProfile((prev: any) => ({ ...prev, pronouns, ...(data.profile || {}) }));
+          setPronounsSaved(true);
+          setTimeout(() => setPronounsSaved(false), 3000);
+        } else {
+          alert('Error saving pronouns: ' + (data.error || 'Server error'));
+        }
+      } catch (err: any) {
+        alert('Error saving pronouns: ' + (err.message || 'Network error'));
       }
     }
   };
@@ -259,13 +308,20 @@ export default function SettingsPage() {
 
     if (userId) {
       const currentTimestamp = new Date().toISOString();
-      const { error: profileError } = await supabase.from('profiles').update({ 
-        base_tolerance: baseTolerance,
-        last_survey_prompted_at: currentTimestamp
-      }).eq('id', userId);
-
-      if (profileError) {
-        console.error("Error updating profile tolerance timestamp:", profileError);
+      try {
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+          },
+          body: JSON.stringify({ 
+            base_tolerance: baseTolerance,
+            last_survey_prompted_at: currentTimestamp
+          })
+        });
+      } catch (err) {
+        console.error("Error updating profile tolerance via API:", err);
       }
       
       const { data: existing } = await supabase.from('intimacy_preferences')
@@ -347,27 +403,35 @@ export default function SettingsPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const cleanNickname = usernameToSave.trim();
-      const formPhone = mobileNumber.trim() ? formatE164Phone(countryCode, mobileNumber) : (profile?.mobile_number || null);
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          nickname: cleanNickname, 
-          anonymous_alias: cleanNickname,
-          mobile_number: formPhone
-        })
-        .eq('id', session.user.id);
-      
-      if (!error) {
-        setProfile((prev: any) => ({ 
-          ...prev, 
-          nickname: cleanNickname, 
-          anonymous_alias: cleanNickname,
-          mobile_number: formPhone
-        }));
-        setIsEditingUsername(false);
-        setNewUsername('');
-      } else {
-        alert("Error saving username: " + error.message);
+
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ 
+            nickname: cleanNickname, 
+            anonymous_alias: cleanNickname
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          setProfile((prev: any) => ({ 
+            ...prev, 
+            nickname: cleanNickname, 
+            anonymous_alias: cleanNickname,
+            ...(data.profile || {})
+          }));
+          setIsEditingUsername(false);
+          setNewUsername('');
+        } else {
+          alert("Error saving username: " + (data.error || 'Server error'));
+        }
+      } catch (err: any) {
+        alert("Error saving username: " + (err.message || 'Network error'));
       }
     }
     setSavingUsername(false);
@@ -560,9 +624,10 @@ export default function SettingsPage() {
                 />
                 <button 
                   onClick={handleSaveMobile} 
-                  className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors"
+                  disabled={savingMobile}
+                  className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors disabled:opacity-50"
                 >
-                  Save
+                  {savingMobile ? 'Saving...' : 'Save'}
                 </button>
               </div>
               {mobileSaved && <p className="text-green-500 text-xs mt-2 font-medium">Mobile number saved!</p>}
