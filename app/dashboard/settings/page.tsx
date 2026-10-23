@@ -199,7 +199,7 @@ export default function SettingsPage() {
   const handleSaveMobile = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
+    if (session?.user?.id) {
       const formPhone = formatE164Phone(countryCode, mobileNumber) || (mobileNumber.trim() ? mobileNumber.trim() : null);
       console.log("[Settings] Updating mobile_number payload:", { mobile_number: formPhone });
 
@@ -347,7 +347,7 @@ export default function SettingsPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const cleanNickname = usernameToSave.trim();
-      const formPhone = formatE164Phone(countryCode, mobileNumber) || profile?.mobile_number || null;
+      const formPhone = mobileNumber.trim() ? formatE164Phone(countryCode, mobileNumber) : (profile?.mobile_number || null);
       const { error } = await supabase
         .from('profiles')
         .update({ 

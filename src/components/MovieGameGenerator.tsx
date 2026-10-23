@@ -15,12 +15,16 @@ export default function MovieGameGenerator({ gameTitle }: { gameTitle: string })
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const token = session?.access_token;
+      const reqHeaders = {
+        "Content-Type": "application/json",
+        ...(anonKey ? { "apikey": anonKey } : {}),
+        ...(token ? { "Authorization": `Bearer ${token}` } : (anonKey ? { "Authorization": `Bearer ${anonKey}` } : {}))
+      };
       const res = await fetch("/api/generate/content", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`
-        },
+        headers: reqHeaders,
         body: JSON.stringify({
           contentType: "roleplay",
           playMode: "couple",

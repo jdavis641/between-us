@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
 import ErrorBoundary, { safeMarkdownString } from '@/components/ErrorBoundary'
+import { exportStoryToPdf } from "@/utils/pdfExport"
 
 const supabase = createClient()
 
@@ -205,16 +206,7 @@ export default function ExperienceReader({ params }: { params: any }) {
       }
     }
 
-    const blob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const safeTitle = title.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
-    link.href = url;
-    link.download = `${safeTitle || 'story'}.md`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportStoryToPdf(title, fileContent, experience.content_type ? experience.content_type.toUpperCase() : 'STORY');
   };
 
   const handleShareStory = async (e?: React.FormEvent) => {

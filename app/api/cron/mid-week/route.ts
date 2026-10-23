@@ -6,10 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
 // Use service role for cron jobs to bypass RLS and query all active groups
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co', process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder');
 
 export async function GET(request: Request) {
   try {

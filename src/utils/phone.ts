@@ -29,9 +29,13 @@ export const COUNTRY_CODES: CountryCodeOption[] = [
  * Combines a country code and raw national mobile digits into an E.164 string (e.g. +13313731030).
  */
 export function formatE164Phone(countryCode: string, rawNumber: string): string {
-  const digits = rawNumber.replace(/\D/g, '');
+  let digits = (rawNumber || '').replace(/\D/g, '');
   if (!digits) return '';
   const cleanCode = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+  const codeDigits = cleanCode.replace(/\D/g, '');
+  if (digits.startsWith(codeDigits)) {
+    digits = digits.slice(codeDigits.length);
+  }
   return `${cleanCode}${digits}`;
 }
 

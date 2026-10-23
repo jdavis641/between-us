@@ -59,7 +59,8 @@ function buildSystemInstruction({
   storyLength,
   activeTrope,
   theme,
-  styleReference
+  styleReference,
+  userCustomKinks = []
 }: {
   preferences: any[];
   playMode: string;
@@ -75,6 +76,7 @@ function buildSystemInstruction({
   activeTrope?: any;
   theme?: string;
   styleReference?: { title?: string; excerpt: string };
+  userCustomKinks?: string[];
 }) {
   const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
@@ -229,6 +231,12 @@ Theme Prioritization: If theme suggestions are provided, they are explicitly tag
       })
       .join("\n- ");
     sys += `COMMUNITY SCENARIO INSPIRATIONS (Active Pool: Approved & >= 4.0 Stars or New):\n- ${communitySample}\n\n`;
+  }
+
+  // INJECT USER SAVED KINKS AS METATAGS INTO OPENROUTER SYSTEM PROMPT
+  if (userCustomKinks && userCustomKinks.length > 0) {
+    const formattedKinkMetatags = userCustomKinks.map((k: string) => `<kink>${k}</kink>`).join('\n');
+    sys += `USER SAVED KINK PREFERENCES (METATAGS):\n<metatags>\n${formattedKinkMetatags}\n</metatags>\nDIRECTIVE FOR KINK PREFERENCE INTEGRATION:\nSubtly and organically weave the preferences, dynamics, and sensations from the user's saved kink metatags above into the narrative progression, romantic tension, and character dynamics. Do not force them crudely; incorporate them as natural expressions of the characters' intimate desires while strictly honoring all boundaries.\n\n`;
   }
 
   if (contentType === "literature") {
@@ -900,7 +908,8 @@ export async function POST(req: Request) {
       storyLength,
       activeTrope,
       theme,
-      styleReference: selectedStyleReference || undefined
+      styleReference: selectedStyleReference || undefined,
+      userCustomKinks
     });
 
     let pacingRule = '';

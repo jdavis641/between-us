@@ -30,7 +30,6 @@ function RandomizerHubContent() {
 
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [rollCount, setRollCount] = useState(0);
 
   // Interactive reaction counters for Never Have I Ever
@@ -97,17 +96,6 @@ function RandomizerHubContent() {
   useEffect(() => {
     rollGamePrompt(activeGame, activeTier);
   }, []);
-
-  const handleCopy = async () => {
-    if (!currentPrompt) return;
-    try {
-      await navigator.clipboard.writeText(currentPrompt);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy to clipboard', err);
-    }
-  };
 
   const handleNhieReaction = (type: 'have' | 'never') => {
     setNhieCounts((prev) => ({
@@ -346,7 +334,9 @@ function RandomizerHubContent() {
 
         {/* Prominent Styled Game Card */}
         <div
-          className={`relative bg-zinc-900 border rounded-2xl p-8 md:p-12 mb-8 shadow-2xl transition-all duration-300 flex flex-col justify-between min-h-[280px] md:min-h-[300px] ${
+          onCopy={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+          className={`select-none relative bg-zinc-900 border rounded-2xl p-8 md:p-12 mb-8 shadow-2xl transition-all duration-300 flex flex-col justify-between min-h-[280px] md:min-h-[300px] ${
             activeTier === 'sensory'
               ? 'border-emerald-900/60 shadow-[0_0_30px_rgba(16,185,129,0.06)]'
               : activeTier === 'playful'
@@ -387,24 +377,21 @@ function RandomizerHubContent() {
               )}
             </div>
 
-            <button
-              onClick={handleCopy}
-              className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 bg-zinc-800/60 hover:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700/50 transition-colors cursor-pointer"
-              title="Copy to clipboard"
-            >
-              <span>{copied ? '✓' : '📋'}</span>
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
+            
           </div>
 
           {/* Card Main Prompt Text */}
-          <div className="my-auto py-4">
+          <div
+            className="my-auto py-4 select-none"
+            onCopy={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             <div
               className={`transition-all duration-150 transform ${
                 isAnimating ? 'opacity-0 scale-98 translate-y-1' : 'opacity-100 scale-100 translate-y-0'
               }`}
             >
-              <p className="text-xl md:text-2xl font-serif text-zinc-100 leading-relaxed font-normal tracking-wide">
+              <p className="text-xl md:text-2xl font-serif text-zinc-100 leading-relaxed font-normal tracking-wide select-none">
                 "{currentPrompt}"
               </p>
             </div>

@@ -6,6 +6,7 @@ import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "@/components/FlameLoader";
 import ReactMarkdown from "react-markdown";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
+import { exportStoryToPdf } from "@/utils/pdfExport";
 
 type ReaderMode = "partner-a" | "partner-b";
 
@@ -17,11 +18,94 @@ interface LiteraturePayload {
   partnerBPerspective?: string;
 }
 
-interface StoryPreview {
+export interface StoryPreview {
   id: string;
   title: string;
   trope: string;
   premise: string;
+}
+
+export function parseStoryPreviews(raw: any, theme?: string): StoryPreview[] {
+  let list: any[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (raw && typeof raw === 'object') {
+    if (Array.isArray(raw.previews)) list = raw.previews;
+    else if (Array.isArray(raw.tropes)) list = raw.tropes;
+    else if (Array.isArray(raw.concepts)) list = raw.concepts;
+    else if (Array.isArray(raw.data)) list = raw.data;
+    else if (typeof raw.previews === 'string') {
+      try {
+        const parsed = JSON.parse(raw.previews.replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim());
+        if (Array.isArray(parsed)) list = parsed;
+        else if (Array.isArray(parsed.previews)) list = parsed.previews;
+      } catch {
+        list = raw.previews.split(/\n\s*\n/).filter(Boolean);
+      }
+    }
+  } else if (typeof raw === 'string') {
+    try {
+      const cleaned = raw.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) list = parsed;
+      else if (Array.isArray(parsed.previews)) list = parsed.previews;
+    } catch {
+      const chunks = raw.split(/(?=\d+\.\s+\*\*|\n\n#{1,4}\s+|\n\n\*\*)/).map(s => s.trim()).filter(Boolean);
+      list = chunks.length > 0 ? chunks : raw.split(/\n\s*\n/).filter(Boolean);
+    }
+  }
+
+  const result: StoryPreview[] = (list || []).map((item: any, idx: number) => {
+    if (typeof item === 'string') {
+      const cleanItem = item.trim().replace(/^[-*•\d.]+\s*/, '');
+      const colonIdx = cleanItem.indexOf(':');
+      let parsedTitle = `Concept ${idx + 1}`;
+      let parsedPremise = cleanItem;
+      let parsedTrope = "Core Trope";
+
+      if (colonIdx > 0 && colonIdx < 50) {
+        parsedTitle = cleanItem.slice(0, colonIdx).replace(/[*_#]/g, '').trim();
+        parsedPremise = cleanItem.slice(colonIdx + 1).replace(/^[\s*-]+/, '').trim();
+      }
+      return {
+        id: String(idx + 1),
+        title: parsedTitle || `Concept ${idx + 1}`,
+        trope: parsedTrope,
+        premise: parsedPremise || cleanItem || "A captivating story concept crafted to your preferences."
+      };
+    }
+    return {
+      id: String(item.id || idx + 1),
+      title: item.title || item.name || `Concept ${idx + 1}`,
+      trope: item.trope || item.tag || item.genre || "Core Trope",
+      premise: item.premise || item.description || item.summary || item.text || "A captivating story concept crafted to your preferences."
+    };
+  }).filter(p => p.premise && p.premise.trim().length > 0);
+
+  if (result.length === 0) {
+    return [
+      {
+        id: "1",
+        title: theme ? `${theme}: Forced Proximity` : "Midnight Strangers",
+        trope: "Forced Proximity",
+        premise: "Trapped together when a late-night storm cuts off the mountain pass, old barriers melt into raw, irresistible attraction."
+      },
+      {
+        id: "2",
+        title: theme ? `${theme}: Enemies to Lovers` : "Tension & Surrender",
+        trope: "Enemies to Lovers",
+        premise: "Fierce rivals competing for the same coveted prize find that their sharpest banter barely masks an overwhelming mutual craving."
+      },
+      {
+        id: "3",
+        title: theme ? `${theme}: Second Chance` : "Echoes of Desire",
+        trope: "Second Chance",
+        premise: "Reunited after years apart under the sultry glow of a masquerade ball, past unspoken desires demand an unforgettable reckoning."
+      }
+    ];
+  }
+
+  return result.slice(0, 3);
 }
 
 export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
@@ -140,6 +224,12 @@ export default function LiteratureClient() {
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
 
+  // Literature Favorites State
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [storyContentId, setStoryContentId] = useState<string | null>(null);
+  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
+
   // User Scroll Override & Smart Auto-Scroll States
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
   const streamBottomRef = useRef<HTMLDivElement>(null);
@@ -185,6 +275,9 @@ export default function LiteratureClient() {
     setPreviewError(null);
     setRegenerationCount(0);
     setIsAutoScrollPaused(false);
+    setIsFavorite(false);
+    setStoryContentId(null);
+    setFavoriteToast(null);
     setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -472,9 +565,19 @@ export default function LiteratureClient() {
         throw new Error(errorMsg);
       }
 
-      const data = await res.json();
-      if (data.previews && Array.isArray(data.previews) && data.previews.length > 0) {
-        setPreviews(data.previews);
+      let parsedData: any = null;
+      try {
+        parsedData = await res.json();
+      } catch {
+        try {
+          const rawText = await res.text();
+          parsedData = rawText;
+        } catch {}
+      }
+
+      const parsedPreviews = parseStoryPreviews(parsedData, theme);
+      if (parsedPreviews && parsedPreviews.length > 0) {
+        setPreviews(parsedPreviews);
       } else {
         throw new Error("No story previews returned from engine.");
       }
@@ -884,15 +987,22 @@ export default function LiteratureClient() {
 
               {error && (
                 error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                    <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
+                  <div
+                    onClick={() => !isContinuing && scenario && handleContinueStory(cleanContent || (scenario as any)?.body || '')}
+                    className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+                  >
+                    <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
+                      <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
                       Click continue story to expand.
                     </span>
                     {scenario && (
                       <button
-                        onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleContinueStory(cleanContent || (scenario as any)?.body || '');
+                        }}
                         disabled={isContinuing}
-                        className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                        className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
                       >
                         {isContinuing ? "Expanding..." : "Continue Story"}
                       </button>
@@ -904,15 +1014,6 @@ export default function LiteratureClient() {
                       <span className="text-xl shrink-0">⚠️</span>
                       <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                     </div>
-                    {scenario && (
-                      <button
-                        onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-                        disabled={isContinuing}
-                        className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-                      >
-                        {isContinuing ? "Resuming..." : "Continue Story"}
-                      </button>
-                    )}
                   </div>
                 )
               )}
@@ -926,29 +1027,41 @@ export default function LiteratureClient() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <button 
               onClick={handleConfigureNewStory}
-              className="text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors"
+              className="text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors cursor-pointer"
             >
               ← Configure a new story
             </button>
-            <button
-              onClick={() => {
-                const title = scenario.title || "Untitled Story";
-                const bodyText = scenario.body || scenario.overview || "";
-                const blob = new Blob([`# ${title}\n\n${bodyText}\n`], { type: 'text/markdown;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${title.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}.md`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit"
-            >
-              <span>📥</span>
-              Download Story
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Literature Favorite Toggle */}
+              <button
+                onClick={handleToggleFavorite}
+                disabled={isFavoriting}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer shadow-sm active:scale-95 ${
+                  isFavorite
+                    ? "bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/60 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                    : "bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700"
+                }`}
+                title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+              >
+                <span className={`text-base transition-transform ${isFavorite ? "scale-110" : "grayscale opacity-70"}`}>
+                  {isFavorite ? '❤️' : '🤍'}
+                </span>
+                <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
+              </button>
+
+              {/* PDF Story Export */}
+              <button
+                onClick={() => {
+                  const title = scenario.title || "Romantic Literature";
+                  const bodyText = cleanContent || scenario.body || scenario.overview || "";
+                  exportStoryToPdf(title, bodyText, "LITERATURE");
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit cursor-pointer shadow-sm active:scale-95"
+              >
+                <span>📥</span>
+                Download PDF
+              </button>
+            </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 mb-3">
@@ -985,14 +1098,21 @@ export default function LiteratureClient() {
 
           {error && (
             error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-              <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
+              <div
+                onClick={() => !isContinuing && handleContinueStory(cleanContent || (scenario as any)?.body || '')}
+                className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+              >
+                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
+                  <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
                   Click continue story to expand.
                 </span>
                 <button
-                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleContinueStory(cleanContent || (scenario as any)?.body || '');
+                  }}
                   disabled={isContinuing}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
                 >
                   {isContinuing ? "Expanding..." : "Continue Story"}
                 </button>
@@ -1003,40 +1123,26 @@ export default function LiteratureClient() {
                   <span className="text-xl shrink-0">⚠️</span>
                   <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                 </div>
-                <button
-                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-                  disabled={isContinuing}
-                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-                >
-                  {isContinuing ? "Resuming..." : "Continue Story"}
-                </button>
               </div>
             )
           )}
 
-          {/* Story Actions: Configure New Story, Regenerate, & Continue Existing Story */}
+          {/* Story Actions: Configure New Story & Regenerate */}
           <div className="flex flex-wrap items-center gap-4 mb-8" style={{ overflowAnchor: 'none' }}>
             <button
               onClick={handleConfigureNewStory}
               disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               Configure New Story
             </button>
             <button
               onClick={handleRegenerate}
               disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
             >
               <span>🔄</span>
               Regenerate
-            </button>
-            <button
-              onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-              disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Continue Story
             </button>
           </div>
 
@@ -1074,6 +1180,14 @@ export default function LiteratureClient() {
             <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate this Story</h3>
             <RatingWidget contentId={scenario.title} contentType="literature" />
           </div>
+        </div>
+      )}
+
+      {/* Floating Favorite Toast */}
+      {favoriteToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-2 duration-300">
+          <span className="text-base">❤️</span>
+          <span className="text-sm font-medium text-zinc-200">{favoriteToast}</span>
         </div>
       )}
     </div>

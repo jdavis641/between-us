@@ -58,17 +58,21 @@ export async function POST(req: Request) {
       .join(', ') || 'None specified';
 
     let primaryDirective = null;
+    let savedKinks: string[] = [];
     const kinkRow = preferences?.find(p => p.kinks_override && p.category_tag !== 'Guest Pass Config');
     if (kinkRow?.kinks_override) {
       try {
         const parsed = JSON.parse(kinkRow.kinks_override);
         if (Array.isArray(parsed)) {
-          primaryDirective = parsed.map((k: any) => k.text).join('\n');
+          primaryDirective = parsed.map((k: any) => k.text || k).join('\n');
+          savedKinks = parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
         } else {
           primaryDirective = kinkRow.kinks_override;
+          savedKinks = [kinkRow.kinks_override];
         }
       } catch (e) {
         primaryDirective = kinkRow.kinks_override;
+        savedKinks = [kinkRow.kinks_override];
       }
     }
 
@@ -92,6 +96,11 @@ USER PREFERENCES & CONSTRAINTS:
 - Play Mode / Perspective: ${playMode}
 ${primaryDirective ? `- Primary Directive Override: ${primaryDirective}` : ''}
 ${theme ? `- Custom Theme / Idea: ${theme}` : ''}
+${savedKinks.length > 0 ? `USER SAVED KINK PREFERENCES (METATAGS):
+<metatags>
+${savedKinks.map(k => `<kink>${k}</kink>`).join('\n')}
+</metatags>
+Subtly incorporate and reflect these user preference metatags across the generated preview concepts where appropriate.` : ''}
 
 PACING GUIDELINES:
 - Slow Burn: Heavy on emotional friction, intense yearning, lingering eye contact, forbidden anticipation, and delayed physical gratification.

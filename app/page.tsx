@@ -18,7 +18,7 @@ const faqs: FaqItem[] = [
   },
   {
     question: "How does the system evolve?",
-    answer: "The system anonymously gathers ratings, delivering the 'greatest hits' from the user base so you always experience top-rated, fresh scenarios."
+    answer: "The system anonymously gathers your content ratings and saved favorites. Delivering the 'greatest hits' from the user base so you always experience top-rated, fresh scenarios."
   },
   {
     question: "How is my anonymity protected?",

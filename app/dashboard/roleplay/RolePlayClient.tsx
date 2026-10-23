@@ -823,14 +823,21 @@ export default function RolePlayClient() {
 
           {error && (
             error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-              <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
+              <div
+                onClick={() => !isContinuing && handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
+                className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+              >
+                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
+                  <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
                   Click continue story to expand.
                 </span>
                 <button
-                  onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '');
+                  }}
                   disabled={isContinuing}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
                 >
                   {isContinuing ? "Expanding..." : "Continue Story"}
                 </button>
@@ -841,40 +848,26 @@ export default function RolePlayClient() {
                   <span className="text-xl shrink-0">⚠️</span>
                   <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                 </div>
-                <button
-                  onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
-                  disabled={isContinuing}
-                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-                >
-                  {isContinuing ? "Resuming..." : "Continue Story"}
-                </button>
               </div>
             )
           )}
 
-          {/* Scenario Actions: Configure New Scenario, Regenerate, & Continue Existing Story */}
+          {/* Scenario Actions: Configure New Scenario & Regenerate */}
           <div className="flex flex-wrap items-center gap-4 mb-8" style={{ overflowAnchor: 'none' }}>
             <button
               onClick={handleConfigureNewStory}
               disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               Configure New Scenario
             </button>
             <button
               onClick={handleRegenerate}
               disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
             >
               <span>🔄</span>
               Regenerate
-            </button>
-            <button
-              onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
-              disabled={isContinuing || loading}
-              className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Continue Story
             </button>
           </div>
 
