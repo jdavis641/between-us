@@ -84,6 +84,13 @@ export default function SettingsPage() {
   const [showChecklist, setShowChecklist] = useState(false);
   const [selectedItems, setSelectedItems] = useState<TaxonomyOption[]>([]);
 
+  // Custom Kinks State
+  const [kinkInput, setKinkInput] = useState('');
+  const [savingKinks, setSavingKinks] = useState(false);
+  const [kinksSaved, setKinksSaved] = useState(false);
+  const [kinksError, setKinksError] = useState<string | null>(null);
+  const [primaryPrefId, setPrimaryPrefId] = useState<string | null>(null);
+
   const [newUsername, setNewUsername] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -176,10 +183,30 @@ export default function SettingsPage() {
 
         const { data: prefData } = await supabase
           .from('intimacy_preferences')
-          .select('preference_level')
+          .select('id, preference_level, kinks_override')
           .eq('user_id', session.user.id)
           .eq('category_tag', 'Primary Directive')
           .maybeSingle();
+
+        if (prefData?.id) {
+          setPrimaryPrefId(prefData.id);
+        }
+
+        const rawKinks = prefData?.kinks_override;
+        if (rawKinks) {
+          try {
+            const parsed = JSON.parse(rawKinks);
+            if (Array.isArray(parsed)) {
+              setKinkInput(parsed.map((k: any) => k.text || k).join('\n'));
+            } else if (typeof parsed === 'object' && parsed !== null && parsed.kinks) {
+              setKinkInput(Array.isArray(parsed.kinks) ? parsed.kinks.join('\n') : String(parsed.kinks));
+            } else {
+              setKinkInput(typeof parsed === 'string' ? parsed : rawKinks);
+            }
+          } catch {
+            setKinkInput(rawKinks);
+          }
+        }
 
         const tolerance = prefData?.preference_level || profileData?.base_tolerance || '';
 
@@ -360,6 +387,69 @@ export default function SettingsPage() {
       router.refresh();
     }
     setSavingTolerance(false);
+  };
+
+  const handleSaveKinks = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    setSavingKinks(true);
+    setKinksError(null);
+    setKinksSaved(false);
+
+    try {
+      let userId: string | null = null;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        userId = session.user.id;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+      }
+
+      if (!userId) {
+        throw new Error("Please log in to save your kinks.");
+      }
+
+      const lines = kinkInput.split('\n').map(l => l.trim()).filter(Boolean);
+      const newKinksList = lines.length > 0
+        ? lines.map((line, idx) => ({ id: `${Date.now()}-${idx}`, text: line }))
+        : (kinkInput.trim() ? [{ id: Date.now().toString(), text: kinkInput.trim() }] : []);
+
+      const payload = JSON.stringify(newKinksList);
+
+      const { data: existingRows } = await supabase
+        .from('intimacy_preferences')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category_tag', 'Primary Directive')
+        .maybeSingle();
+
+      const existingId = existingRows?.id || primaryPrefId;
+
+      const upsertRecord: any = {
+        user_id: userId,
+        category_tag: 'Primary Directive',
+        preference_level: baseTolerance || 'Moderate',
+        kinks_override: payload
+      };
+
+      if (existingId) {
+        upsertRecord.id = existingId;
+      }
+
+      const { error: upsertErr } = await supabase
+        .from('intimacy_preferences')
+        .upsert(upsertRecord);
+
+      if (upsertErr) throw upsertErr;
+
+      setKinksSaved(true);
+      setTimeout(() => setKinksSaved(false), 3500);
+    } catch (err: any) {
+      console.error("Error saving kinks in Settings:", err);
+      setKinksError(err.message || "Failed to save kinks.");
+    } finally {
+      setSavingKinks(false);
+    }
   };
 
   // Debounced Username Availability Check
@@ -646,7 +736,7 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
-            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Boundary Matrix &amp; Tolerance Tier</h2>
+            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Boundary Calibration &amp; Comfort Level</h2>
             <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
               Calibrate your baseline comfort tier. This directly guides the intensity of your generated literature, roleplay scenarios, and intimacy games.
             </p>
@@ -688,12 +778,12 @@ export default function SettingsPage() {
                 onClick={() => setShowChecklist(prev => !prev)}
                 className="text-red-400 hover:text-red-300 underline underline-offset-4 font-medium transition-colors"
               >
-                {showChecklist ? "Hide checklist" : "Click the link"}
+                {showChecklist ? "Hide checklist" : "Click here"}
               </button>{' '}
-              to choose specific interests and let our taxonomy matrix recommend your tier.
+              to choose your comfort level and let our matching engine recommend the perfect tier.
             </p>
 
-            {/* Expandable Taxonomy Checklist */}
+            {/* Expandable Comfort & Preference Checklist */}
             {showChecklist && (
               <div className="space-y-6 pt-4 border-t border-zinc-800/60 animate-in fade-in duration-200">
                 <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
@@ -747,6 +837,45 @@ export default function SettingsPage() {
               </button>
             </div>
             {toleranceSaved && <p className="text-green-500 text-xs font-medium">Boundary preferences saved successfully!</p>}
+          </div>
+        </section>
+
+        {/* CUSTOM KINKS & PREFERENCES CONFIGURATION */}
+        <section id="kinks-settings" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Desires</span>
+            </div>
+            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Custom Kinks &amp; Specific Interests</h2>
+            <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
+              Add specific kinks, themes, or interests (one per line). Our matching engine will incorporate these directly into your generated stories, roleplays, and card game decks.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <textarea
+              value={kinkInput}
+              onChange={(e) => setKinkInput(e.target.value)}
+              placeholder={"e.g.\nBondage & light restraint\nPraise and sensory deprivation\nRole reversal\nTemperature play (ice / candle wax)"}
+              rows={5}
+              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors font-mono leading-relaxed"
+            />
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+              <span className="text-xs text-zinc-500">
+                {kinkInput.split('\n').filter(l => l.trim()).length} preference(s) entered
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveKinks}
+                disabled={savingKinks}
+                className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
+              >
+                {savingKinks ? 'Saving Kinks...' : 'Save Kink Preferences'}
+              </button>
+            </div>
+            {kinksSaved && <p className="text-green-500 text-xs font-medium">Kink preferences saved successfully!</p>}
+            {kinksError && <p className="text-red-500 text-xs font-medium">{kinksError}</p>}
           </div>
         </section>
 

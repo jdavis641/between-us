@@ -29,10 +29,10 @@ type Game = {
 export default async function GamesHub({
   searchParams,
 }: {
-  searchParams?: Promise<{ seasonal_tag?: string; tag?: string }>;
+  searchParams?: Promise<{ seasonal_tag?: string; tag?: string; theme?: string }>;
 }) {
   const params = await searchParams;
-  const seasonalTag = params?.seasonal_tag || params?.tag;
+  const seasonalTag = params?.seasonal_tag || params?.tag || params?.theme;
   const serverSupabase = await createServerClient();
 
   let userBaseTolerance: string | null = null;

@@ -14,6 +14,8 @@ export default function DashboardHome() {
   const [activeStory, setActiveStory] = useState<any>(null)
   const [baseTolerance, setBaseTolerance] = useState<string | null>(null)
   const [isOnboardingIncomplete, setIsOnboardingIncomplete] = useState(false)
+  const [isBannerDismissed, setIsBannerDismissed] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isGuest, setIsGuest] = useState(false)
 
@@ -27,18 +29,23 @@ export default function DashboardHome() {
         const { data: { session } } = await supabase.auth.getSession()
         activeUserId = session?.user?.id || null
       }
+      setCurrentUserId(activeUserId)
 
       if (activeUserId) {
         // Query user profile to verify boundary calibration and onboarding completion
         const { data: profile } = await supabase
           .from('profiles')
-          .select('base_tolerance, onboarding_completed, nickname')
+          .select('base_tolerance, onboarding_completed, nickname, welcome_dismissed_at')
           .eq('id', activeUserId)
           .maybeSingle()
 
         setBaseTolerance(profile?.base_tolerance || null)
         const isIncomplete = !profile?.base_tolerance || profile?.onboarding_completed !== true || !profile?.nickname;
         setIsOnboardingIncomplete(isIncomplete);
+
+        const dismissedLocally = typeof window !== 'undefined' && localStorage.getItem('welcome_banner_dismissed') === 'true';
+        const dismissedInDb = Boolean(profile?.welcome_dismissed_at);
+        setIsBannerDismissed(dismissedLocally || dismissedInDb);
 
         // Fetch the most recent active generated story or roleplay
         const { data } = await supabase
@@ -70,11 +77,31 @@ export default function DashboardHome() {
     fetchActiveContent()
   }, [])
 
+  const handleDismissBanner = async () => {
+    setIsBannerDismissed(true)
+    try {
+      localStorage.setItem('welcome_banner_dismissed', 'true')
+    } catch {}
+    if (currentUserId) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ welcome_dismissed_at: new Date().toISOString() })
+          .eq('id', currentUserId)
+      } catch (err) {
+        console.warn("Could not record welcome_dismissed_at:", err)
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white selection:bg-red-500/30">
       {/* Prominent Dashboard Onboarding Completion Banner */}
-      {!loading && isOnboardingIncomplete && (
-        <div className="w-full bg-gradient-to-r from-rose-950 via-zinc-900 to-rose-950 border-b border-rose-500/40 py-4 px-6 shadow-2xl relative z-20">
+      {!loading && isOnboardingIncomplete && !isBannerDismissed && (
+        <div 
+          data-admin-urgent-slot="true"
+          className="w-full bg-gradient-to-r from-rose-950 via-zinc-900 to-rose-950 border-b border-rose-500/40 py-4 px-6 shadow-2xl relative z-20"
+        >
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-2xl shrink-0">✨</span>
@@ -82,12 +109,26 @@ export default function DashboardHome() {
                 Welcome! Please visit the <Link href="/dashboard/settings" className="text-rose-400 hover:text-rose-300 font-bold underline underline-offset-4 transition-colors">settings menu</Link> to complete your onboarding and customize your boundaries.
               </p>
             </div>
-            <Link 
-              href="/dashboard/settings" 
-              className="shrink-0 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition-colors w-fit"
-            >
-              Settings &rarr;
-            </Link>
+            <div className="flex items-center gap-4 shrink-0">
+              <label className="flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleDismissBanner();
+                    }
+                  }}
+                  className="w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-800 text-rose-600 focus:ring-rose-500"
+                />
+                <span>Do not show again</span>
+              </label>
+              <Link 
+                href="/dashboard/settings" 
+                className="shrink-0 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition-colors w-fit"
+              >
+                Settings &rarr;
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -113,7 +154,7 @@ export default function DashboardHome() {
             {/* Holiday Spotlight Action Tile */}
             {activeHoliday && (
               <div className="mb-6">
-                <Link href={`/dashboard/games?seasonal_tag=${activeHoliday.seasonal_tag}`}>
+                <Link href={activeHoliday.seasonal_tag === 'halloween' ? '/dashboard/halloween' : `/dashboard/games?seasonal_tag=${activeHoliday.seasonal_tag}`}>
                   <div 
                     className="p-6 md:p-8 rounded-xl border transition-all cursor-pointer group flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg hover:shadow-2xl hover:scale-[1.01]"
                     style={{
@@ -142,10 +183,12 @@ export default function DashboardHome() {
                           <span className="text-xs text-gray-400 font-medium">• {activeHoliday.name}</span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                          {activeHoliday.title}
+                          {activeHoliday.seasonal_tag === 'halloween' ? 'Halloween: Shadows, Whispers & Gothic Intimacy' : activeHoliday.title}
                         </h3>
                         <p className="text-sm text-gray-300 mt-1">
-                          Explore seasonal intimacy games containing the {activeHoliday.seasonal_tag} theme.
+                          {activeHoliday.seasonal_tag === 'halloween'
+                            ? 'Explore Halloween-themed gothic literature, spooky roleplays, and intimacy card games.'
+                            : `Explore seasonal intimacy games containing the ${activeHoliday.seasonal_tag} theme.`}
                         </p>
                       </div>
                     </div>

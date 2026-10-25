@@ -31,18 +31,24 @@ export default async function GameDetailPage({ params }: PageProps) {
     if (gameId) {
       try {
         const supabase = getAdminSupabase();
-        // 1. Target public.intimacy_games by exact ID
-        const { data, error } = await supabase
-          .from('intimacy_games')
-          .select('*')
-          .eq('id', gameId)
-          .maybeSingle();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(gameId);
 
-        if (data && !error) {
-          game = data;
-        } else {
-          // 2. Fallback matching by title / slug
-          const cleanSearch = String(gameId).replace(/[-_]/g, ' ');
+        // 1. Target public.intimacy_games by exact UUID if valid
+        if (isUuid) {
+          const { data, error } = await supabase
+            .from('intimacy_games')
+            .select('*')
+            .eq('id', gameId)
+            .maybeSingle();
+
+          if (data && !error) {
+            game = data;
+          }
+        }
+
+        // 2. Fallback matching by title or slug in database
+        if (!game) {
+          const cleanSearch = String(gameId).replace(/[-_]/g, ' ').trim();
           const { data: byTitle } = await supabase
             .from('intimacy_games')
             .select('*')
@@ -58,11 +64,12 @@ export default async function GameDetailPage({ params }: PageProps) {
       // 3. Fallback to catalog if database row not found
       if (!game) {
         const normalizedId = String(gameId).toLowerCase().replace(/[-_]/g, '');
+        const cleanSearch = String(gameId).replace(/[-_]/g, ' ').trim().toLowerCase();
         game = FALLBACK_GAMES.find(g => 
           g.id === gameId || 
           g.id.toLowerCase().replace(/[-_]/g, '') === normalizedId ||
           g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedId ||
-          g.title.toLowerCase().includes(String(gameId).toLowerCase().replace(/[-_]/g, ' '))
+          g.title.toLowerCase().includes(cleanSearch)
         ) || null;
       }
     }
@@ -105,19 +112,46 @@ export default async function GameDetailPage({ params }: PageProps) {
       if (parsedRules.length === 0 && contentObj) {
         if (Array.isArray(contentObj?.rules)) {
           parsedRules = contentObj.rules;
+        } else if (Array.isArray(contentObj?.steps)) {
+          parsedRules = contentObj.steps;
+        } else if (Array.isArray(contentObj?.instructions)) {
+          parsedRules = contentObj.instructions;
         } else if (Array.isArray(contentObj)) {
           parsedRules = contentObj;
         } else if (typeof contentObj?.rules === 'string') {
           parsedRules = contentObj.rules.split('\n').map((r: string) => r.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+        } else if (typeof contentObj?.how_to_play === 'string') {
+          parsedRules = contentObj.how_to_play.split('\n').map((r: string) => r.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
         }
       }
 
       if (parsedRules.length === 0 && Array.isArray(game.rules)) {
         parsedRules = game.rules;
       }
+
+      // Robust fallback if malformed or empty
+      if (parsedRules.length === 0) {
+        if (game.description) {
+          parsedRules = [
+            game.description,
+            "Take turns following the prompts or actions designated for this experience.",
+            "Maintain open communication and respect all established boundaries throughout."
+          ];
+        } else {
+          parsedRules = [
+            "Set aside uninterrupted time in a comfortable, private setting.",
+            "Take turns initiating each phase of the game at your own pace.",
+            "Check in frequently to adapt intensity to your shared comfort level."
+          ];
+        }
+      }
     } catch (parseErr) {
       console.error("Error parsing game rules array:", parseErr);
-      parsedRules = [];
+      parsedRules = [
+        "Set aside uninterrupted time in a comfortable, private setting.",
+        "Take turns initiating each phase of the game at your own pace.",
+        "Check in frequently to adapt intensity to your shared comfort level."
+      ];
     }
 
     const getIntensityBadge = (intensity?: string) => {
@@ -156,11 +190,7 @@ export default async function GameDetailPage({ params }: PageProps) {
           {game.category === 'movie' && <MovieGameGenerator gameTitle={game.title} />}
           
           {/* Rules & Content Section */}
-          <div
-            className="space-y-8 py-4 select-none"
-            onCopy={(e) => e.preventDefault()}
-            onContextMenu={(e) => e.preventDefault()}
-          >
+          <div className="space-y-8 py-4 select-none">
             <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>
             {parsedRules && parsedRules.length > 0 ? (
               <ol className="space-y-4 list-decimal list-inside">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import RatingWidget from "@/components/RatingWidget";
 import FlameLoader from "@/components/FlameLoader";
@@ -206,7 +207,27 @@ export function LiteratureMarkdown({ content, isGenerating = false }: { content:
 }
 
 export default function LiteratureClient() {
-  const [theme, setTheme] = useState("");
+  const searchParams = useSearchParams();
+  const [theme, setTheme] = useState(() => {
+    const p = searchParams?.get('prompt');
+    const t = searchParams?.get('theme');
+    if (p) return p;
+    if (t?.toLowerCase() === 'halloween') return 'Gothic Victorian Masquerade: Midnight Whispers & Velvet Shadows';
+    return t || '';
+  });
+
+  useEffect(() => {
+    const p = searchParams?.get('prompt');
+    const t = searchParams?.get('theme');
+    if (p) {
+      setTheme(p);
+    } else if (t?.toLowerCase() === 'halloween' && !theme) {
+      setTheme('Gothic Victorian Masquerade: Midnight Whispers & Velvet Shadows');
+    } else if (t && !theme) {
+      setTheme(t);
+    }
+  }, [searchParams]);
+
   const [targetBoundary, setTargetBoundary] = useState("");
   const [pacing, setPacing] = useState("Medium Burn");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);

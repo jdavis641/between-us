@@ -124,7 +124,26 @@ export default function RolePlayClient() {
   const initialMode = rawMode === "group" ? "group" : "couple";
   
   const [playMode, setPlayMode] = useState(initialMode);
-  const [theme, setTheme] = useState("");
+  const [theme, setTheme] = useState(() => {
+    const p = searchParams.get("prompt");
+    const t = searchParams.get("theme");
+    if (p) return p;
+    if (t?.toLowerCase() === "halloween") return "Gothic Masquerade: Midnight Rituals & Dark Secrets";
+    return t || "";
+  });
+
+  useEffect(() => {
+    const p = searchParams.get("prompt");
+    const t = searchParams.get("theme");
+    if (p) {
+      setTheme(p);
+    } else if (t?.toLowerCase() === "halloween" && !theme) {
+      setTheme("Gothic Masquerade: Midnight Rituals & Dark Secrets");
+    } else if (t && !theme) {
+      setTheme(t);
+    }
+  }, [searchParams]);
+
   const [targetBoundary, setTargetBoundary] = useState("");
   const pacing = "Medium Burn";
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
