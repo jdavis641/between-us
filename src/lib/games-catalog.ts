@@ -263,6 +263,70 @@ export const FALLBACK_GAMES: FallbackGame[] = [
       ]
     }
   },
+  {
+    id: "build-a-dare-poker-sensory",
+    category: 'card',
+    intensity: 'Sensory',
+    title: 'Build-A-Dare Poker - Sensory',
+    description: 'Collaborative card play where winning hands design relaxing, affectionate pampering dares.',
+    content: {
+      rules: [
+        'Deal 5-card poker hands. Each round, players wager pampering tokens to craft an intimate dare.',
+        'Dares are built from three parts: Gentle Action (massage, caress, stroke) + Safe Zone + Time (1-3 mins).',
+        'The winning hand decides whether they receive or deliver the crafted pampering dare.',
+        'All dares are strictly limited to clothed, affectionate touch and verbal tenderness.',
+        'Focus on unwinding, reducing stress, and fostering mutual emotional warmth.'
+      ]
+    }
+  },
+  {
+    id: "build-a-dare-poker-playful",
+    category: 'card',
+    intensity: 'Playful',
+    title: 'Build-A-Dare Poker - Playful',
+    description: 'Creative poker dares incorporating blindfolds, temperature play, teasing nibbles, and clothing stakes.',
+    content: {
+      rules: [
+        'Play 5-card draw poker. Wager clothing items, blindfolds, and ice tokens in the pot.',
+        'The winning hand constructs a teasing dare combining an Action (ice trace, warm nibble, blindfold kiss) and Zone.',
+        'The losing hand must perform or submit to the constructed dare immediately.',
+        'A pair or better unlocks an additional layer removal for the losing hand.',
+        'Keep the interaction spirited, teasing, and filled with playful laughter.'
+      ]
+    }
+  },
+  {
+    id: "build-a-dare-poker-intense",
+    category: 'card',
+    intensity: 'Intense',
+    title: 'Build-A-Dare Poker - Intense',
+    description: 'High-stakes poker showdowns where winning hands construct demanding dominant commands and sensory control.',
+    content: {
+      rules: [
+        'Play high-stakes poker hands. The winning hand holds absolute command over the loser for that round.',
+        'Crafted dares incorporate strict power exchange, kneeling postures, and prolonged sensory deprivation.',
+        'The losing player is blindfolded and subjected to firm, commanding physical tasks without speaking.',
+        'Three-of-a-kind or better grants the winner full control over the loser\'s physical sensations for 5 minutes.',
+        'Strict discipline and obedience are mandatory during dare execution.'
+      ]
+    }
+  },
+  {
+    id: "build-a-dare-poker-extreme",
+    category: 'card',
+    intensity: 'Extreme',
+    title: 'Build-A-Dare Poker - Extreme',
+    description: 'Unconditional surrender poker where the winning hand claims complete physical authority and uncompromising stakes.',
+    content: {
+      rules: [
+        'Total power stakes poker. Every hand lost yields absolute physical control to the victor.',
+        'The winning hand crafts explicit physical commands that must be fulfilled with total surrender.',
+        'The losing player submits to complete physical exposure, restraint, and delayed gratification.',
+        'Zero hesitation or debate is allowed; the victor\'s authority is absolute until the session ends.',
+        'Strict safety protocols and verified consent maintained throughout.'
+      ]
+    }
+  },
 
   // ==========================================
   // MOVIE NIGHT GAMES
