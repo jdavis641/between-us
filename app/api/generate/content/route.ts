@@ -533,6 +533,12 @@ async function fetchCuratedSupabaseFallback({
 
 export async function POST(req: Request) {
   try {
+    // Validate OpenRouter API Key presence immediately
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    if (!openrouterApiKey || !openrouterApiKey.trim()) {
+      throw new Error("Missing OPENROUTER_API_KEY in environment variables. Please configure OPENROUTER_API_KEY in your Vercel project environment variables.");
+    }
+
     let body: any = {};
     try {
       body = await req.json();
@@ -796,14 +802,16 @@ export async function POST(req: Request) {
           .limit(50);
 
         if (!libraryRows || libraryRows.length === 0) {
-          const res = await supabase
-            .from('generated_content')
-            .select('*')
-            .eq('content_type', contentType)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(100);
-          libraryRows = res.data;
+          if (!theme || theme.trim().length === 0) {
+            const res = await supabase
+              .from('generated_content')
+              .select('*')
+              .eq('content_type', contentType)
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(100);
+            libraryRows = res.data;
+          }
         }
 
         if (libraryRows && libraryRows.length > 0) {
@@ -994,98 +1002,49 @@ export async function POST(req: Request) {
     // Sub-25-second token allocation: 1800 max tokens for Chapter 1
     const maxTokens = isLiterature ? 1800 : 4000;
 
-    let streamResult;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
       abortController.abort(new Error("OpenRouter request timed out after 35s"));
     }, 35000);
 
-    try {
-      if (!process.env.OPENROUTER_API_KEY) {
-        throw new Error("Missing OPENROUTER_API_KEY in environment variables");
-      }
-      const openai = new OpenAI({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: process.env.OPENROUTER_API_KEY,
-      });
+    // Validate OpenRouter SDK Initialization
+    if (!process.env.OPENROUTER_API_KEY || !process.env.OPENROUTER_API_KEY.trim()) {
+      throw new Error("Missing OPENROUTER_API_KEY in environment variables. Please configure OPENROUTER_API_KEY in your Vercel project environment variables.");
+    }
 
-      const isContinuation = Boolean(previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0);
+    const openai = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
 
-      const openRouterPayload: any = {
-        model: "sao10k/l3.1-euryale-70b",
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.85,
-        top_p: 0.9,
+    const isContinuation = Boolean(previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0);
+
+    const openRouterPayload: any = {
+      model: "sao10k/l3.1-euryale-70b",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.85,
+      top_p: 0.9,
+      presence_penalty: 0.6,
+      frequency_penalty: 0.5,
+      max_tokens: maxTokens,
+      response_format: { type: "json_object" },
+      stream: true,
+      extra_body: {
+        max_tokens: maxTokens,
         presence_penalty: 0.6,
         frequency_penalty: 0.5,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" },
-        stream: true,
-        extra_body: {
-          max_tokens: maxTokens,
-          presence_penalty: 0.6,
-          frequency_penalty: 0.5,
-          models: [
-            "sao10k/l3.1-euryale-70b",
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition",
-            "neversleep/llama-3.1-lumimaid-70b"
-          ]
-        }
-      };
-
-      streamResult = await openai.chat.completions.create(openRouterPayload, { signal: abortController.signal });
-
-      clearTimeout(timeoutId);
-    } catch (apiError: any) {
-      clearTimeout(timeoutId);
-      abortController.abort();
-      console.warn("OpenRouter/Euryale fetch failed, timed out, or threw 50x error. Executing Supabase fallback:", apiError?.message || apiError);
-
-      const fallbackContent = await fetchCuratedSupabaseFallback({
-        supabase,
-        contentType,
-        category,
-        playMode,
-        targetBoundary: targetBoundary || baseTolerance,
-        theme,
-        hasScripts
-      });
-
-      // Persist fallback experience into user's generated_content so they can view and favorite it seamlessly
-      try {
-        await supabase.from('generated_content').insert({
-          user_id: user.id,
-          content_type: contentType,
-          title: fallbackContent.title || "Curated Experience",
-          body: JSON.stringify(fallbackContent),
-          status: 'active'
-        });
-
-        await supabase.from('activity_history').insert({
-          user_id: user.id,
-          group_id: groupId || null,
-          content_type: contentType,
-          category: category || playMode,
-          content_title: fallbackContent.title || "Curated Experience",
-          tags: [playMode, 'curated_fallback']
-        });
-      } catch (persistErr) {
-        console.warn("Error recording fallback activity:", persistErr);
+        models: [
+          "sao10k/l3.1-euryale-70b",
+          "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+          "neversleep/llama-3.1-lumimaid-70b"
+        ]
       }
+    };
 
-      // Return curated content from seeded Supabase library
-      return new Response(JSON.stringify(fallbackContent), {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-cache, no-transform",
-          "X-Content-Source": "seeded-library-fallback",
-          "X-Content-Fallback": "true"
-        }
-      });
-    }
+    console.log("[Telemetry] Dispatching prompt to OpenRouter API (model: sao10k/l3.1-euryale-70b)...");
+    const streamResult = await openai.chat.completions.create(openRouterPayload, { signal: abortController.signal });
+    clearTimeout(timeoutId);
+    console.log("[Telemetry] OpenRouter API connection established; stream active.");
 
     const encoder = new TextEncoder();
     let accumulatedText = "";
@@ -1210,8 +1169,8 @@ export async function POST(req: Request) {
 
     return new StreamingTextResponse(customStream);
   } catch (error: any) {
-    console.error("OpenAI Generation Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("AI Generation Route Error:", error?.message, error?.stack, error);
+    return NextResponse.json({ error: error?.message || 'Unknown server error', details: error?.stack || null }, { status: 500 });
   }
 }
 
