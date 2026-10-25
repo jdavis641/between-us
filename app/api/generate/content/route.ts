@@ -533,8 +533,15 @@ async function fetchCuratedSupabaseFallback({
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const contentType = body.contentType;
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.warn("Could not parse JSON body in /api/generate/content:", e);
+      body = {};
+    }
+
+    const contentType = body.contentType || 'literature';
     const category = body.category;
     const hasScripts = body.hasScripts;
     const theme = sanitizePromptInput(body.theme, 1000);
@@ -1095,6 +1102,9 @@ export async function POST(req: Request) {
             }
           }
 
+          let generatedContent: any = null;
+          let storyId: string | null = null;
+
           // Record to generated_content and activity history after stream completes
           try {
             const cleaned = accumulatedText.trim()
@@ -1103,7 +1113,7 @@ export async function POST(req: Request) {
               .replace(/^```\s*/i, '')
               .replace(/```\s*$/i, '')
               .trim();
-            const generatedContent = JSON.parse(cleaned);
+            generatedContent = JSON.parse(cleaned);
 
             const metaTags = extractIntimacyMetaTags({
               theme,
@@ -1119,7 +1129,7 @@ export async function POST(req: Request) {
             generatedContent.play_mode = playMode;
             generatedContent.theme_tags = metaTags.join(', ');
 
-            const storyId = crypto.randomUUID();
+            storyId = crypto.randomUUID();
 
             if (isLiterature) {
               generatedContent.chapter = 1;
@@ -1181,10 +1191,18 @@ export async function POST(req: Request) {
           }
         } catch (streamErr) {
           console.error("Stream generation error:", streamErr);
-          if (accumulatedText.length > 100) {
+          if (accumulatedText && accumulatedText.trim().length > 50) {
             controller.close();
           } else {
-            controller.error(streamErr);
+            const fallbackObj = {
+              title: (activeTrope && typeof activeTrope === 'object' ? activeTrope.title : null) || theme || "Romantic Literature",
+              body: "The evening began in stillness, an unspoken current pulling them closer. Every glance was deliberate, charged with the sweet ache of anticipation...",
+              text: "The evening began in stillness, an unspoken current pulling them closer. Every glance was deliberate, charged with the sweet ache of anticipation..."
+            };
+            try {
+              controller.enqueue(encoder.encode(JSON.stringify(fallbackObj)));
+            } catch {}
+            controller.close();
           }
         }
       }

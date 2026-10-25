@@ -30,18 +30,28 @@ export default function GameList({ sections }: { sections: any[] }) {
 
   const filteredSections = matchedSections.length > 0 ? matchedSections : sections;
   
-  
-  const getIntensityBadge = (intensity: string) => {
-    switch (intensity) {
-      case 'Sensory': return '🌱 Sensory';
-      case 'Playful': return '🌶️ Playful';
-      case 'Intense': return '🔥 Intense';
-      case 'Extreme': return '🧨 Extreme';
-      default: return `🌱 ${intensity || 'Sensory'}`;
+  const getIntensityBadge = (intensity?: string) => {
+    switch ((intensity || '').toLowerCase()) {
+      case 'sensory': return '🌱 Sensory';
+      case 'playful': return '🌶️ Playful';
+      case 'intense': return '🔥 Intense';
+      case 'extreme': return '🧨 Extreme';
+      default: return intensity ? `🌱 ${intensity}` : '🌱 Sensory';
     }
   };
 
-  
+  const getRules = (game: any): string[] => {
+    try {
+      let content = game?.content;
+      if (typeof content === 'string') {
+        try { content = JSON.parse(content); } catch {}
+      }
+      if (Array.isArray(content?.rules)) return content.rules;
+      if (Array.isArray(content)) return content;
+      if (Array.isArray(game?.rules)) return game.rules;
+    } catch {}
+    return [];
+  };
 
   return (
     <div className="space-y-16">
@@ -56,23 +66,39 @@ export default function GameList({ sections }: { sections: any[] }) {
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {section.data.map((game: any) => (
-                <Link href={`/dashboard/games/${game.id}`} key={game.id} className="block h-full group">
-                  <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl hover:border-red-900/50 transition-all duration-300 cursor-pointer h-full flex flex-col shadow-lg hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] hover:-translate-y-1">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">
-                        {game.title}
-                      </h3>
+              {section.data.map((game: any) => {
+                const rules = getRules(game);
+                return (
+                  <Link href={`/dashboard/games/${game.id}`} key={game.id} className="block h-full group">
+                    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl hover:border-red-900/50 transition-all duration-300 cursor-pointer h-full flex flex-col shadow-lg hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] hover:-translate-y-1">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">
+                          {game.title}
+                        </h3>
+                      </div>
+                      <p className="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed font-light">
+                        {game.description}
+                      </p>
+
+                      {rules.length > 0 && (
+                        <div className="mb-4 text-xs text-zinc-400 flex items-center gap-1.5 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                          <span>{rules.length} Interactive Rules</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-zinc-800/60 mt-auto">
+                        <div className="flex items-center text-xs font-bold text-red-500 bg-red-950/30 border border-red-900/30 w-fit px-3 py-1.5 rounded-md uppercase tracking-wider">
+                          {getIntensityBadge(game.intensity)}
+                        </div>
+                        <span className="text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors font-medium">
+                          Play Game &rarr;
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed font-light">
-                      {game.description}
-                    </p>
-                    <div className="flex items-center text-xs font-bold text-red-500 bg-red-950/30 border border-red-900/30 w-fit px-3 py-1.5 rounded-md uppercase tracking-wider">
-                      {getIntensityBadge(game.intensity)}
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </section>

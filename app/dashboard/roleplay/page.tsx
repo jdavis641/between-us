@@ -1,16 +1,9 @@
-export const maxDuration = 300;
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from "react";
-import RolePlayClient, { extractStreamingRoleplay, handleStreamError, RolePlayMarkdown } from "./RolePlayClient";
+import RolePlayClient from "./RolePlayClient";
 import FlameLoader from "@/components/FlameLoader";
-import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
-
-export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
-
-export { RolePlayClient, RolePlayMarkdown, FlameLoader, ErrorBoundary, extractStreamingRoleplay, handleStreamError };
-
-export const sanitizeContent = (content: string) => safeMarkdownString(content);
 
 export default function RolePlayPage() {
   return (

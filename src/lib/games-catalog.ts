@@ -10,7 +10,205 @@ export interface FallbackGame {
 }
 
 export const FALLBACK_GAMES: FallbackGame[] = [
-  // Card Games
+  // ==========================================
+  // CARD GAMES (Expanded dynamic library across all 4 intensity tiers)
+  // ==========================================
+  {
+    id: "the-sensation-suit-matrix-sensory",
+    category: 'card',
+    intensity: 'Sensory',
+    title: 'The Sensation Suit Matrix - Sensory',
+    description: 'A gentle suit-based card game focused on clothed teasing, light massage, and intimate emotional vulnerability.',
+    content: {
+      rules: [
+        'Shuffle a standard deck of cards. Partners take turns drawing one card per round.',
+        'Hearts: Administer a 60-second gentle temple, hand, or shoulder massage focused on releasing tension.',
+        'Diamonds: Whisper a genuine, heartfelt appreciation or secret emotional desire to your partner.',
+        'Clubs: Use feather-light fingertips to trace soothing patterns over clothed arms and shoulders.',
+        'Spades: Answer a vulnerable intimacy prompt chosen by your partner with complete honesty.',
+        'Remain fully clothed throughout the session, prioritizing deep emotional comfort.'
+      ]
+    }
+  },
+  {
+    id: "the-sensation-suit-matrix-playful",
+    category: 'card',
+    intensity: 'Playful',
+    title: 'The Sensation Suit Matrix - Playful',
+    description: 'An adventurous card matrix incorporating silk blindfolds, ice cubes, warm breath, and shedding layers.',
+    content: {
+      rules: [
+        'Alternate drawing cards from the deck while maintaining playful eye contact.',
+        'Hearts: The drawing partner wears a silk blindfold while the other delivers gentle, teasing kisses.',
+        'Diamonds: Trace an ice cube slowly along the receiver\'s neck and collarbone, followed by warm breath.',
+        'Clubs: The drawing partner must remove one article of clothing or an accessory.',
+        'Spades: The non-drawing partner chooses a playful physical dare involving teasing touches.',
+        'Face cards (J, Q, K) double the duration or intensity of the suit action.'
+      ]
+    }
+  },
+  {
+    id: "the-sensation-suit-matrix-intense",
+    category: 'card',
+    intensity: 'Intense',
+    title: 'The Sensation Suit Matrix - Intense',
+    description: 'Strict power exchange and sensory deprivation dictated by card suits, with demanding physical commands.',
+    content: {
+      rules: [
+        'Designate an initial Dealer (Dominant) and Player (Submissive) for a sequence of 5 draws.',
+        'Hearts: Firm, commanding physical touch or massage while the receiver is required to remain completely motionless.',
+        'Diamonds: The Player must strip down to undergarments and assume an obedient posture.',
+        'Clubs: Silk blindfold with 2 full minutes of sensory deprivation and anticipation.',
+        'Spades: Dealer issues an explicit physical obedience command that must be executed without hesitation.',
+        'Any speaking or fidgeting without permission results in a strict penalty draw.'
+      ]
+    }
+  },
+  {
+    id: "the-sensation-suit-matrix-extreme",
+    category: 'card',
+    intensity: 'Extreme',
+    title: 'The Sensation Suit Matrix - Extreme',
+    description: 'Absolute bodily surrender where each suit transfers total physical control and uncompromising rule enforcement.',
+    content: {
+      rules: [
+        'Establish absolute power surrender before dealing. Safe words are strictly confirmed beforehand.',
+        'Hearts: Complete bodily control—the dominant partner dictates every breath, posture, and physical response.',
+        'Diamonds: Total removal of all remaining clothing with uncompromising obedience.',
+        'Clubs: Prolonged sensory deprivation and physical restraint under continuous dominant oversight.',
+        'Spades: Unconditional physical surrender to the dominant partner\'s explicit commands and desires.',
+        'No resistance, hesitation, or negotiation is permitted once a card is drawn.'
+      ]
+    }
+  },
+  {
+    id: "high-stakes-strip-blackjack-sensory",
+    category: 'card',
+    intensity: 'Sensory',
+    title: 'High-Stakes Strip Blackjack - Sensory',
+    description: 'Classic 21 reimagined with cozy clothed wagers, tension-relief massages, and vulnerability prompts.',
+    content: {
+      rules: [
+        'Deal standard Blackjack hands. Closest to 21 without busting wins the round.',
+        'The loser of each hand delivers a 2-minute targeted tension-relief massage to the winner\'s neck or feet.',
+        'Busting (exceeding 21) requires the player to confess an intimate longing they have never shared.',
+        'A natural Blackjack earns the winner a warm, uninterrupted 3-minute clothed embrace.',
+        'Keep the energy relaxed, affectionate, and emotionally connected.'
+      ]
+    }
+  },
+  {
+    id: "high-stakes-strip-blackjack-playful",
+    category: 'card',
+    intensity: 'Playful',
+    title: 'High-Stakes Strip Blackjack - Playful',
+    description: 'Classic Blackjack where losing hands forfeit clothing layers and busting triggers blindfolded temperature play.',
+    content: {
+      rules: [
+        'Play head-to-head Blackjack. The lower hand must remove one article of clothing.',
+        'Busting results in immediate clothing removal plus wearing a blindfold for the next two rounds.',
+        'While blindfolded, the winner traces an ice cube or feather across the loser\'s collarbone and torso.',
+        'A natural Blackjack allows the winner to reclaim an item of clothing or make the loser shed two.',
+        'Play continues until one partner reaches their underwear layer.'
+      ]
+    }
+  },
+  {
+    id: "high-stakes-strip-blackjack-intense",
+    category: 'card',
+    intensity: 'Intense',
+    title: 'High-Stakes Strip Blackjack - Intense',
+    description: 'High-stakes cardplay with strict physical penalties, deep physical commands, and sensory restraint.',
+    content: {
+      rules: [
+        'Both players begin down to undergarments. Hands are dealt with absolute seriousness.',
+        'Losing a hand forfeits physical autonomy: the loser must assume a submissive posture dictated by the winner.',
+        'Busting incurs a mandatory 3-minute blindfolded sensory deprivation penalty with forbidden speech.',
+        'The winner issues demanding physical tasks and edging commands for each winning hand.',
+        'Flinching or breaking character incurs an immediate double-dare penalty.'
+      ]
+    }
+  },
+  {
+    id: "high-stakes-strip-blackjack-extreme",
+    category: 'card',
+    intensity: 'Extreme',
+    title: 'High-Stakes Strip Blackjack - Extreme',
+    description: 'Total power surrender Blackjack where every hand loss transfers absolute physical command and enforcement.',
+    content: {
+      rules: [
+        'Players stake complete bodily control. The dealer/winner holds total authority.',
+        'Losing hand results in immediate surrender of all clothing and entry into absolute physical submission.',
+        'Busting requires full physical restraint and unconditional obedience to explicit commands.',
+        'The winning player dictates total posture, physical denial, and intimate pacing for the duration of the shoe.',
+        'Absolute rule enforcement is mandatory with safe words active at all times.'
+      ]
+    }
+  },
+  {
+    id: "red-or-black-escalation-sensory",
+    category: 'card',
+    intensity: 'Sensory',
+    title: 'Red or Black Escalation - Sensory',
+    description: 'A gentle prediction card game where streaks earn slow caresses, clothed teasing, and sweet admissions.',
+    content: {
+      rules: [
+        'Take turns guessing whether the next top card is Red or Black before flipping it.',
+        'A correct guess earns a relaxing fingertip trace along your back or scalp from your partner.',
+        'An incorrect guess requires you to whisper a sweet compliment or romantic truth into your partner\'s ear.',
+        'Three consecutive correct guesses unlock a 5-minute full back rub with soothing oils.',
+        'Maintain a calm, soothing atmosphere with candle-lit closeness throughout.'
+      ]
+    }
+  },
+  {
+    id: "red-or-black-escalation-playful",
+    category: 'card',
+    intensity: 'Playful',
+    title: 'Red or Black Escalation - Playful',
+    description: 'Fast-paced color predictions where wrong guesses cost clothing and trigger teasing ice and temperature play.',
+    content: {
+      rules: [
+        'Players take turns calling Red or Black before each card reveal.',
+        'Each wrong guess requires removing an article of clothing or accessory.',
+        'Two consecutive wrong guesses prompt the partner to apply chilled ice followed by warm breath to bare skin.',
+        'A correct guess allows the caller to blindfold their partner for the next three turns.',
+        'Continue until one player is down to their desired playful boundary.'
+      ]
+    }
+  },
+  {
+    id: "red-or-black-escalation-intense",
+    category: 'card',
+    intensity: 'Intense',
+    title: 'Red or Black Escalation - Intense',
+    description: 'Escalating penalty matrix with strict dominance rules, blindfolded sensory deprivation, and physical commands.',
+    content: {
+      rules: [
+        'One partner acts as the Inquisitor, drawing cards while the Subject calls Red or Black.',
+        'Every incorrect guess mandates an immediate physical obedience command chosen by the Inquisitor.',
+        'The Subject must remain blindfolded and perfectly still throughout the interrogation sequence.',
+        'Incorrect streaks escalate from deep physical commands to extended edging touches under strict silence.',
+        'Any hesitation in following an order adds three additional mandatory cards to the deck.'
+      ]
+    }
+  },
+  {
+    id: "red-or-black-escalation-extreme",
+    category: 'card',
+    intensity: 'Extreme',
+    title: 'Red or Black Escalation - Extreme',
+    description: 'High-stakes prediction duel culminating in total power surrender and uncompromising physical discipline.',
+    content: {
+      rules: [
+        'Full power exchange dynamic. The caller stakes absolute bodily surrender on the outcome of the deck.',
+        'Every incorrect call enforces total submission to the dominant partner\'s explicit physical desires.',
+        'Cumulative incorrect cards trigger full physical restraint and prolonged sensory deprivation protocols.',
+        'The dominant partner possesses unconditional authority over posture, exposure, and physical release.',
+        'Total rule enforcement with no exceptions or second chances.'
+      ]
+    }
+  },
   {
     id: "whispering-deck",
     category: 'card',
@@ -66,7 +264,9 @@ export const FALLBACK_GAMES: FallbackGame[] = [
     }
   },
 
-  // Movie Night Games
+  // ==========================================
+  // MOVIE NIGHT GAMES
+  // ==========================================
   {
     id: "cuddle-cinema",
     category: 'movie',
@@ -121,7 +321,9 @@ export const FALLBACK_GAMES: FallbackGame[] = [
     }
   },
 
-  // Drinking Games
+  // ==========================================
+  // DRINKING GAMES
+  // ==========================================
   {
     id: "sip-and-trace",
     category: 'drinking',
@@ -175,7 +377,9 @@ export const FALLBACK_GAMES: FallbackGame[] = [
     }
   },
 
-  // Date Night Games
+  // ==========================================
+  // DATE NIGHT GAMES
+  // ==========================================
   {
     id: "taste-test",
     category: 'date_night',

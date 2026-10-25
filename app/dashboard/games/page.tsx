@@ -1,11 +1,30 @@
-import { createClient } from '@/utils/supabase/server'
+import { createClient as createServerClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import GameList from '@/components/GameList'
 import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0
 
-type Game = { id: string, title: string, description: string, category: string, intensity: string }
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      headers: key && key !== 'placeholder' ? { apikey: key } : {}
+    }
+  });
+}
+
+type Game = { 
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  intensity: string;
+  content?: any;
+}
 
 export default async function GamesHub({
   searchParams,
@@ -14,33 +33,33 @@ export default async function GamesHub({
 }) {
   const params = await searchParams;
   const seasonalTag = params?.seasonal_tag || params?.tag;
-  const supabase = await createClient()
+  const serverSupabase = await createServerClient();
 
-  let userBaseTolerance: string | null = null
+  let userBaseTolerance: string | null = null;
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await serverSupabase.auth.getUser();
 
     if (user) {
-      const { data: preferences } = await supabase
+      const { data: preferences } = await serverSupabase
         .from('intimacy_preferences')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
 
       const prefRow = preferences?.find((p: any) => 
         p.category_tag === 'Primary Directive' || 
         p.category_tag === 'Base Tolerance' ||
         p.category_tag === 'base_tolerance'
-      )
-      userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null
+      );
+      userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null;
 
       if (!userBaseTolerance) {
-        const { data: profile } = await supabase
+        const { data: profile } = await serverSupabase
           .from('profiles')
           .select('base_tolerance')
           .eq('id', user.id)
-          .maybeSingle()
-        userBaseTolerance = profile?.base_tolerance || null
+          .maybeSingle();
+        userBaseTolerance = profile?.base_tolerance || null;
       }
     }
   } catch (authErr) {
@@ -49,11 +68,25 @@ export default async function GamesHub({
 
   let dbGames: any[] | null = null;
   try {
-    const { data, error } = await supabase.from('intimacy_games').select('*');
+    // 1. Query public.intimacy_games using admin client to ensure RLS never blocks catalog reads
+    const adminClient = getAdminClient();
+    const { data, error } = await adminClient
+      .from('intimacy_games')
+      .select('*')
+      .order('created_at', { ascending: true });
+
     if (!error && data && data.length > 0) {
       dbGames = data;
     } else if (error) {
-      console.warn("GamesHub database fetch warning:", error.message || error);
+      console.warn("GamesHub admin database fetch warning:", error.message || error);
+      // Fallback query via server client
+      const { data: serverData } = await serverSupabase
+        .from('intimacy_games')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (serverData && serverData.length > 0) {
+        dbGames = serverData;
+      }
     }
   } catch (fetchErr) {
     console.warn("GamesHub database exception:", fetchErr);
@@ -62,43 +95,61 @@ export default async function GamesHub({
   // Use database games if available, otherwise seamlessly use fallback matrix catalog
   const games: Game[] = (dbGames && dbGames.length > 0) ? dbGames : (FALLBACK_GAMES as any[]);
 
-  // Filter games matching user's base_tolerance
-  let filteredGames = userBaseTolerance
-    ? (games || []).filter((g: Game) => 
-        g.intensity === userBaseTolerance || 
-        g.intensity?.toLowerCase() === userBaseTolerance.toLowerCase()
-      )
-    : (games || []);
+  // Category normalization helpers supporting flexible naming
+  const isCardGame = (c: string) => {
+    const cat = (c || '').toLowerCase().trim();
+    return cat === 'card' || cat === 'card games' || cat === 'card_games' || cat === 'cards' || cat === 'card game';
+  };
+  const isMovieGame = (c: string) => {
+    const cat = (c || '').toLowerCase().trim();
+    return cat === 'movie' || cat === 'movie night games' || cat === 'movie_night' || cat === 'movie night' || cat === 'movies';
+  };
+  const isDrinkingGame = (c: string) => {
+    const cat = (c || '').toLowerCase().trim();
+    return cat === 'drinking' || cat === 'drinking games' || cat === 'drinking_games' || cat === 'drinks';
+  };
+  const isDateNightGame = (c: string) => {
+    const cat = (c || '').toLowerCase().trim();
+    return cat === 'date_night' || cat === 'date night games' || cat === 'date night' || cat === 'date';
+  };
 
-  // If strict filter leaves 0 games, show all available games so user is never stranded
-  if (filteredGames.length === 0 && games.length > 0) {
-    filteredGames = games;
-  }
+  const getCategoryGames = (filterFn: (cat: string) => boolean) => {
+    const allInCat = (games || []).filter((g: any) => filterFn(g.category));
+    if (!userBaseTolerance) return allInCat;
+    const toleranceFiltered = allInCat.filter((g: any) => 
+      g.intensity?.toLowerCase() === userBaseTolerance?.toLowerCase()
+    );
+    // If strict tolerance yields no games in this category, display all in category to keep catalog fresh & accessible
+    return toleranceFiltered.length > 0 ? toleranceFiltered : allInCat;
+  };
+
+  let cardGames = getCategoryGames(isCardGame);
+  let movieNightGames = getCategoryGames(isMovieGame);
+  let drinkingGames = getCategoryGames(isDrinkingGame);
+  let dateNightGames = getCategoryGames(isDateNightGame);
 
   // Filter for matching seasonal_tag if requested
   if (seasonalTag) {
-    const seasonalFiltered = filteredGames.filter((g: any) => 
+    const matchSeasonal = (g: any) => (
       g.seasonal_tag === seasonalTag || 
       g.content?.seasonal_tag === seasonalTag ||
       (Array.isArray(g.content?.tags) && g.content.tags.includes(seasonalTag)) ||
       (typeof g.content?.tags === 'string' && g.content.tags.includes(seasonalTag)) ||
       (g.title && g.title.toLowerCase().includes(seasonalTag.toLowerCase()))
     );
-    if (seasonalFiltered.length > 0) {
-      filteredGames = seasonalFiltered;
-    }
+
+    if (cardGames.some(matchSeasonal)) cardGames = cardGames.filter(matchSeasonal);
+    if (movieNightGames.some(matchSeasonal)) movieNightGames = movieNightGames.filter(matchSeasonal);
+    if (drinkingGames.some(matchSeasonal)) drinkingGames = drinkingGames.filter(matchSeasonal);
+    if (dateNightGames.some(matchSeasonal)) dateNightGames = dateNightGames.filter(matchSeasonal);
   }
 
-  const cardGames = filteredGames.filter((g: Game) => g.category === 'card' || g.category === 'Card Games')
-  const movieNightGames = filteredGames.filter((g: Game) => g.category === 'movie' || g.category === 'Movie Night Games')
-  const drinkingGames = filteredGames.filter((g: Game) => g.category === 'drinking' || g.category === 'Drinking Games')
-  const dateNightGames = filteredGames.filter((g: Game) => g.category === 'date_night' || g.category === 'Date Night Games' || g.category === 'date')
   const sections = [
     { title: 'Card Games', id: 'card', data: cardGames },
     { title: 'Movie Night Games', id: 'movie', data: movieNightGames },
     { title: 'Drinking Games', id: 'drinking', data: drinkingGames },
     { title: 'Date Night Games', id: 'date_night', data: dateNightGames }
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-12 pb-32 font-sans selection:bg-rose-500/30">
@@ -116,7 +167,7 @@ export default async function GamesHub({
           Select a category to spark a new connection tonight. Hand-picked games designed specifically for your shared boundaries.
           {userBaseTolerance && (
             <span className="block mt-2 text-sm text-zinc-500">
-              Showing games strictly matching your tolerance: <span className="font-semibold text-rose-400">{userBaseTolerance}</span>
+              Showing games matching your tolerance: <span className="font-semibold text-rose-400">{userBaseTolerance}</span>
             </span>
           )}
         </p>
@@ -138,5 +189,5 @@ export default async function GamesHub({
         <GameList sections={sections} />
       </div>
     </div>
-  )
+  );
 }

@@ -331,6 +331,71 @@ export default function LiteratureClient() {
     return () => clearInterval(interval);
   }, [scenario?.title, (scenario as any)?.status, (scenario as any)?.body?.length, supabase]);
 
+  // Resolve Story Content ID & Favorite Status when scenario title is available
+  useEffect(() => {
+    if (!scenario?.title) return;
+    async function loadFavoriteStatus() {
+      try {
+        const { data: row } = await supabase
+          .from('generated_content')
+          .select('id, is_favorite')
+          .eq('title', scenario!.title)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (row?.id) {
+          setStoryContentId(row.id);
+          if (typeof row.is_favorite === 'boolean') {
+            setIsFavorite(row.is_favorite);
+          }
+        }
+      } catch (err) {
+        console.warn("Error resolving favorite status:", err);
+      }
+    }
+    loadFavoriteStatus();
+  }, [scenario?.title, supabase]);
+
+  const handleToggleFavorite = async () => {
+    if (isFavoriting) return;
+    setIsFavoriting(true);
+    const newStatus = !isFavorite;
+    setIsFavorite(newStatus);
+
+    try {
+      let targetId = storyContentId;
+      if (!targetId && scenario?.title) {
+        const { data: row } = await supabase
+          .from('generated_content')
+          .select('id')
+          .eq('title', scenario.title)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (row?.id) {
+          targetId = row.id;
+          setStoryContentId(row.id);
+        }
+      }
+
+      if (targetId) {
+        await fetch('/api/favorites/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentId: targetId })
+        });
+      }
+
+      setFavoriteToast(newStatus ? 'Added to your favorites' : 'Removed from favorites');
+      setTimeout(() => setFavoriteToast(null), 3000);
+    } catch (favErr) {
+      console.warn('Favorite toggle error:', favErr);
+      setIsFavorite(!newStatus);
+    } finally {
+      setIsFavoriting(false);
+    }
+  };
+
   const handleContinueStory = async (explicitLatestContent?: string) => {
     const latestGeneratedContent = (typeof explicitLatestContent === 'string' && explicitLatestContent.trim().length > 0)
       ? explicitLatestContent.trim()
