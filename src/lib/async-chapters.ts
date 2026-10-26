@@ -13,7 +13,12 @@ export function enforceAnatomicalReality(text: string): string {
     .replace(/\bfemale\s+prostate\b/gi, "Skene's glands")
     .replace(/\bher\s+prostate\s+pulsed?\b/gi, 'her inner walls pulsed')
     .replace(/\bher\s+prostate\s+milked?\b/gi, 'her pelvic muscles tightened')
-    .replace(/\bdeep\s+in\s+her\s+prostate\b/gi, 'deep against her G-spot');
+    .replace(/\bdeep\s+in\s+her\s+prostate\b/gi, 'deep against her G-spot')
+    .replace(/\b(?:against|massaging|stroking|pressing|stimulating)\s+(?:her|the\s+female)\s+prostate\b/gi, 'stimulating her G-spot')
+    .replace(/\bher\s+(?:prostate|prostatic)\s+(?:fluid|secretions?)\b/gi, 'her natural lubrication')
+    .replace(/\bher\s+(?:testicles?|testes|scrotum)\b/gi, 'her labia')
+    .replace(/\bher\s+prostate\s+milking\b/gi, 'her pelvic floor contracting')
+    .replace(/\bmilking\s+her\s+prostate\b/gi, 'stimulating her G-spot');
 }
 
 interface ChapterJobParams {
@@ -66,16 +71,17 @@ export async function computeAndAppendChaptersAsync(params: ChapterJobParams): P
     // STEP 1: Generate Chapter 2: The Escalation
     // ==========================================
     const chapter2Prompt = `PREVIOUS TEXT (Chapter 1):\n${chapter1Text}\n\nCONTINUATION DIRECTIVE:
-You are generating Chapter 2 of this 3-chapter story.
+You are generating Chapter 2 of an expansive 20-chapter serialized novella (~1,500 words per chapter).
 Markdown header: '## Chapter 2: The Escalation'
 Pacing: ${pacing} (${pacingRule}).
-Target length: 1,000 - 1,500 words.
+Target length: 1,200 - 1,500 words.
 Continue seamlessly from the exact moment Chapter 1 ended.
 Escalate physical touches, intimate sensory dialogue, mounting tension, and micro-reactions with anatomical precision.
-Do not conclude the story or resolve the climax yet; save the peak release for Chapter 3.
+Do not conclude the entire novella yet; advance the Phase 1 narrative toward deeper intimacy.
 Return a valid JSON object matching:
 {
   "chapter": 2,
+  "totalChapters": 20,
   "title": "${title.replace(/"/g, '\\"')}",
   "continuation": "## Chapter 2: The Escalation\\n\\n[Full Chapter 2 text...]"
 }`;
@@ -123,7 +129,7 @@ Return a valid JSON object matching:
         body: JSON.stringify({
           title,
           chapter: 2,
-          totalChapters: 3,
+          totalChapters: 20,
           body: twoChaptersBody,
           text: twoChaptersBody,
           word_count: twoChaptersBody.trim().split(/\s+/).length,
@@ -140,16 +146,17 @@ Return a valid JSON object matching:
     console.log(`[Async Chunking] Generating Chapter 3 for story: ${title} (${storyId})`);
 
     const chapter3Prompt = `PREVIOUS TEXT (Chapters 1 & 2):\n${twoChaptersBody}\n\nCONTINUATION DIRECTIVE:
-You are generating Chapter 3 (The Final Chapter) of this story.
+You are generating Chapter 3 of an expansive 20-chapter serialized novella (~1,500 words per chapter).
 Markdown header: '## Chapter 3: The Climax'
 Pacing: ${pacing} (${pacingRule}).
-Target length: 1,000 - 1,500 words.
-Deliver the full, uninhibited physical and emotional climax of the story.
-Culminate in an intense, explicit, and visceral erotic release with granular physiological detail and emotional resolution.
-Do not rush or summarize the peak; make the release expansive and satisfying.
+Target length: 1,200 - 1,500 words.
+Deliver an intense physical and emotional escalation for Chapter 3.
+Culminate in a breathtaking, visceral encounter with granular physiological detail, anatomical accuracy, and emotional intensity.
+Do not rush or summarize the scene; make the prose rich, unhurried, and evocative.
 Return a valid JSON object matching:
 {
   "chapter": 3,
+  "totalChapters": 20,
   "title": "${title.replace(/"/g, '\\"')}",
   "continuation": "## Chapter 3: The Climax\\n\\n[Full Chapter 3 text...]"
 }`;
@@ -194,14 +201,14 @@ Return a valid JSON object matching:
     // Compute updated semantic embedding for the complete 3-chapter masterpiece
     const fullEmbedding = await getSemanticEmbedding(`${title} ${theme || ''} ${fullStoryBody.slice(0, 3000)}`);
 
-    // Final update: mark completed with all 3 chapters and full vector embedding
+    // Final update: mark with all 3 chapters ready and full vector embedding
     await supabaseAdmin
       .from('generated_content')
       .update({
         body: JSON.stringify({
           title,
           chapter: 3,
-          totalChapters: 3,
+          totalChapters: 20,
           body: fullStoryBody,
           text: fullStoryBody,
           word_count: totalWordCount,

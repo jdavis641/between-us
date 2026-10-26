@@ -560,14 +560,35 @@ export default function LiteratureClient() {
       }
 
       if (newText && newText.trim()) {
+        const nextChapter = (scenario as any)?.chapter ? ((scenario as any).chapter + 1) : 2;
         setScenario(prev => {
           if (!prev) return prev;
           const existingBody = prev.body || prev.overview || "";
+          const updatedBody = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
           return {
             ...prev,
-            body: existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim()
+            body: updatedBody,
+            chapter: nextChapter,
+            totalChapters: 20
           };
         });
+
+        if (storyContentId) {
+          try {
+            const existingBody = scenario?.body || "";
+            const updatedBody = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
+            supabase.from('generated_content').update({
+              body: JSON.stringify({
+                ...scenario,
+                body: updatedBody,
+                text: updatedBody,
+                chapter: nextChapter,
+                totalChapters: 20,
+                status: `chapter_${nextChapter}_ready`
+              })
+            }).eq('id', storyContentId);
+          } catch {}
+        }
       }
 
       if (isStreamInterrupted) {
@@ -1186,13 +1207,13 @@ export default function LiteratureClient() {
               </div>
             )}
             {((scenario as any)?.status === 'chapter_1_ready' || (scenario as any)?.status === 'chapter_2_ready') && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-amber-950/40 border-amber-800 text-amber-200 animate-pulse">
-                <span>📖</span> Chapter {(scenario as any)?.chapter || 1} of 3 — Assembling remaining chapters in background...
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
+                <span>📖</span> Chapter {(scenario as any)?.chapter || 1}
               </span>
             )}
-            {(scenario as any)?.status === 'completed' && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-emerald-950/40 border-emerald-800 text-emerald-300">
-                <span>✓</span> Complete 3-Chapter Story
+            {((scenario as any)?.status === 'completed' || ((scenario as any)?.chapter && (scenario as any).chapter >= 3)) && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
+                <span>📖</span> Novella (Chapter {(scenario as any)?.chapter || 3} of 20)
               </span>
             )}
           </div>
@@ -1239,7 +1260,7 @@ export default function LiteratureClient() {
                   disabled={isContinuing}
                   className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
                 >
-                  {isContinuing ? "Expanding..." : "Retry Continuation"}
+                  {isContinuing ? "Expanding..." : "Continue Story"}
                 </button>
               </div>
             )

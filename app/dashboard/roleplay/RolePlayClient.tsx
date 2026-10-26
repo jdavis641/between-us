@@ -620,7 +620,7 @@ export default function RolePlayClient() {
             disabled={loading}
             className="w-full md:w-auto px-8 py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
           >
-            {loading ? "Drafting Scenario..." : "Generate Experience"}
+            {loading ? "Drafting Scenario..." : "Generate Story"}
           </button>
 
               {loading && wordCount < 1000 && (

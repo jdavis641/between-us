@@ -123,6 +123,8 @@ function buildSystemInstruction({
   category,
   hasScripts,
   previousContent,
+  currentChapterCount = 1,
+  nextChapterNumber = 2,
   pacing,
   storyLength,
   activeTrope,
@@ -139,6 +141,8 @@ function buildSystemInstruction({
   category?: string;
   hasScripts?: boolean;
   previousContent?: string;
+  currentChapterCount?: number;
+  nextChapterNumber?: number;
   pacing?: string;
   storyLength?: string;
   activeTrope?: any;
@@ -191,8 +195,15 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
   }
 
   if (previousContent) {
-    sys += `STORY CONTINUATION DIRECTIVE:
-You are continuing an existing story. Read the provided previous text and immediately write the NEXT sequential scene. CRITICAL RULE: Do NOT repeat, rephrase, or output the existing text. Do NOT output standalone chapter titles like 'Chapter 2'. Immediately begin writing the next paragraphs of prose to advance the plot.\n\n`;
+    sys += `NOVELLA CONTINUATION DIRECTIVE:
+You are continuing an ongoing 20-chapter serialized novella.
+The narrative already contains Chapters 1 through ${currentChapterCount}.
+You must write Chapter ${nextChapterNumber} (approximately 1,500 words).
+CRITICAL RULES:
+1. Do NOT repeat, summarize, or reproduce any text or events from prior chapters.
+2. Advance the plot, sexual escalation, and emotional intimacy directly from the previous chapter's ending.
+3. Start the text directly with the markdown header: '## Chapter ${nextChapterNumber}: [Title]' followed by two newlines and full immersive scene narrative prose.
+4. Adhere strictly to the chosen pacing and detailed anatomical accuracy.\n\n`;
   }
 
   // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
@@ -215,21 +226,17 @@ ${styleReference.excerpt.trim()}
   }
 
   if (contentType === 'literature') {
-    let wordCountInstruction = `Target Length: Short Story. You are generating ONLY "Chapter 1" (maximum 1,500 words) to ensure immediate sub-30-second reader delivery. Do NOT write Chapters 2 or 3 in this response. Establish rich atmospheric scene setting, palpable tension, and the electric buildup of the first encounter. Subsequent chapters will be continued asynchronously.`;
-
-    const isNovella = storyLength === 'Novella' || (typeof storyLength === 'string' && storyLength.includes('Novella'));
-    const isNovel = (storyLength === 'Novel' || (typeof storyLength === 'string' && storyLength.includes('Novel'))) && !isNovella;
-
-    if (isNovella) {
-      wordCountInstruction = `Target Length: Novella. You are generating ONLY "Chapter 1" (maximum 1,500 words) of an expansive novella. Develop deep narrative tension, layered micro-interactions, and compelling character dynamics. Subsequent chapters will follow.`;
-    } else if (isNovel) {
-      wordCountInstruction = `Target Length: Novel. You are generating ONLY "Chapter 1" (maximum 1,500 words) of an epic romance novel. Focus on rich character interiority, atmospheric depth, and slow sensual tension.`;
+    let wordCountInstruction = '';
+    if (previousContent) {
+      wordCountInstruction = `Target Length: Novella Continuation (Chapter ${nextChapterNumber} of 20). You are generating Chapter ${nextChapterNumber} (~1,500 words) of an expansive 20-chapter novella. Pick up seamlessly where Chapter ${currentChapterCount} left off. Do not repeat prior scenes; advance the emotional tension and physical progression.`;
+    } else {
+      wordCountInstruction = `Target Length: Novella (Chapter 1 of 20). You are generating Chapter 1 (~1,500 words) of an expansive 20-chapter novella blueprint (~30,000 words total). Establish rich atmospheric scene setting, deep character interiority, palpable tension, and the electric buildup of the first encounter. Subsequent chapters will follow sequentially.`;
     }
 
     const pacingInstruction = `Pacing: ${currentPacing}. Strict Pacing Mechanic: "${pacingRule}"`;
 
     const headerInstruction = previousContent
-      ? `Do NOT output a table of contents, chapter lists, or outlines. Write continuous narrative prose directly.`
+      ? `Start your response immediately with the markdown header: '## Chapter ${nextChapterNumber}: [Title]'. Do NOT output a table of contents or duplicate prior text. Write continuous narrative prose directly.`
       : `Use Markdown headers (e.g., '## Chapter 1: [Title]') for the chapter. Do not summarize; write the full scene.`;
 
     sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\n${headerInstruction}\n\n`;
@@ -263,8 +270,13 @@ Use explicit anatomical vocabulary, visceral imagery, and evocative descriptions
 All stories must contain sexual progression, including a clear explanation of acts, feelings, and emotions.
 Climax Execution: The climax descriptors of each output must be expansive. Start with desire and growing intensity, escalating into explicit, detailed acts, and provide immense literal and figurative detail for the physical climax. You must make the climax portion of the story highly detailed and expansive. Do not rush or summarize the peak of the scene. You must explicitly explain the granular physiological reactions and the overwhelming emotional responses of the characters in detail.\n\n`;
 
-  sys += `NOVELLA LENGTH TARGET & MULTI-CHAPTER COMPLETENESS DIRECTIVE:
-The overarching narrative is an expansive, structured novella targeting minimum 25,000 words across structured chapters from start to finish.
+  sys += `NOVELLA ARCHITECTURE & 20-CHAPTER STRUCTURAL BLUEPRINT DIRECTIVE:
+The overarching narrative is an expansive, structured 20-chapter novella targeting approximately 1,500 words per chapter (~30,000 words total across the novella blueprint):
+- Phase 1: Chapters 1-4 (Anticipation & Ignition): Atmospheric setting, character interiority, micro-tensions, initial touch, and mounting desire.
+- Phase 2: Chapters 5-8 (Intimate Escalation): Deepening emotional connection, boundary exploration, sensual vulnerability, and heightened foreplay.
+- Phase 3: Chapters 9-14 (Passionate Deepening): Uninhibited passion, exploration of mutual kinks, intricate sensory friction, and escalating physical intimacy.
+- Phase 4: Chapters 15-18 (Peak Intensity): Visceral physical union, unhurried climactic buildup, and breath-stealing mutual surrender.
+- Phase 5: Chapters 19-20 (Afterglow & Emotional Resonance): Sensual afterglow, emotional grounding, lasting connection, and deeply satisfying closure.
 Maintain deep narrative breadth, intricate scene building, character interiority, granular sensory details, and uncompromising literary excellence from start to finish. Never condense, summarize, or skip scenes. Each individual chapter must be fully dramatized in complete, uninterrupted narrative prose.\n\n`;
 
   sys += `ANATOMICAL REALITY FILTER & BIOLOGICAL ACCURACY DIRECTIVE (ZERO TOLERANCE):
@@ -319,16 +331,29 @@ Theme Prioritization: If theme suggestions are provided, they are explicitly tag
   }
 
   if (contentType === "literature") {
-    sys += `JSON SCHEMA REQUIREMENT:
+    if (previousContent) {
+      sys += `JSON SCHEMA REQUIREMENT:
+You must return a valid JSON object matching this schema exactly:
+{
+  "title": "Title of the novella",
+  "chapter": ${nextChapterNumber},
+  "totalChapters": 20,
+  "body": "The full markdown text of Chapter ${nextChapterNumber} (approx 1,500 words), starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat prior chapters.",
+  "text": "The full markdown text of Chapter ${nextChapterNumber} (approx 1,500 words), starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat prior chapters."
+}
+Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
+    } else {
+      sys += `JSON SCHEMA REQUIREMENT:
 You must return a valid JSON object matching this schema exactly:
 {
   "title": "A catchy title for the story",
   "chapter": 1,
-  "totalChapters": 3,
+  "totalChapters": 20,
   "body": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene.",
   "text": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene."
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
+    }
   } else if (contentType === "roleplay") {
     sys += `JSON SCHEMA REQUIREMENT:
 You must return a valid JSON object matching this schema exactly:
@@ -474,10 +499,104 @@ async function fetchCuratedSupabaseFallback({
 
   // 3. High quality safety net curated defaults if Supabase table is empty or inaccessible
   if (contentType === 'literature') {
+    const chapter1 = `## Chapter 1: Unspoken Desires
+
+The autumn rain lashed relentlessly against the tall leaded-glass windows of Blackwood Manor, casting distorted, liquid shadows across the floorboards. Inside the private library, the only illumination came from the roaring stone hearth, painting the dark oak paneling and leather-bound volumes in flickering hues of copper and gold. The air smelled of cedarwood, aged parchment, and the sweet, electric charge of petrichor drifting through the chilled drafts. Yet beneath the cozy scent of timber and autumn rain, an intoxicating tension hung in the room—a heavy, unspoken gravity that had been silently mounting between them for weeks.
+
+Elena stood by the tall arched window, holding a crystal glass of dark port that caught the fire's dying embers. She had unpinned her damp auburn hair, letting it tumble in loose, dark curls over the black silk blouse that clung softly to the curve of her shoulders and the dip of her spine. Her breathing was measured, but beneath the stillness of her posture, her pulse hammered in her throat. She could hear his footsteps behind her—slow, measured, deliberate. Each step on the Persian rug seemed to compress the distance between them until the warmth of his body radiated against her back.
+
+Julian did not rush. He never did. He paused a mere breath away, his towering frame casting a shadow that enveloped hers against the dark windowpane. He was dressed in a tailored charcoal waistcoat, his sleeves rolled casually to the forearms, revealing corded muscle and a fine dusting of dark hair. When he spoke, his voice was low, rough with the gravelly warmth of deferred patience.
+
+"You've been avoiding my eyes all evening, Elena," he murmured, his voice rumbling softly in his chest. "You sit across from me at dinner, you discuss the storm, you pour the wine... and yet your fingers tremble every time you pass me a glass."
+
+Elena turned slowly, her back resting against the chilled mahogany window sill. Her gaze lifted to meet his. Julian’s hazel eyes were darkened with intent, the amber flecks catching the amber glow of the fire. The sheer proximity made her lungs seize. "I'm not avoiding you, Julian," she whispered, her voice husky, betraying the very vulnerability she sought to conceal. "I'm wondering if you realize how dangerous this room has become."
+
+A slow, devastating smile touched the corner of Julian’s mouth. He set his tumbler down on the nearby pedestal table, the crystal clinking softly. He lifted one hand, his long, calloused fingers hovering inches from her cheek before resting against the soft curve of her jawline. The heat of his touch was startling against the chill of the window glass behind her. His thumb stroked the delicate, frantic flutter of her pulse beneath her ear.
+
+"Danger implies an unforeseen risk," Julian said softly, his thumb tracing downward along the line of her throat to the hollow of her collarbone. "There is nothing unforeseen about tonight. We both knew exactly where this storm would strand us."
+
+Elena leaned imperceptibly into his palm, a shuddering breath escaping her parted lips. The sheer friction of his thumb on her sensitive skin sent a sharp, exquisite shiver down her spine. Weeks of polite glances across crowded rooms, accidental touches in sunlit hallways, and polite pleasantries dissolved into ash. Her fingers lifted, hesitating for a fraction of a second before gripping the fabric of his lapels. The wool was warm beneath her fingertips, but the broad chest beneath was solid, tense, and radiating an overwhelming animal heat.
+
+"Then stop talking," she whispered, her gaze dropping to his lips.
+
+Julian’s eyes flared with sudden, incandescent fire. He stepped into her, closing the last fraction of space until the front of his thighs pressed against hers through the layers of wool and silk. His other hand settled firmly at the small of her back, his fingers splaying wide, pulling her flush against him. The sensation of his hard, muscular frame pressed against her soft curves drew a soft gasp from her throat.
+
+Before she could speak another word, Julian tilted her chin upward and brought his mouth down upon hers.`;
+
+    const chapter2 = `## Chapter 2: The Escalation
+
+The kiss was not hesitant; it was the explosive collapse of a dam that had held back weeks of torrential desire. Julian's mouth moved over Elena's with an urgent, possessive hunger that stole the breath from her lungs. His lips were firm, hot, and tasted faintly of dark wine and smoke. Elena let out a muffled whimper of surrender against his mouth, her arms winding tightly around his neck, her fingers tangling into the thick, dark hair at the nape of his neck.
+
+Julian groaned deep in his chest—a raw, guttural sound that vibrated straight through Elena's ribcage. His grip on her waist tightened, lifting her slightly so that her hips met his. The unyielding proof of his arousal was unmistakable against her lower belly, solid and thick behind his trousers. The friction sent a liquid shock of heat pooling deep between her thighs, softening her inner walls with eager, helpless lubrication.
+
+He parted her lips with the tip of his tongue, deepening the kiss into a slow, devastating rhythm that left her dizzy. Elena welcomed him eagerly, meeting each thrust of his tongue with a hungry demand of her own. Her body felt incandescent, every nerve ending firing in rapid succession. When Julian finally broke the seal of their lips to draw a ragged breath, he didn't pull away; he trailed searing open-mouthed kisses along her jawline, down the sensitive tendon of her neck, and straight into the hollow of her throat.
+
+"You have no idea," Julian muttered against her burning skin, his breath hot and damp, "how many nights I've spent in this house imagining the sound of your voice when you come."
+
+Elena arched her neck, shivering as his teeth lightly grazed the sensitive skin where her shoulder met her neck. "Julian... please..."
+
+"Please what, darling?" he whispered, his hands moving with deliberate mastery. His fingers found the small pearl buttons at the throat of her black silk blouse. With steady, practiced precision, he slipped them free one by one, parting the black silk to reveal the creamy expanse of her chest, the delicate lace of her crimson corset, and the frantic rise and fall of her breasts.
+
+The cool library air kissed her exposed skin, but the chill was instantly incinerated by the heat of Julian's gaze. His eyes traced the swell of her cleavage, watching as her nipples hardened into tight, prominent buds behind the sheer lace. He reached out, his calloused palms cupping both breasts through the lace, his thumbs sweeping across the sensitized peaks. Elena gasped loudly, her hands clutching at his shoulders as pleasure shot straight down into her pelvis.
+
+"You are perfection," Julian whispered reverently. He bent his head, taking one lace-covered peak into his mouth and suckling her through the fabric. The wet heat combined with the coarse texture of the lace sent a violent jolt of pleasure arcing through Elena's core. Her hips involuntarily bucked forward against his, searching for friction.
+
+Julian chuckled darkly against her breast. "Impatient," he noted, though his own voice was strained with rising need. Without breaking eye contact, he swept a stack of antique leather volumes off the heavy mahogany library table beside them. The heavy books thudded softly onto the Persian rug. In one swift, effortless motion, he caught Elena under her thighs and lifted her onto the polished wood, sliding her back until she was seated at the edge of the desk, perfectly positioned at eye level.
+
+He stepped between her parted knees, his thighs bracing hers wide. His hands slid down her legs, gathering the hem of her long velvet skirt, bunching the heavy fabric upward until it rested around her waist. The sight that greeted him made his jaw clench: pale, smooth thighs, black silk stockings fastened with lace garters, and a sheer crimson thong completely soaked through with the clear, glistening evidence of her arousal.
+
+Elena felt a surge of delicious, intoxicating vulnerability as Julian's gaze lingered on the damp silk between her thighs. She started to close her knees instinctively, but Julian caught her calves, his thumbs stroking the sensitive skin on the inside of her knees, firmly keeping her open to him.
+
+"Don't hide from me," he commanded softly, his voice thick with unvarnished hunger. "Let me see what you've been hiding for me."
+
+He leaned down, his warm breath ghosting across the thin barrier of damp silk. Elena gripped the polished edges of the desk behind her, her knuckles white, her heart pounding a frantic rhythm against her ribs as Julian prepared to take her beyond the edge of sanity.`;
+
+    const chapter3 = `## Chapter 3: The Climax
+
+Julian did not remove the crimson silk immediately. Instead, he pressed the flat of his palm over the drenched fabric, applying firm, circular pressure directly against the swollen hood of her clitoris. Elena cried out, her back arching off the desk, her head falling back into the amber firelight as a violent shudder ripped through her body.
+
+"Look at me, Elena," Julian commanded softly, his voice dark and velvet. When her heavy-lidded eyes fluttered open to meet his, he hooked two fingers into the delicate lace band of her panties and pulled them down her legs, discarding them onto the floor.
+
+She was completely exposed to him now—her swollen, glistening labia flushed a deep rose, glistening with slick lubrication that dripped onto the mahogany surface beneath her. Julian dipped two fingers into her wetness, groaning as the slick heat coated his skin. He slid one finger slowly into her tight, welcoming passage, feeling the velvety heat of her inner walls clamp down hungrily around him. With his thumb, he found the small, exquisitely sensitive pearl of her clitoral glans, circling the swollen crest with deliberate, agonizing pressure.
+
+"God, you're soaking wet for me," Julian breathed, his own restraint fraying into raw, ragged pieces. He pumped his fingers inside her in a steady, rolling rhythm, curling them upward to firmly stroke the textured ridge of her anterior vaginal wall, directly stimulating her G-spot.
+
+Elena was completely undone. Waves of heat crashed over her nervous system with every stroke of his fingers. Her hips moved in frantic synchrony with his hand, her thighs trembling violently against his waist. "Julian... Julian, I need you... please, no more games!"
+
+Julian withdrew his hand with a sharp, ragged breath, his hazel eyes completely black with desire. In seconds, he unbuckled his leather belt and unbuttoned his trousers, freeing his thick, throbbing erection. His shaft was heavy, flushed dark crimson, and leaking clear beads of pre-cum at the broad, sensitive head. He took hold of his base, guiding the blunt head through the slick folds of her labia, letting her feel the staggering size and searing heat of him before entering.
+
+He paused at her threshold, resting his forehead against hers, their breaths mingling in hot, panting gasps. "Wrap your legs around my waist," he whispered.
+
+Elena obeyed instantly, locking her ankles behind his lower back. Julian gripped her hips with bruising possessiveness and thrust forward in one slow, deep, devastating stroke.
+
+A long, breathless wail tore from Elena's throat as he buried himself completely inside her. The sensation of his full length stretching her to absolute capacity was overwhelming, a sublime fullness that bordered on agony and ecstasy. Her inner walls spasmed in shock, clamping down around his shaft in tight, rhythmic pulses that caused Julian's head to snap back, a guttural curse tearing from his lips.
+
+"You're so tight... Jesus, Elena," he ground out through clenched teeth, holding himself perfectly still for three agonizing heartbeats while she acclimated to his intrusion.
+
+Then, slowly, Julian began to move.
+
+He pulled back until only the broad glans remained inside her slick heat, then drove forward again, burying himself to the hilt. The friction was intoxicating, slick and visceral, the wet sounds of their joining echoing through the quiet library alongside the crackle of the hearth and the drum of the rain. Julian set an unhurried, punishing pace—deep, grinding thrusts that dragged against every sensitive nerve ending along her anterior wall. With every forward surge, his pelvis rubbed firmly against her swollen clitoris, compounding the pleasure until Elena was sobbing with sensory overload.
+
+"Look at how good you feel around me," Julian urged, his voice ragged with passion as he drove into her with increasing tempo. "Tell me you're mine."
+
+"I'm yours... I've always been yours," Elena gasped, her nails digging through the fabric of his waistcoat into his broad back. Her internal muscles tightened around his shaft like a vise, the contractions growing violent and uncontrollable.
+
+The pressure inside her crested into an unbearable, blinding peak. "Julian! Now... right now!"
+
+Julian's thrusts became rapid, deep, and relentless. He reached between their joined bodies, pressing his thumb firmly against the base of her clitoris as he drove into her with everything he possessed. The dual stimulation pushed Elena straight over the precipice.
+
+Her orgasm hit her like an avalanche. A scream of pure, ecstatic release shattered the room as her pelvic floor contracted around him in violent, milking spasms. White-hot waves of pleasure radiated through her entire body, making her vision sparkle with golden light. Feeling her inner walls seize around him in continuous, pulsing contractions, Julian's own control completely shattered. With a deep, guttural roar that echoed to the high rafters of the library, he drove deep one final time and held himself buried to the root, pumping his hot release deep inside her in rhythmic, searing pulses.
+
+They clung to each other in the aftermath, both trembling, their chests heaving in unison as the firelight danced across their sweat-slicked bodies. Julian gently lowered her back against the cushions of the desk, burying his face in the crook of her neck, his arms locked protectively around her waist as their ragged breathing gradually softened into the steady, peaceful rhythm of the falling rain.`;
+
+    const fullNovella = `${chapter1}\n\n${chapter2}\n\n${chapter3}`;
+
     return {
       title: "Shadows and Silk",
-      body: `## Chapter 1: Unspoken Desires\n\nThe flickering candlelight cast warm golden amber across the room, deepening the heavy silence between them. Every step closer felt deliberate, electric with weeks of unspoken tension.\n\n## Chapter 2: The Escalation\n\nHis hands found her waist, warm and grounding, dispelling any lingering doubts. As their lips met, the slow burn of anticipation dissolved into an intoxicating wave of breathless passion.\n\n## Chapter 3: The Climax\n\nEvery touch became visceral, urgent yet savored. The boundary between restraint and surrender completely evaporated in an overwhelming, ecstatic release that echoed in the quiet room.`,
-      text: `## Chapter 1: Unspoken Desires\n\nThe flickering candlelight cast warm golden amber across the room, deepening the heavy silence between them. Every step closer felt deliberate, electric with weeks of unspoken tension.\n\n## Chapter 2: The Escalation\n\nHis hands found her waist, warm and grounding, dispelling any lingering doubts. As their lips met, the slow burn of anticipation dissolved into an intoxicating wave of breathless passion.\n\n## Chapter 3: The Climax\n\nEvery touch became visceral, urgent yet savored. The boundary between restraint and surrender completely evaporated in an overwhelming, ecstatic release that echoed in the quiet room.`,
+      chapter: 3,
+      totalChapters: 20,
+      body: fullNovella,
+      text: fullNovella,
       fallback: true,
       source: "curated_library_safety_net"
     };
@@ -932,6 +1051,19 @@ export async function POST(req: Request) {
       }
     }
 
+    let currentChapterCount = 1;
+    let nextChapterNumber = 2;
+    if (previousContent) {
+      const chapterMatches = Array.from(previousContent.matchAll(/##\s*Chapter\s*(\d+)/gi));
+      if (chapterMatches.length > 0) {
+        const numbers = chapterMatches.map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
+        if (numbers.length > 0) {
+          currentChapterCount = Math.max(...numbers);
+        }
+      }
+      nextChapterNumber = Math.min(currentChapterCount + 1, 20);
+    }
+
     const systemInstruction = buildSystemInstruction({
       preferences: preferences || [],
       playMode,
@@ -942,6 +1074,8 @@ export async function POST(req: Request) {
       category,
       hasScripts,
       previousContent,
+      currentChapterCount,
+      nextChapterNumber,
       pacing,
       storyLength,
       activeTrope,
@@ -974,16 +1108,16 @@ export async function POST(req: Request) {
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
       if (!previousContent) {
-        userPrompt = `Write Chapter 1 (max 1,500 words) of this story according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+        userPrompt = `Write Chapter 1 (approx 1,500 words) of this 20-chapter novella according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
       } else {
-        userPrompt = `Continue the story narrative prose seamlessly according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+        userPrompt = `Write Chapter ${nextChapterNumber} (approx 1,500 words) starting with '## Chapter ${nextChapterNumber}: [Title]' continuing seamlessly from Chapter ${currentChapterCount}. Do not repeat previous text. Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
       }
     } else if (contentType === 'roleplay') {
       userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
     }
 
     if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {
-      userPrompt = `PREVIOUS STORY TEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nContinue the narrative seamlessly from the provided text. Do not summarize or repeat the previous text. Return valid JSON containing the new continuation text in the "body" and "text" fields. ${userPrompt}`;
+      userPrompt = `PREVIOUS STORY TEXT (Ends at Chapter ${currentChapterCount}):\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nSeamlessly write Chapter ${nextChapterNumber} (approx 1,500 words) starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat or summarize previous chapters. Return valid JSON containing the new chapter text in the "body" and "text" fields. ${userPrompt}`;
     }
 
     // Sub-25-second token allocation: 1800 max tokens for Chapter 1
@@ -1093,29 +1227,29 @@ export async function POST(req: Request) {
             storyId = crypto.randomUUID();
 
             if (isLiterature) {
-              generatedContent.chapter = 1;
-              generatedContent.totalChapters = 10;
-              generatedContent.status = 'chapter_1_ready';
-              generatedContent.targetNovellaLength = 25000;
+              generatedContent.chapter = isContinuation ? nextChapterNumber : 1;
+              generatedContent.totalChapters = 20;
+              generatedContent.status = isContinuation ? `chapter_${nextChapterNumber}_ready` : 'chapter_1_ready';
+              generatedContent.targetNovellaLength = 30000;
             }
 
             const payload: any = {
               id: storyId,
-              user_id: user.id,
+              user_id: user.is_guest ? null : user.id,
               content_type: contentType,
               title: generatedContent.title || "Untitled Experience",
               body: JSON.stringify(generatedContent),
               pre_experience_tasks: generatedContent.preExperienceTasks || generatedContent.tasks || null,
-              status: isLiterature ? 'chapter_1_ready' : 'active',
+              status: isLiterature ? (isContinuation ? `chapter_${nextChapterNumber}_ready` : 'chapter_1_ready') : 'active',
               tolerance_tier: effectiveTolerance || 'Moderate',
               play_mode: playMode,
               theme_tags: detailedMeta.tags.join(', '),
               theme_embedding: formatVectorForPg(queryEmbedding)
             };
 
-            if (!user.is_guest) {
-              await supabase.from('generated_content').insert(payload);
+            await supabase.from('generated_content').insert(payload);
 
+            if (!user.is_guest) {
               await admin.from('activity_history').insert({
                 user_id: user.id,
                 group_id: groupId || null,
@@ -1133,12 +1267,12 @@ export async function POST(req: Request) {
 
           // Asynchronous Progressive Generation via Next.js after()
           // Keeps lambda alive in background to generate Chapters 2 & 3 while user reads Chapter 1!
-          if (isLiterature && storyId && generatedContent && !user.is_guest) {
+          if (isLiterature && !isContinuation && storyId && generatedContent) {
             after(async () => {
               try {
                 await computeAndAppendChaptersAsync({
                   storyId,
-                  userId: user.id,
+                  userId: user.is_guest ? '' : user.id,
                   title: generatedContent.title || "Untitled Experience",
                   chapter1Text: generatedContent.body || generatedContent.text,
                   pacing: currentPacing,
