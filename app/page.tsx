@@ -14,7 +14,7 @@ const faqs: FaqItem[] = [
   },
   {
     question: "How do you curate content?",
-    answer: "Our conversational onboarding assessment lets you rate themes as definitely interested, curious, or off-limits. This generates an endless supply of games and literature incorporating your unique interests while explicitly filtering out no-go topics."
+    answer: "Visit the settings menu to update your tolerance level anytime. Want more detail? You can also choose specific themes that you find interesting to update your solo preferences or couple preferences 24/7. This generates an endless supply of games and literature incorporating your unique interests while explicitly filtering out no-go topics."
   },
   {
     question: "How does the system evolve?",

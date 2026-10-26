@@ -729,10 +729,18 @@ export async function POST(req: Request) {
       .map(p => p.category_tag.toLowerCase())
       .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
 
-    // Target Metatags for High-Relevance Matching
+    // Target Metatags for High-Relevance Matching (Themes, Sexual Topics, Tropes, Kinks, Boundaries)
+    const tropeTags = activeTrope
+      ? (typeof activeTrope === 'object'
+          ? [activeTrope.trope, activeTrope.title, activeTrope.premise].filter(Boolean)
+          : [String(activeTrope)]
+        ).flatMap((t: string) => t.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2))
+      : [];
+
     const targetMetatags = Array.from(new Set([
       ...userCustomKinks.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, '_')),
       ...preferredThemes.map(t => t.toLowerCase().replace(/[^a-z0-9]/g, '_')),
+      ...tropeTags,
       ...(theme ? theme.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length > 3) : [])
     ])).filter(Boolean);
 
@@ -904,16 +912,14 @@ export async function POST(req: Request) {
           .limit(50);
 
         if (!libraryRows || libraryRows.length === 0) {
-          if (!theme || theme.trim().length === 0) {
-            const res = await supabase
-              .from('generated_content')
-              .select('*')
-              .eq('content_type', contentType)
-              .in('status', ['active', 'completed', 'chapter_1_ready', 'ready'])
-              .order('created_at', { ascending: false })
-              .limit(100);
-            libraryRows = res.data;
-          }
+          const res = await supabase
+            .from('generated_content')
+            .select('*')
+            .eq('content_type', contentType)
+            .in('status', ['active', 'completed', 'chapter_1_ready', 'ready'])
+            .order('created_at', { ascending: false })
+            .limit(100);
+          libraryRows = res.data;
         }
 
         if (libraryRows && libraryRows.length > 0) {
@@ -927,11 +933,17 @@ export async function POST(req: Request) {
           for (const row of candidates) {
             try {
               const parsed = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
-              const rowTier = (parsed.tolerance_tier || parsed.tier || '').toLowerCase();
-              const rowMode = (parsed.play_mode || parsed.mode || '').toLowerCase();
-              const rowTags: string[] = (Array.isArray(parsed.metaTags) ? parsed.metaTags : []).concat(
-                typeof parsed.theme_tags === 'string' ? parsed.theme_tags.split(',').map((s: string) => s.trim().toLowerCase()) : []
-              );
+              const rowTier = (row.tolerance_tier || parsed.tolerance_tier || parsed.tier || '').toLowerCase();
+              const rowMode = (row.play_mode || parsed.play_mode || parsed.mode || '').toLowerCase();
+              const rawThemeTags = row.theme_tags || parsed.theme_tags || '';
+              const rowTags: string[] = [
+                ...(Array.isArray(parsed.metaTags) ? parsed.metaTags : []),
+                ...(Array.isArray(row.kink_categories) ? row.kink_categories : (Array.isArray(parsed.kink_categories) ? parsed.kink_categories : [])),
+                ...(Array.isArray(row.tropes) ? row.tropes : (Array.isArray(parsed.tropes) ? parsed.tropes : [])),
+                ...(typeof rawThemeTags === 'string' ? rawThemeTags.split(',').map((s: string) => s.trim().toLowerCase()) : []),
+                ...(row.genre_topic ? [row.genre_topic.toLowerCase()] : []),
+                ...(parsed.genre_topic ? [parsed.genre_topic.toLowerCase()] : [])
+              ].map(t => String(t).trim().toLowerCase()).filter(Boolean);
 
               // Exclude check: If any row tag matches an excluded theme, reject this row immediately
               const hasExcluded = excludedThemes.some(ex => 
@@ -1017,8 +1029,53 @@ export async function POST(req: Request) {
             });
           }
         }
+        // High-quality curated library fallback for Initial & 1st Regen (guarantees instant sub-80ms delivery)
+        const curatedFallback = await fetchCuratedSupabaseFallback({
+          supabase,
+          contentType,
+          category,
+          playMode,
+          targetBoundary: effectiveTolerance,
+          theme,
+          hasScripts
+        });
+
+        if (curatedFallback) {
+          curatedFallback.cached = true;
+          curatedFallback.source = "curated_library_safety_net";
+          curatedFallback.generationSpeedMs = Date.now() - retrievalStartTime;
+          curatedFallback.regenerationCount = regenerationCount;
+          return NextResponse.json(curatedFallback, {
+            headers: {
+              'X-Generation-Source': 'curated-library-safety-net',
+              'X-Generation-Speed-Ms': curatedFallback.generationSpeedMs.toString()
+            }
+          });
+        }
       } catch (libErr) {
-        console.warn("Supabase library primary retrieval failed, proceeding to Euryale generation:", libErr);
+        console.warn("Supabase library primary retrieval failed, falling back to curated library safety net:", libErr);
+        const curatedFallback = await fetchCuratedSupabaseFallback({
+          supabase,
+          contentType,
+          category,
+          playMode,
+          targetBoundary: effectiveTolerance,
+          theme,
+          hasScripts
+        });
+
+        if (curatedFallback) {
+          curatedFallback.cached = true;
+          curatedFallback.source = "curated_library_safety_net";
+          curatedFallback.generationSpeedMs = Date.now() - retrievalStartTime;
+          curatedFallback.regenerationCount = regenerationCount;
+          return NextResponse.json(curatedFallback, {
+            headers: {
+              'X-Generation-Source': 'curated-library-safety-net',
+              'X-Generation-Speed-Ms': curatedFallback.generationSpeedMs.toString()
+            }
+          });
+        }
       }
     }
 
