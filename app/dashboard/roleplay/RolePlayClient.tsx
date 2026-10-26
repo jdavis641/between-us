@@ -682,39 +682,34 @@ export default function RolePlayClient() {
                 </div>
               )}
 
-          {error && (
-            error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-              <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left">
-                  Click continue story to expand.
-                </span>
-                {scenario && (
-                  <button
-                    onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
-                    disabled={isContinuing}
-                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
-                  >
-                    {isContinuing ? "Expanding..." : "Continue Story"}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl shrink-0">⚠️</span>
-                  <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
-                </div>
-                {scenario && (
-                  <button
-                    onClick={() => handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
-                    disabled={isContinuing}
-                    className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-start sm:self-auto"
-                  >
-                    {isContinuing ? "Resuming..." : "Continue Story"}
-                  </button>
-                )}
-              </div>
-            )
+          {/* Always Available Green Continuation Button for Streamed Roleplay */}
+          {!loading && !isContinuing && (generatedContent.trim().length > 0 || streamProgress.trim().length > 0) && (
+            <div
+              onClick={() => handleContinueStory((scenario as any)?.fullScript || (scenario as any)?.body || (scenario as any)?.text || generatedContent || streamProgress || '')}
+              className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mt-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+            >
+              <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
+                <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
+                Click continue story to expand.
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleContinueStory((scenario as any)?.fullScript || (scenario as any)?.body || (scenario as any)?.text || generatedContent || streamProgress || '');
+                }}
+                disabled={isContinuing}
+                className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
+              >
+                Continue Story &gt;
+              </button>
+            </div>
+          )}
+
+          {error && error !== STREAM_INTERRUPTED_MESSAGE && !error.toLowerCase().includes("continue story to expand") && (
+            <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex items-center gap-3 shadow-lg animate-in fade-in">
+              <span className="text-xl shrink-0">⚠️</span>
+              <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+            </div>
           )}
         </div>
       )}
@@ -840,35 +835,34 @@ export default function RolePlayClient() {
             </div>
           </div>
 
-          {error && (
-            error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-              <div
-                onClick={() => !isContinuing && handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '')}
-                className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+          {/* Always Available Green Continuation Button for Roleplay Scenario */}
+          {!loading && !isContinuing && (
+            <div
+              onClick={() => handleContinueStory((scenario as any)?.fullScript || (scenario as any)?.body || (scenario as any)?.text || generatedContent || '')}
+              className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+            >
+              <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
+                <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
+                Click continue story to expand.
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleContinueStory((scenario as any)?.fullScript || (scenario as any)?.body || (scenario as any)?.text || generatedContent || '');
+                }}
+                disabled={isContinuing}
+                className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
               >
-                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
-                  <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
-                  Click continue story to expand.
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleContinueStory((scenario as any)?.body || (scenario as any)?.text || '');
-                  }}
-                  disabled={isContinuing}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
-                >
-                  {isContinuing ? "Expanding..." : "Continue Story"}
-                </button>
-              </div>
-            ) : (
-              <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl shrink-0">⚠️</span>
-                  <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
-                </div>
-              </div>
-            )
+                Continue Story &gt;
+              </button>
+            </div>
+          )}
+
+          {error && error !== STREAM_INTERRUPTED_MESSAGE && !error.toLowerCase().includes("continue story to expand") && (
+            <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex items-center gap-3 shadow-lg animate-in fade-in">
+              <span className="text-xl shrink-0">⚠️</span>
+              <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+            </div>
           )}
 
           {/* Scenario Actions: Configure New Scenario & Regenerate */}

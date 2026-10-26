@@ -196,14 +196,7 @@ CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absol
 
   if (previousContent) {
     sys += `NOVELLA CONTINUATION DIRECTIVE:
-You are continuing an ongoing 20-chapter serialized novella.
-The narrative already contains Chapters 1 through ${currentChapterCount}.
-You must write Chapter ${nextChapterNumber} (approximately 1,500 words).
-CRITICAL RULES:
-1. Do NOT repeat, summarize, or reproduce any text or events from prior chapters.
-2. Advance the plot, sexual escalation, and emotional intimacy directly from the previous chapter's ending.
-3. Start the text directly with the markdown header: '## Chapter ${nextChapterNumber}: [Title]' followed by two newlines and full immersive scene narrative prose.
-4. Adhere strictly to the chosen pacing and detailed anatomical accuracy.\n\n`;
+You are continuing a high-quality, immersive romantasy novel. Read the previous context. You MUST respond ONLY with the next sequential paragraphs of narrative prose. DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene.\n\n`;
   }
 
   // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
@@ -226,20 +219,14 @@ ${styleReference.excerpt.trim()}
   }
 
   if (contentType === 'literature') {
-    let wordCountInstruction = '';
     if (previousContent) {
-      wordCountInstruction = `Target Length: Novella Continuation (Chapter ${nextChapterNumber} of 20). You are generating Chapter ${nextChapterNumber} (~1,500 words) of an expansive 20-chapter novella. Pick up seamlessly where Chapter ${currentChapterCount} left off. Do not repeat prior scenes; advance the emotional tension and physical progression.`;
+      sys += `You are continuing a high-quality, immersive romantasy novel. Read the previous context. You MUST respond ONLY with the next sequential paragraphs of narrative prose. DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene.\n\n`;
     } else {
-      wordCountInstruction = `Target Length: Novella (Chapter 1 of 20). You are generating Chapter 1 (~1,500 words) of an expansive 20-chapter novella blueprint (~30,000 words total). Establish rich atmospheric scene setting, deep character interiority, palpable tension, and the electric buildup of the first encounter. Subsequent chapters will follow sequentially.`;
+      sys += `You are a master, best-selling author of adult romantasy and erotic fiction. Your prose must be visceral, evocative, and hyper-descriptive. You MUST master the slow build of tension, emotional friction, and psychological anticipation before physical escalation. Avoid generic, clinical, or rushed storytelling. Your descriptions of physical touch must be granular, poetic, and highly immersive. Every generated response must be a minimum of 800 words of dense, high-quality narrative.\n\n`;
     }
 
     const pacingInstruction = `Pacing: ${currentPacing}. Strict Pacing Mechanic: "${pacingRule}"`;
-
-    const headerInstruction = previousContent
-      ? `Start your response immediately with the markdown header: '## Chapter ${nextChapterNumber}: [Title]'. Do NOT output a table of contents or duplicate prior text. Write continuous narrative prose directly.`
-      : `Use Markdown headers (e.g., '## Chapter 1: [Title]') for the chapter. Do not summarize; write the full scene.`;
-
-    sys += `You are a master of serialized erotic fantasy and romantic fiction.\n${wordCountInstruction}\n${pacingInstruction}\n${headerInstruction}\n\n`;
+    sys += `${pacingInstruction}\n\n`;
 
     if (activeTrope) {
       const tropeTitle = typeof activeTrope === 'object' ? activeTrope.title : '';
@@ -338,8 +325,8 @@ You must return a valid JSON object matching this schema exactly:
   "title": "Title of the novella",
   "chapter": ${nextChapterNumber},
   "totalChapters": 20,
-  "body": "The full markdown text of Chapter ${nextChapterNumber} (approx 1,500 words), starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat prior chapters.",
-  "text": "The full markdown text of Chapter ${nextChapterNumber} (approx 1,500 words), starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat prior chapters."
+  "body": "The next sequential paragraphs of narrative prose (minimum 800 words of dense, high-quality narrative). DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene.",
+  "text": "The next sequential paragraphs of narrative prose (minimum 800 words of dense, high-quality narrative). DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene."
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
     } else {
@@ -349,8 +336,8 @@ You must return a valid JSON object matching this schema exactly:
   "title": "A catchy title for the story",
   "chapter": 1,
   "totalChapters": 20,
-  "body": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene.",
-  "text": "The full markdown text of Chapter 1 (max 1,500 words), starting with '## Chapter 1: [Title]'. Do not summarize, write the full scene."
+  "body": "The full narrative text of the story (minimum 800 words of dense, high-quality narrative). Deliver visceral, evocative, and hyper-descriptive prose.",
+  "text": "The full narrative text of the story (minimum 800 words of dense, high-quality narrative). Deliver visceral, evocative, and hyper-descriptive prose."
 }
 Make the tone emotionally engaging, suspenseful, and romantic fantasy. NEVER break the JSON structure. Do not output special tokens, reserved tokens, or markdown code fences outside JSON.`;
     }
@@ -654,7 +641,7 @@ export async function POST(req: Request) {
     const hasScripts = body.hasScripts;
     const theme = sanitizePromptInput(body.theme, 1000);
     const targetBoundary = sanitizePromptInput(body.targetBoundary, 100);
-    const previousContent = sanitizePromptInput(body.previousContent || body.existingStory, 10000);
+    const previousContent = sanitizePromptInput(body.previousContent || body.existingStory, 100000);
     const pacing = body.pacing;
     const storyLength = body.storyLength;
     const activeTrope = body.activeTrope;
@@ -1165,20 +1152,20 @@ export async function POST(req: Request) {
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
       if (!previousContent) {
-        userPrompt = `Write Chapter 1 (approx 1,500 words) of this 20-chapter novella according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+        userPrompt = `Write the opening of this high-quality romantasy story (minimum 800 words of dense, high-quality narrative). Deliver visceral, evocative, and hyper-descriptive prose according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
       } else {
-        userPrompt = `Write Chapter ${nextChapterNumber} (approx 1,500 words) starting with '## Chapter ${nextChapterNumber}: [Title]' continuing seamlessly from Chapter ${currentChapterCount}. Do not repeat previous text. Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+        userPrompt = `You are continuing a high-quality, immersive romantasy novel. Read the previous context. You MUST respond ONLY with the next sequential paragraphs of narrative prose. DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene. Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
       }
     } else if (contentType === 'roleplay') {
       userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
     }
 
     if (previousContent && typeof previousContent === 'string' && previousContent.trim().length > 0) {
-      userPrompt = `PREVIOUS STORY TEXT (Ends at Chapter ${currentChapterCount}):\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nSeamlessly write Chapter ${nextChapterNumber} (approx 1,500 words) starting with '## Chapter ${nextChapterNumber}: [Title]'. Do not repeat or summarize previous chapters. Return valid JSON containing the new chapter text in the "body" and "text" fields. ${userPrompt}`;
+      userPrompt = `PREVIOUS CONTEXT:\n${previousContent.trim()}\n\nCONTINUATION INSTRUCTIONS:\nYou are continuing a high-quality, immersive romantasy novel. Read the previous context. You MUST respond ONLY with the next sequential paragraphs of narrative prose. DO NOT output table of contents, outlines, or just chapter titles. Immediately begin writing the next detailed scene. Return valid JSON containing the new narrative prose in the "body" and "text" fields. ${userPrompt}`;
     }
 
-    // Sub-25-second token allocation: 1800 max tokens for Chapter 1
-    const maxTokens = isLiterature ? 1800 : 4000;
+    // High token allocation for elite prose length (up to 4000 tokens)
+    const maxTokens = 4000;
 
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {

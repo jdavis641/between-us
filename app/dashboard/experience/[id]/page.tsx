@@ -206,6 +206,55 @@ export default function ExperienceReader({ params }: { params: any }) {
       }
     }
 
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = title.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+    link.href = url;
+    link.download = `${safeTitle || 'story'}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!experience) return;
+
+    const contentObj = experience.parsedData || {};
+    const title = contentObj.title || experience.title || "Untitled Story";
+    const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
+    const isRoleplay = experience.content_type !== 'midweek_story';
+    const storyboard = contentObj.overview || contentObj.storyboard || "";
+    const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
+    const partnerA = contentObj.partnerAPerspective || contentObj.partner_a_perspective || "";
+    const partnerB = contentObj.partnerBPerspective || contentObj.partner_b_perspective || "";
+
+    let fileContent = `# ${title}\n\n`;
+
+    if (experience.content_type === 'literature' || !isRoleplay) {
+      const bodyText = typeof scriptBody === 'string'
+        ? scriptBody
+        : (contentObj.body || JSON.stringify(scriptBody, null, 2));
+      fileContent += `${bodyText}\n`;
+    } else {
+      if (storyboard) {
+        fileContent += `## Storyboard\n${storyboard}\n\n`;
+      }
+      if (preTasks && preTasks.length > 0) {
+        fileContent += `## Pre-Experience Tasks\n${preTasks.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}\n\n`;
+      }
+      if (partnerA) {
+        fileContent += `## Partner A Perspective\n${partnerA}\n\n`;
+      }
+      if (partnerB) {
+        fileContent += `## Partner B Perspective\n${partnerB}\n\n`;
+      }
+      if (scriptBody) {
+        fileContent += `## The Script\n${typeof scriptBody === 'string' ? scriptBody : JSON.stringify(scriptBody, null, 2)}\n\n`;
+      }
+    }
+
     exportStoryToPdf(title, fileContent, experience.content_type ? experience.content_type.toUpperCase() : 'STORY');
   };
 
@@ -578,9 +627,18 @@ export default function ExperienceReader({ params }: { params: any }) {
             <button
               onClick={handleDownloadStory}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 hover:border-red-900/50 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 group cursor-pointer"
+              title="Download story as .txt"
             >
               <span className="text-lg group-hover:scale-110 transition-transform">📥</span>
-              Download Story
+              Download Story (.txt)
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 hover:border-red-900/50 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] active:scale-95 group cursor-pointer"
+              title="Download story as PDF"
+            >
+              <span className="text-lg group-hover:scale-110 transition-transform">📄</span>
+              PDF
             </button>
             <button
               onClick={handleShareClick}

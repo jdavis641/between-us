@@ -377,6 +377,23 @@ export default function LiteratureClient() {
     loadFavoriteStatus();
   }, [scenario?.title, supabase]);
 
+  const handleDownloadStory = () => {
+    if (!scenario) return;
+    const title = scenario.title || "Romantic Literature";
+    const bodyText = cleanContent || scenario.body || scenario.overview || "";
+    const fileContent = `${title}\n\n${bodyText}\n`;
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = title.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+    link.href = url;
+    link.download = `${safeTitle || 'story'}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleToggleFavorite = async () => {
     if (isFavoriting) return;
     setIsFavoriting(true);
@@ -562,7 +579,15 @@ export default function LiteratureClient() {
       if (newText && newText.trim()) {
         const nextChapter = (scenario as any)?.chapter ? ((scenario as any).chapter + 1) : 2;
         setScenario(prev => {
-          if (!prev) return prev;
+          if (!prev) {
+            return {
+              id: storyContentId || 'generated-story',
+              title: streamingStory.title || activeTrope?.title || "Romantic Novella",
+              body: newText.trim(),
+              chapter: nextChapter,
+              totalChapters: 20
+            };
+          }
           const existingBody = prev.body || prev.overview || "";
           const updatedBody = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
           return {
@@ -573,9 +598,18 @@ export default function LiteratureClient() {
           };
         });
 
+        setCleanContent(prev => {
+          const current = prev || scenario?.body || "";
+          return current ? `${current}\n\n${newText.trim()}` : newText.trim();
+        });
+        setGeneratedContent(prev => {
+          const current = prev || "";
+          return current ? `${current}\n\n${newText.trim()}` : newText.trim();
+        });
+
         if (storyContentId) {
           try {
-            const existingBody = scenario?.body || "";
+            const existingBody = cleanContent || scenario?.body || "";
             const updatedBody = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
             supabase.from('generated_content').update({
               body: JSON.stringify({
@@ -1108,46 +1142,45 @@ export default function LiteratureClient() {
                 </div>
               )}
 
-              {error && (
-                error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-                  <div
-                    onClick={() => !isContinuing && scenario && handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-                    className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+              {/* Always Available Green Continuation Button for Streamed Story */}
+              {!loading && !isContinuing && (generatedContent.trim().length > 0 || streamProgress.trim().length > 0) && (
+                <div
+                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || generatedContent || streamProgress || '')}
+                  className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mt-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+                >
+                  <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
+                    <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
+                    Click continue story to expand.
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleContinueStory(cleanContent || (scenario as any)?.body || generatedContent || streamProgress || '');
+                    }}
+                    disabled={isContinuing}
+                    className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
-                      <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
-                      Click continue story to expand.
-                    </span>
-                    {scenario && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleContinueStory(cleanContent || (scenario as any)?.body || '');
-                        }}
-                        disabled={isContinuing}
-                        className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
-                      >
-                        {isContinuing ? "Expanding..." : "Continue Story"}
-                      </button>
-                    )}
+                    Continue Story &gt;
+                  </button>
+                </div>
+              )}
+
+              {error && error !== STREAM_INTERRUPTED_MESSAGE && !error.toLowerCase().includes("continue story to expand") && (
+                <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl shrink-0">⚠️</span>
+                    <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
                   </div>
-                ) : (
-                  <div className="mt-4 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl shrink-0">⚠️</span>
-                      <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
-                    </div>
-                    {activeTrope && (
-                      <button
-                        onClick={() => handleGenerate()}
-                        disabled={loading}
-                        className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
-                      >
-                        {loading ? "Drafting..." : "Retry Generation"}
-                      </button>
-                    )}
-                  </div>
-                )
+                  {activeTrope && (
+                    <button
+                      onClick={() => handleGenerate()}
+                      disabled={loading}
+                      className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
+                    >
+                      {loading ? "Drafting..." : "Retry Generation"}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1181,6 +1214,16 @@ export default function LiteratureClient() {
                 <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
               </button>
 
+              {/* Text Story Download */}
+              <button
+                onClick={handleDownloadStory}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit cursor-pointer shadow-sm active:scale-95"
+                title="Download story as .txt"
+              >
+                <span>📥</span>
+                Download Story (.txt)
+              </button>
+
               {/* PDF Story Export */}
               <button
                 onClick={() => {
@@ -1189,9 +1232,10 @@ export default function LiteratureClient() {
                   exportStoryToPdf(title, bodyText, "LITERATURE");
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit cursor-pointer shadow-sm active:scale-95"
+                title="Download story as PDF"
               >
-                <span>📥</span>
-                Download PDF
+                <span>📄</span>
+                PDF
               </button>
             </div>
           </div>
@@ -1228,42 +1272,34 @@ export default function LiteratureClient() {
             </ErrorBoundary>
           </div>
 
-          {error && (
-            error === STREAM_INTERRUPTED_MESSAGE || error.toLowerCase().includes("continue story to expand") ? (
-              <div
-                onClick={() => !isContinuing && handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-                className="cursor-pointer bg-emerald-900/30 border border-emerald-800 hover:bg-emerald-900/40 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in transition-colors group"
+          {/* Always Available Single Green Continuation Button */}
+          {!loading && !isContinuing && (
+            <div
+              onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || generatedContent || streamProgress || '')}
+              className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+            >
+              <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
+                <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
+                Click continue story to expand.
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleContinueStory(cleanContent || (scenario as any)?.body || generatedContent || streamProgress || '');
+                }}
+                disabled={isContinuing}
+                className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
               >
-                <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2">
-                  <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
-                  Click continue story to expand.
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleContinueStory(cleanContent || (scenario as any)?.body || '');
-                  }}
-                  disabled={isContinuing}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
-                >
-                  {isContinuing ? "Expanding..." : "Continue Story"}
-                </button>
-              </div>
-            ) : (
-              <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl shrink-0">⚠️</span>
-                  <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
-                </div>
-                <button
-                  onClick={() => handleContinueStory(cleanContent || (scenario as any)?.body || '')}
-                  disabled={isContinuing}
-                  className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer"
-                >
-                  {isContinuing ? "Expanding..." : "Continue Story"}
-                </button>
-              </div>
-            )
+                Continue Story &gt;
+              </button>
+            </div>
+          )}
+
+          {error && error !== STREAM_INTERRUPTED_MESSAGE && !error.toLowerCase().includes("continue story to expand") && (
+            <div className="mb-6 p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 flex items-center gap-3 shadow-lg animate-in fade-in">
+              <span className="text-xl shrink-0">⚠️</span>
+              <span className="font-medium text-sm md:text-base leading-relaxed">{error}</span>
+            </div>
           )}
 
           {/* Story Actions: Configure New Story & Regenerate */}
