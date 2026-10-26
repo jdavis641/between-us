@@ -2,6 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { getSemanticEmbedding, formatVectorForPg } from './embeddings';
 
+/**
+ * Anatomical Reality Filter (Zero Tolerance Programmatic Sanitizer)
+ * Strictly catches and replaces biologically erroneous hallucinations (such as female prostate references).
+ */
+export function enforceAnatomicalReality(text: string): string {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\b(?:her|she\s+felt\s+her)\s+prostate\b/gi, 'her anterior vaginal wall')
+    .replace(/\bfemale\s+prostate\b/gi, "Skene's glands")
+    .replace(/\bher\s+prostate\s+pulsed?\b/gi, 'her inner walls pulsed')
+    .replace(/\bher\s+prostate\s+milked?\b/gi, 'her pelvic muscles tightened')
+    .replace(/\bdeep\s+in\s+her\s+prostate\b/gi, 'deep against her G-spot');
+}
+
 interface ChapterJobParams {
   storyId: string;
   userId: string;
@@ -94,6 +108,8 @@ Return a valid JSON object matching:
       ch2Text = ch2Raw.trim();
     }
 
+    ch2Text = enforceAnatomicalReality(ch2Text);
+
     if (!ch2Text.includes('## Chapter 2')) {
       ch2Text = `## Chapter 2: The Escalation\n\n${ch2Text}`;
     }
@@ -110,6 +126,7 @@ Return a valid JSON object matching:
           totalChapters: 3,
           body: twoChaptersBody,
           text: twoChaptersBody,
+          word_count: twoChaptersBody.trim().split(/\s+/).length,
           status: 'chapter_2_ready'
         })
       })
@@ -165,11 +182,14 @@ Return a valid JSON object matching:
       ch3Text = ch3Raw.trim();
     }
 
+    ch3Text = enforceAnatomicalReality(ch3Text);
+
     if (!ch3Text.includes('## Chapter 3')) {
       ch3Text = `## Chapter 3: The Climax\n\n${ch3Text}`;
     }
 
     const fullStoryBody = `${twoChaptersBody.trim()}\n\n${ch3Text.trim()}`;
+    const totalWordCount = fullStoryBody.trim().split(/\s+/).length;
 
     // Compute updated semantic embedding for the complete 3-chapter masterpiece
     const fullEmbedding = await getSemanticEmbedding(`${title} ${theme || ''} ${fullStoryBody.slice(0, 3000)}`);
@@ -184,6 +204,7 @@ Return a valid JSON object matching:
           totalChapters: 3,
           body: fullStoryBody,
           text: fullStoryBody,
+          word_count: totalWordCount,
           status: 'completed'
         }),
         theme_embedding: formatVectorForPg(fullEmbedding)

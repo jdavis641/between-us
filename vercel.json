@@ -24,6 +24,22 @@
     {
       "path": "/api/cron/cfo-report",
       "schedule": "0 17 * * 5"
+    },
+    {
+      "path": "/api/cron/cadence-games",
+      "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/cadence-stories",
+      "schedule": "0 4 * * 2"
+    },
+    {
+      "path": "/api/cron/cadence-roleplay",
+      "schedule": "0 4 * * 3"
+    },
+    {
+      "path": "/api/cron/weekly-planning",
+      "schedule": "0 2 * * 0"
     }
   ]
 }

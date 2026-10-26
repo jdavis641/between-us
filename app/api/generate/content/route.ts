@@ -7,7 +7,8 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { getActiveHoliday } from "@/utils/holidayTheme";
 import { getSemanticEmbedding, cosineSimilarity, formatVectorForPg } from "@/lib/embeddings";
-import { computeAndAppendChaptersAsync } from "@/lib/async-chapters";
+import { computeAndAppendChaptersAsync, enforceAnatomicalReality } from "@/lib/async-chapters";
+import { DetailedStoryMetadata, extractDetailedMetaTags, extractIntimacyMetaTags } from "@/lib/metadata";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -262,6 +263,17 @@ Use explicit anatomical vocabulary, visceral imagery, and evocative descriptions
 All stories must contain sexual progression, including a clear explanation of acts, feelings, and emotions.
 Climax Execution: The climax descriptors of each output must be expansive. Start with desire and growing intensity, escalating into explicit, detailed acts, and provide immense literal and figurative detail for the physical climax. You must make the climax portion of the story highly detailed and expansive. Do not rush or summarize the peak of the scene. You must explicitly explain the granular physiological reactions and the overwhelming emotional responses of the characters in detail.\n\n`;
 
+  sys += `NOVELLA LENGTH TARGET & MULTI-CHAPTER COMPLETENESS DIRECTIVE:
+The overarching narrative is an expansive, structured novella targeting minimum 25,000 words across structured chapters from start to finish.
+Maintain deep narrative breadth, intricate scene building, character interiority, granular sensory details, and uncompromising literary excellence from start to finish. Never condense, summarize, or skip scenes. Each individual chapter must be fully dramatized in complete, uninterrupted narrative prose.\n\n`;
+
+  sys += `ANATOMICAL REALITY FILTER & BIOLOGICAL ACCURACY DIRECTIVE (ZERO TOLERANCE):
+You must strictly uphold anatomical and biological reality in all descriptions:
+1. ABSOLUTELY FORBIDDEN: Anatomically impossible or biologically erroneous descriptions (e.g., strictly NEVER attribute a prostate, testicular sensation, or male genitalia to cisgender females; strictly NEVER describe female ejaculation as originating from a prostate; never misplace organs, glands, or physiological responses).
+2. ACCURATE PHYSIOLOGY: When describing female anatomy, arousal, and orgasm, accurately reference the clitoris (glans, shaft, crura), labia, vaginal canal, G-spot/anterior vaginal wall, Skene's glands, cervix, pelvic floor muscles, and genuine lubrication/sensory pathways. When describing male anatomy, accurately reference the glans, shaft, perineum, prostate, testes, and urethral contractions.
+3. HIGH DETAIL & GRANULAR PHYSICALITY: Ensure rich, highly detailed descriptive features for all characters (height, build, skin texture, hair, micro-expressions, flush, scent, breath, vocal timber, muscle tension, pupil dilation) and rich atmospheric environments.
+4. NO CLINICAL STERILITY: Use vivid, visceral, uncompromising erotic language while ensuring anatomical precision. Never use lazy, impossible biological tropes.\n\n`;
+
   sys += `Critical Narrative Rule: Regardless of the selected pacing (Quick Burn, Medium Burn, or Slow Burn), ALL stories MUST culminate in an explicit, highly detailed erotic climax. The pacing only dictates how much time is spent building anticipation before the physical escalation occurs.\n\n`;
 
   sys += `Critical Dialogue Rule: You must write the actual spoken words inside all quotation marks. NEVER output empty quotes with isolated punctuation (e.g., never output " : " or " , "). Ensure all spoken dialogue is properly constructed and escaped for JSON (e.g., "Look at me," he whispered.).\n\n`;
@@ -348,53 +360,6 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
   sys += `Critical Dialogue Rule: You must write the actual spoken words inside all quotation marks. NEVER output empty quotes with isolated punctuation (e.g., never output " : " or " , "). Ensure all spoken dialogue is properly constructed and escaped for JSON (e.g., "Look at me," he whispered.).\n\n`;
 
   return sys;
-}
-
-function extractIntimacyMetaTags({
-  theme,
-  targetBoundary,
-  playMode,
-  contentType,
-  rawText,
-  customKinks
-}: {
-  theme?: string;
-  targetBoundary?: string;
-  playMode?: string;
-  contentType: string;
-  rawText?: string;
-  customKinks?: string[];
-}): string[] {
-  const tags = new Set<string>();
-  tags.add(contentType);
-  if (playMode) tags.add(playMode.toLowerCase());
-  
-  const tier = (targetBoundary || 'Moderate').toLowerCase();
-  tags.add(tier);
-
-  const keywordsByTier: Record<string, string[]> = {
-    sensory: ['slow_burn', 'massage', 'breathwork', 'feather_touch', 'emotional_intimacy', 'vulnerability', 'candle_light', 'body_worship'],
-    playful: ['flirting', 'teasing', 'edging_light', 'strip_challenge', 'lingerie', 'ice_contrast', 'public_thrill', 'spanking_light'],
-    intense: ['power_dynamics', 'dominance', 'submission', 'strict_control', 'restraints', 'sensory_deprivation', 'orgasm_denial'],
-    extreme: ['total_surrender', 'unconditional_obedience', 'heavy_restraints', 'sensory_overload', 'deep_taboo', 'complete_domination']
-  };
-
-  const pool = keywordsByTier[tier] || keywordsByTier['playful'];
-  pool.slice(0, 4).forEach(k => tags.add(k));
-
-  if (theme) {
-    const cleanTheme = theme.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-    cleanTheme.split(/\s+/).filter(w => w.length > 3).slice(0, 3).forEach(w => tags.add(w));
-  }
-
-  if (customKinks && Array.isArray(customKinks)) {
-    customKinks.forEach(k => {
-      const clean = k.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
-      if (clean) tags.add(clean);
-    });
-  }
-
-  return Array.from(tags);
 }
 
 async function fetchCuratedSupabaseFallback({
@@ -736,7 +701,7 @@ export async function POST(req: Request) {
             .from('generated_content')
             .select('*')
             .eq('content_type', contentType)
-            .eq('status', 'active')
+            .in('status', ['active', 'completed', 'chapter_1_ready', 'ready'])
             .not('theme_embedding', 'is', null)
             .limit(50);
 
@@ -809,7 +774,7 @@ export async function POST(req: Request) {
           .from('generated_content')
           .select('*')
           .eq('content_type', contentType)
-          .eq('status', 'active');
+          .in('status', ['active', 'completed', 'chapter_1_ready', 'ready']);
 
         if (theme && typeof theme === 'string' && theme.trim().length > 0) {
           libraryQuery = libraryQuery.ilike('body', `%${theme.trim()}%`);
@@ -825,7 +790,7 @@ export async function POST(req: Request) {
               .from('generated_content')
               .select('*')
               .eq('content_type', contentType)
-              .eq('status', 'active')
+              .in('status', ['active', 'completed', 'chapter_1_ready', 'ready'])
               .order('created_at', { ascending: false })
               .limit(100);
             libraryRows = res.data;
@@ -1078,6 +1043,7 @@ export async function POST(req: Request) {
             let content = chunk.choices?.[0]?.delta?.content || "";
             if (content) {
               content = content.replace(/<\|reserved_special_token_\d+\|>/g, '');
+              content = enforceAnatomicalReality(content);
               accumulatedText += content;
               controller.enqueue(encoder.encode(content));
             }
@@ -1088,34 +1054,49 @@ export async function POST(req: Request) {
 
           // Record to generated_content and activity history after stream completes
           try {
-            const cleaned = accumulatedText.trim()
+            let cleaned = accumulatedText.trim()
               .replace(/<\|reserved_special_token_\d+\|>/g, '')
               .replace(/^```json\s*/i, '')
               .replace(/^```\s*/i, '')
               .replace(/```\s*$/i, '')
               .trim();
+            cleaned = enforceAnatomicalReality(cleaned);
             generatedContent = JSON.parse(cleaned);
 
-            const metaTags = extractIntimacyMetaTags({
+            if (generatedContent.body) {
+              generatedContent.body = enforceAnatomicalReality(generatedContent.body);
+            }
+            if (generatedContent.text) {
+              generatedContent.text = enforceAnatomicalReality(generatedContent.text);
+            }
+
+            const detailedMeta = extractDetailedMetaTags({
               theme,
               targetBoundary: effectiveTolerance,
               playMode,
               contentType,
               rawText: cleaned,
-              customKinks: userCustomKinks
+              customKinks: userCustomKinks,
+              activeTrope
             });
 
-            generatedContent.metaTags = metaTags;
+            generatedContent.metaTags = detailedMeta.tags;
             generatedContent.tolerance_tier = effectiveTolerance || 'Moderate';
             generatedContent.play_mode = playMode;
-            generatedContent.theme_tags = metaTags.join(', ');
+            generatedContent.theme_tags = detailedMeta.tags.join(', ');
+            generatedContent.sexual_orientation = detailedMeta.sexual_orientation;
+            generatedContent.kink_categories = detailedMeta.kink_categories;
+            generatedContent.genre_topic = detailedMeta.genre_topic;
+            generatedContent.tropes = detailedMeta.tropes;
+            generatedContent.word_count = detailedMeta.word_count;
 
             storyId = crypto.randomUUID();
 
             if (isLiterature) {
               generatedContent.chapter = 1;
-              generatedContent.totalChapters = 3;
+              generatedContent.totalChapters = 10;
               generatedContent.status = 'chapter_1_ready';
+              generatedContent.targetNovellaLength = 25000;
             }
 
             const payload: any = {
@@ -1128,7 +1109,7 @@ export async function POST(req: Request) {
               status: isLiterature ? 'chapter_1_ready' : 'active',
               tolerance_tier: effectiveTolerance || 'Moderate',
               play_mode: playMode,
-              theme_tags: metaTags.join(', '),
+              theme_tags: detailedMeta.tags.join(', '),
               theme_embedding: formatVectorForPg(queryEmbedding)
             };
 
