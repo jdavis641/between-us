@@ -154,7 +154,7 @@ export default function DashboardHome() {
             {/* Holiday Spotlight Action Tile */}
             {activeHoliday && (
               <div className="mb-6">
-                <Link href={activeHoliday.seasonal_tag === 'halloween' ? '/dashboard/halloween' : `/dashboard/games?seasonal_tag=${activeHoliday.seasonal_tag}`}>
+                <Link href={activeHoliday.seasonal_tag === 'halloween' ? '/dashboard/games?theme=halloween' : `/dashboard/games?seasonal_tag=${activeHoliday.seasonal_tag}`}>
                   <div 
                     className="p-6 md:p-8 rounded-xl border transition-all cursor-pointer group flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg hover:shadow-2xl hover:scale-[1.01]"
                     style={{

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
@@ -31,6 +31,9 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [isFavoriting, setIsFavoriting] = useState(false)
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false)
+  const [isContinuing, setIsContinuing] = useState(false)
+  const [continueError, setContinueError] = useState<string | null>(null)
+  const newChapterRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function fetchContent() {
@@ -379,6 +382,117 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
   };
 
+  const handleContinueStory = async () => {
+    if (!experience || isContinuing) return;
+    setIsContinuing(true);
+    setContinueError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setContinueError('Session expired or missing. Please refresh and try again.');
+        setIsContinuing(false);
+        return;
+      }
+
+      const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
+      const existingText = displayContent || cleanContent || experience.body || '';
+
+      const res = await fetch('/api/generate/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          contentType,
+          hasScripts: contentType === 'roleplay',
+          previousContent: existingText,
+          existingStory: existingText,
+          theme: experience.title || ''
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Continuation failed (${res.status})`);
+      }
+
+      let newText = '';
+      const reader = res.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        let raw = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          raw += decoder.decode(value, { stream: true });
+        }
+        try {
+          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          newText = parsed.text || parsed.body || parsed.content || parsed.fullScript || '';
+        } catch {
+          newText = raw.trim();
+        }
+      } else {
+        const raw = await res.text();
+        try {
+          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          newText = parsed.text || parsed.body || parsed.content || parsed.fullScript || '';
+        } catch {
+          newText = raw.trim();
+        }
+      }
+
+      if (newText && newText.trim()) {
+        const appendedBody = existingText ? `${existingText}\n\n${newText.trim()}` : newText.trim();
+        
+        setExperience((prev: any) => {
+          if (!prev) return prev;
+          const parsed = prev.parsedData ? {
+            ...prev.parsedData,
+            body: appendedBody,
+            text: appendedBody,
+            fullScript: contentType === 'roleplay' ? appendedBody : prev.parsedData.fullScript
+          } : null;
+          return {
+            ...prev,
+            body: appendedBody,
+            parsedData: parsed
+          };
+        });
+
+        // Persist update in Supabase
+        if (storyId) {
+          try {
+            await supabase
+              .from('generated_content')
+              .update({
+                body: JSON.stringify({
+                  ...(experience.parsedData || {}),
+                  body: appendedBody,
+                  text: appendedBody,
+                  title: experience.title
+                })
+              })
+              .eq('id', storyId);
+          } catch (updateErr) {
+            console.warn('Failed to persist continuation in Supabase:', updateErr);
+          }
+        }
+
+        setTimeout(() => {
+          newChapterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
+    } catch (err: any) {
+      console.error('Error continuing story:', err);
+      setContinueError(err?.message || 'Failed to expand story. Please try again.');
+    } finally {
+      setIsContinuing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white p-8 flex items-center justify-center">
@@ -601,17 +715,31 @@ export default function ExperienceReader({ params }: { params: any }) {
                   </ReactMarkdown>
                 </ErrorBoundary>
 
-                {isInterruptedStory && (
-                  <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-400 rounded-lg p-4 text-center mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
-                    <span className="font-medium text-sm md:text-base leading-relaxed">
-                      Click continue story to expand.
-                    </span>
-                    <Link
-                      href={isRoleplay ? '/dashboard/roleplay' : '/dashboard/literature'}
-                      className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto"
-                    >
-                      Continue Story
-                    </Link>
+                <div ref={newChapterRef} />
+
+                <div
+                  onClick={() => handleContinueStory()}
+                  className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mt-6 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+                >
+                  <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
+                    <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
+                    {isContinuing ? "Expanding story chapters in real-time..." : "Click continue story to expand."}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleContinueStory();
+                    }}
+                    disabled={isContinuing}
+                    className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
+                  >
+                    {isContinuing ? "Continuing..." : "Continue Story >"}
+                  </button>
+                </div>
+
+                {continueError && (
+                  <div className="p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 text-sm">
+                    {continueError}
                   </div>
                 )}
               </section>

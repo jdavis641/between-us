@@ -145,6 +145,7 @@ export default function RolePlayClient() {
   }, [searchParams]);
 
   const [targetBoundary, setTargetBoundary] = useState("");
+  const [kinksInput, setKinksInput] = useState("");
   const pacing = "Medium Burn";
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
@@ -222,6 +223,11 @@ export default function RolePlayClient() {
         return;
       }
 
+      const selectedKinks = kinksInput
+        .split(/[,;\n]+/)
+        .map(k => k.trim())
+        .filter(Boolean);
+
       const res = await fetch("/api/generate/content", {
         method: "POST",
         headers: { 
@@ -235,6 +241,9 @@ export default function RolePlayClient() {
           playMode: playMode,
           hasScripts: true,
           theme: theme,
+          prompt: theme,
+          selectedKinks: selectedKinks,
+          kinks: selectedKinks,
           targetBoundary: targetBoundary,
           previousContent: currentStoryText,
           existingStory: currentStoryText,
@@ -390,6 +399,11 @@ export default function RolePlayClient() {
         return;
       }
 
+      const selectedKinks = kinksInput
+        .split(/[,;\n]+/)
+        .map(k => k.trim())
+        .filter(Boolean);
+
       const res = await fetch("/api/generate/content", {
         method: "POST",
         headers: { 
@@ -403,6 +417,9 @@ export default function RolePlayClient() {
           playMode: playMode,
           hasScripts: true,
           theme: theme,
+          prompt: theme,
+          selectedKinks: selectedKinks,
+          kinks: selectedKinks,
           targetBoundary: targetBoundary,
           pacing: pacing,
           regenerationCount: currentRegen
@@ -605,12 +622,23 @@ export default function RolePlayClient() {
 
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Theme Suggestions (Optional)</label>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Theme & Setting Suggestions (Optional)</label>
               <textarea 
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
                 placeholder="e.g., A rainy night in a secluded cabin, masquerade ball, enemies to lovers..."
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 h-24 focus:outline-none focus:border-red-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Kinks, Tropes & Desired Dynamics (Optional)</label>
+              <input 
+                type="text"
+                value={kinksInput}
+                onChange={(e) => setKinksInput(e.target.value)}
+                placeholder="e.g., praise, sensory deprivation, light bondage, power exchange..."
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-zinc-300 focus:outline-none focus:border-red-900"
               />
             </div>
           </div>

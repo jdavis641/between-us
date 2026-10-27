@@ -254,6 +254,7 @@ export default function LiteratureClient() {
   // User Scroll Override & Smart Auto-Scroll States
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
   const streamBottomRef = useRef<HTMLDivElement>(null);
+  const newChapterRef = useRef<HTMLDivElement>(null);
 
   // User Scroll Override Listener:
   // If user scrolls up (more than 100px from the bottom of the viewport),
@@ -598,14 +599,9 @@ export default function LiteratureClient() {
           };
         });
 
-        setCleanContent(prev => {
-          const current = prev || scenario?.body || "";
-          return current ? `${current}\n\n${newText.trim()}` : newText.trim();
-        });
-        setGeneratedContent(prev => {
-          const current = prev || "";
-          return current ? `${current}\n\n${newText.trim()}` : newText.trim();
-        });
+        setTimeout(() => {
+          newChapterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
 
         if (storyContentId) {
           try {
@@ -651,6 +647,9 @@ export default function LiteratureClient() {
               body: existingBody ? `${existingBody}\n\n${partialText.trim()}` : partialText.trim()
             };
           });
+          setTimeout(() => {
+            newChapterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
         }
       }
     } finally {
@@ -776,6 +775,7 @@ export default function LiteratureClient() {
           contentType: "literature",
           hasScripts: false,
           theme: theme,
+          prompt: theme,
           targetBoundary: targetBoundary,
           pacing: pacing,
           activeTrope: activeTrope,
@@ -1270,6 +1270,7 @@ export default function LiteratureClient() {
                 {safeMarkdownString(cleanContent)}
               </ReactMarkdown>
             </ErrorBoundary>
+            <div ref={newChapterRef} />
           </div>
 
           {/* Always Available Single Green Continuation Button */}

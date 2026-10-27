@@ -113,6 +113,16 @@ function sanitizePromptInput(input: any, maxLength = 1000): string {
   return sanitized.trim();
 }
 
+const SETTING_RANDOMIZER = [
+  "Penthouse terrace overlooking a glittering midnight city skyline",
+  "Secluded mountain cabin surrounded by snow and a roaring stone fireplace",
+  "Luxury private yacht anchored in a warm, moonlit Mediterranean cove",
+  "Velvet-walled dressing room lit with soft amber sconces and antique mirrors",
+  "High-rise rain-slicked balcony during a thunderstorm with shadows cast across the floor",
+  "Underground club lounge with deep leather booths, dim crimson lighting, and low bass",
+  "Private cinema with oversized velvet loungers, flickering projector light, and champagne"
+];
+
 function buildSystemInstruction({
   preferences,
   playMode,
@@ -192,6 +202,19 @@ function buildSystemInstruction({
     sys += `THEME PRIORITIZATION (ABSOLUTE PRIORITY):
 Theme Suggestion: "${theme.trim()}"
 CRITICAL DIRECTIVE: The theme suggestion above is explicitly tagged as the absolute priority over all other context. You MUST ensure every single detail, setting element, character dynamic, kink, nuance, and premise from this theme suggestion is woven directly and prominently into the narrative.\n\n`;
+  } else {
+    const randomSetting = SETTING_RANDOMIZER[Math.floor(Math.random() * SETTING_RANDOMIZER.length)];
+    sys += `SET & SETTING DIRECTIVE:
+Setting: "${randomSetting}"
+CRITICAL DIRECTIVE: Ground the characters, atmospheric tension, ambient sounds, sensory touch, and intimate encounter vividly in this setting. Do not default to formulaic tropes; immediately immerse the reader into this unique atmosphere.\n\n`;
+  }
+
+  const isIntenseTolerance =
+    (baseTolerance && baseTolerance.toLowerCase() === 'intense') ||
+    (targetBoundary && targetBoundary.toLowerCase() === 'intense');
+
+  if (isIntenseTolerance) {
+    sys += `Intensity Directive (Intense Tier): Write visceral, highly explicit, raw, and unapologetically erotic prose. Avoid euphemistic or safe descriptions. Meticulously detail physical mechanics, breath, vocalization, sensory stimulation, friction, and overwhelming physiological climax. Avoid formulaic opening lines; jump directly into the immediate sensory reality of the characters.\n\n`;
   }
 
   if (previousContent) {
@@ -640,6 +663,7 @@ export async function POST(req: Request) {
     const category = body.category;
     const hasScripts = body.hasScripts;
     const theme = sanitizePromptInput(body.theme, 1000);
+    const customPrompt = sanitizePromptInput(body.prompt || body.customPrompt, 2000);
     const targetBoundary = sanitizePromptInput(body.targetBoundary, 100);
     const previousContent = sanitizePromptInput(body.previousContent || body.existingStory, 100000);
     const pacing = body.pacing;
@@ -647,6 +671,20 @@ export async function POST(req: Request) {
     const activeTrope = body.activeTrope;
     const validModes = ["couple", "group"];
     const playMode = validModes.includes(body.playMode?.toLowerCase()) ? body.playMode.toLowerCase() : "couple";
+    
+    // Read custom kinks from request payload (from roleplay/literature kink selectors)
+    const rawRequestKinks = body.kinks || body.selectedKinks || [];
+    const requestKinks: string[] = Array.isArray(rawRequestKinks)
+      ? rawRequestKinks.map((k: any) => sanitizePromptInput(typeof k === 'string' ? k : (k?.text || ''), 500)).filter(Boolean)
+      : (typeof rawRequestKinks === 'string' && rawRequestKinks.trim()
+          ? rawRequestKinks.split(/[,;\n]+/).map((s: string) => sanitizePromptInput(s, 500)).filter(Boolean)
+          : []);
+
+    // If custom prompt or kink override is present, BYPASS the static database inventory search
+    const hasCustomPromptOrKinks = Boolean(
+      (customPrompt && customPrompt.trim().length > 0) ||
+      (requestKinks.length > 0)
+    );
     
     // Robust Auth Check supporting Bearer token and cookies
     const user = await resolveUser(req);
@@ -705,6 +743,8 @@ export async function POST(req: Request) {
     }
 
     // Preferred Themes (Definitely or Curious)
+    const allCustomKinks = Array.from(new Set([...userCustomKinks, ...requestKinks]));
+
     const preferredThemes = preferences
       ?.filter(p => p.preference_level === 'Definitely' || p.preference_level === 'Curious')
       .map(p => p.category_tag)
@@ -725,7 +765,7 @@ export async function POST(req: Request) {
       : [];
 
     const targetMetatags = Array.from(new Set([
-      ...userCustomKinks.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, '_')),
+      ...allCustomKinks.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, '_')),
       ...preferredThemes.map(t => t.toLowerCase().replace(/[^a-z0-9]/g, '_')),
       ...tropeTags,
       ...(theme ? theme.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length > 3) : [])
@@ -792,7 +832,7 @@ export async function POST(req: Request) {
     // 1. SEMANTIC INVENTORY RETRIEVAL (>85% Match Bypasses OpenRouter)
     // Replace exact-match Supabase query with semantic similarity search using pgvector embeddings.
     // If the similarity score is above 85%, instantly serve the cached story to completely bypass the OpenRouter wait time.
-    if (!previousContent && !isRegenThresholdReached) {
+    if (!previousContent && !isRegenThresholdReached && !hasCustomPromptOrKinks) {
       const retrievalStartTime = Date.now();
       try {
         let bestSemanticRow: any = null;
@@ -881,7 +921,7 @@ export async function POST(req: Request) {
 
     // 2. STANDARD 3-STEP CYCLE RETRIEVAL (Initial & 1st Regen Fallback)
     // On 2nd consecutive regeneration (regenerationCount=2, the 3rd total attempt), bypass retrieval and send to Euryale for a fresh output.
-    if (!previousContent && !isRegenThresholdReached) {
+    if (!previousContent && !isRegenThresholdReached && !hasCustomPromptOrKinks) {
       const retrievalStartTime = Date.now();
       try {
         let libraryQuery = supabase
@@ -913,6 +953,12 @@ export async function POST(req: Request) {
           // Avoid immediate duplicates from recent user activity
           let candidates = libraryRows.filter((r: any) => !historyTitles.includes(r.title));
           if (candidates.length === 0) candidates = libraryRows;
+
+          // Randomize candidates so seed records are not repeatedly served in order
+          for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+          }
 
           // Score and rank candidates by base_tolerance and custom kinks (metatags)
           let scoredCandidates: { row: any; score: number }[] = [];
@@ -1125,7 +1171,7 @@ export async function POST(req: Request) {
       activeTrope,
       theme,
       styleReference: selectedStyleReference || undefined,
-      userCustomKinks
+      userCustomKinks: allCustomKinks
     });
 
     let pacingRule = '';
@@ -1137,13 +1183,18 @@ export async function POST(req: Request) {
       pacingRule = 'Spend more time building desire and intensity with literary detail, steadily building into the climax and orgasms of the participants.';
     }
 
-    let userPrompt = (theme && typeof theme === 'string' && theme.trim().length > 0)
-      ? theme.trim()
+    const rawDriver = (customPrompt || theme || '').trim();
+    let userPrompt = rawDriver.length > 0
+      ? `Primary Scenario Driver: Must center entirely around this premise: "${rawDriver}".`
       : (contentType === 'literature'
           ? "A slow-burn, passionate narrative."
           : contentType === 'roleplay'
             ? "An intimate exploratory roleplay scenario."
             : "An intimate challenge for couples.");
+
+    if (allCustomKinks.length > 0) {
+      userPrompt += ` Explicitly incorporate the following intimacy preferences and kink dynamics: ${allCustomKinks.join(', ')}.`;
+    }
 
     const isLiterature = contentType === 'literature';
 

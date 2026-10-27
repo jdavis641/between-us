@@ -11,6 +11,56 @@ export interface FallbackGame {
 
 export const FALLBACK_GAMES: FallbackGame[] = [
   // ==========================================
+  // HALLOWEEN SEASONAL GAMES
+  // ==========================================
+  {
+    id: "halloween-costume-confessions",
+    category: 'card',
+    intensity: 'Intense',
+    title: 'Costume Confessions & Wicked Dares',
+    description: 'Draw cards testing your hidden secrets, wicked desires, and escalating physical dares in the dark.',
+    content: {
+      rules: [
+        'Light a single candle in a dark room. Take turns drawing cards from the deck.',
+        'Hearts: Confess a dark or taboo desire you have never spoken aloud to anyone.',
+        'Diamonds: The drawing partner selects a sensory or temperature dare using ice, warm breath, or silk.',
+        'Clubs: The non-drawing partner must remove an article of clothing or submit to 2 minutes of restrained teasing.',
+        'Spades: Execute an explicit physical dare whispered in the dark with no hesitation.',
+        'Jokers: Both partners trade roles for a 5-minute intense command session.'
+      ]
+    }
+  },
+  {
+    id: "halloween-pumpkin-truth-strip",
+    category: 'card',
+    intensity: 'Playful',
+    title: 'Pumpkin Truth or Strip Dare',
+    description: 'A spicy seasonal twist on classic party games where every refusal brings playful romantic penalties.',
+    content: {
+      rules: [
+        'Alternate drawing cards. Red cards dictate a Truth; Black cards dictate a Dare.',
+        'Truth: Answer an intimate erotic inquiry with zero hesitation.',
+        'Dare: Complete an escalating touch challenge under candlelight.',
+        'Refusal Penalty: Strip one article of clothing and submit to a playful romantic penalty.'
+      ]
+    }
+  },
+  {
+    id: "halloween-midnight-tarot",
+    category: 'card',
+    intensity: 'Sensory',
+    title: 'Midnight Tarot & Sensory Touch',
+    description: 'Draw cards that dictate sensory touch, temperature play, and boundary exploration for two.',
+    content: {
+      rules: [
+        'Shuffle the deck under ambient dim lighting. Each card drawn reveals an intimate touch ritual.',
+        'Face Cards: Blindfold the receiver for 3 minutes of warm breath, light touches, and whispers.',
+        'Cups / Hearts: Soft exploration of erogenous zones using feather-light fingertips.',
+        'Swords / Spades: Firm massage and commanding breath along the spine and neck.'
+      ]
+    }
+  },
+  // ==========================================
   // CARD GAMES (Expanded dynamic library across all 4 intensity tiers)
   // ==========================================
   {
