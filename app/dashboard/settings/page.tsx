@@ -1,63 +1,13 @@
 'use client';
 
 import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import LogoutButton from '../../components/LogoutButton';
-import preferenceMatrix from '../../lib/taxonomy/preference-matrix.json';
 
-type Tier = 'Sensory' | 'Playful' | 'Intense' | 'Extreme';
-
-interface TaxonomyOption {
-  label: string;
-  weight: number;
-}
-
-interface CategoryData {
-  category: string;
-  weight?: number;
-  description?: string;
-  items: TaxonomyOption[];
-}
-
-const WEIGHT_TIER_MAP: Record<number, Tier> = {
-  1: 'Sensory',
-  2: 'Playful',
-  3: 'Intense',
-  4: 'Extreme'
-};
-
-const TIER_OPTIONS: { name: Tier; description: string; badge: string }[] = [
-  {
-    name: 'Sensory',
-    badge: 'Level 1',
-    description: 'Gentle touch, romantic intimacy, deep emotional connection, and slow sensual exploration.'
-  },
-  {
-    name: 'Playful',
-    badge: 'Level 2',
-    description: 'Adventurous teasing, light bondage, roleplay games, toy exploration, and humorous banter.'
-  },
-  {
-    name: 'Intense',
-    badge: 'Level 3',
-    description: 'Heavy sensations, power dynamics, impact play, BDSM themes, and uninhibited physical exploration.'
-  },
-  {
-    name: 'Extreme',
-    badge: 'Level 4',
-    description: 'Edge play, taboo scenarios, psychological roleplay, surreal fantasies, and heavy boundary pushes.'
-  }
-];
-
-const calculateBaseToleranceTier = (weights: number[]): Tier | null => {
-  if (!weights || weights.length === 0) return null;
-  const sorted = [...weights].sort((a, b) => b - a);
-  const highestWeight = sorted[0];
-  return WEIGHT_TIER_MAP[highestWeight] || (highestWeight >= 4 ? 'Extreme' : 'Sensory');
-};
+type SettingsTab = 'account' | 'billing' | 'kinks' | 'contributions';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -69,6 +19,9 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Tab State - defaults cleanly to 'account'
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
+
   // Username Modification State
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [pronouns, setPronouns] = useState("");
@@ -77,12 +30,8 @@ export default function SettingsPage() {
   const [mobileSaved, setMobileSaved] = useState(false);
   const [savingMobile, setSavingMobile] = useState(false);
 
-  // Tolerance & Boundary Survey State
+  // Intimacy Preference Level State
   const [baseTolerance, setBaseTolerance] = useState("");
-  const [toleranceSaved, setToleranceSaved] = useState(false);
-  const [savingTolerance, setSavingTolerance] = useState(false);
-  const [showChecklist, setShowChecklist] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<TaxonomyOption[]>([]);
 
   // Custom Kinks State
   const [kinkInput, setKinkInput] = useState('');
@@ -100,56 +49,21 @@ export default function SettingsPage() {
   const [pronounsSaved, setPronounsSaved] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Parse categories from preference matrix
-  const categoriesList: CategoryData[] = useMemo(() => {
-    const rawMatrix = preferenceMatrix as any;
-    const weightSystem: Record<string, number> = rawMatrix?.weight_system || {
-      Sensory: 1,
-      Playful: 2,
-      Intense: 3,
-      Extreme: 4
-    };
-
-    if (Array.isArray(rawMatrix?.categories)) {
-      return rawMatrix.categories.map((c: any) => {
-        const catName = c.category || c.name || '';
-        const catWeight = c.weight ?? weightSystem[catName] ?? 1;
-        return {
-          category: catName,
-          weight: catWeight,
-          description: c.description || '',
-          items: Array.isArray(c.items)
-            ? c.items.map((it: any) => {
-                if (typeof it === 'string') {
-                  return { label: it, weight: catWeight };
-                }
-                return {
-                  label: it.label || it.name || '',
-                  weight: it.weight ?? catWeight
-                };
-              })
-            : []
-        };
-      });
-    }
-    return [];
-  }, []);
-
-  const handleToggleOption = (option: TaxonomyOption) => {
-    setSelectedItems(prev => {
-      const exists = prev.some(item => item.label === option.label);
-      const next = exists
-        ? prev.filter(item => item.label !== option.label)
-        : [...prev, { label: option.label, weight: option.weight }];
-
-      const newWeights = next.map(i => i.weight);
-      const newCalculatedTier = calculateBaseToleranceTier(newWeights);
-      if (newCalculatedTier) {
-        setBaseTolerance(newCalculatedTier);
+  // Sync hash routing if user deep-links into settings
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash === '#billing') {
+        setActiveTab('billing');
+      } else if (hash === '#kinks-settings' || hash === '#kinks') {
+        setActiveTab('kinks');
+      } else if (hash === '#contributions') {
+        setActiveTab('contributions');
+      } else {
+        setActiveTab('account');
       }
-      return next;
-    });
-  };
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -314,79 +228,6 @@ export default function SettingsPage() {
         alert('Error saving pronouns: ' + (err.message || 'Network error'));
       }
     }
-  };
-
-  const handleSaveTolerance = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    if (!baseTolerance) {
-      alert("Please select a tolerance tier before saving.");
-      return;
-    }
-
-    setSavingTolerance(true);
-    let userId: string | null = null;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      userId = user?.id || null;
-    }
-
-    if (userId) {
-      const currentTimestamp = new Date().toISOString();
-      try {
-        await fetch('/api/profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-          },
-          body: JSON.stringify({ 
-            base_tolerance: baseTolerance,
-            last_survey_prompted_at: currentTimestamp
-          })
-        });
-      } catch (err) {
-        console.error("Error updating profile tolerance via API:", err);
-      }
-      
-      const { data: existing } = await supabase.from('intimacy_preferences')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('category_tag', 'Primary Directive')
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existing.id);
-      } else {
-        await supabase.from('intimacy_preferences').insert({ user_id: userId, category_tag: 'Primary Directive', preference_level: baseTolerance });
-      }
-
-      // Also ensure Base Tolerance row is updated
-      try {
-        const { data: existingBase } = await supabase.from('intimacy_preferences')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('category_tag', 'Base Tolerance')
-          .maybeSingle();
-
-        if (existingBase) {
-          await supabase.from('intimacy_preferences').update({ preference_level: baseTolerance }).eq('id', existingBase.id);
-        } else {
-          await supabase.from('intimacy_preferences').insert({ user_id: userId, category_tag: 'Base Tolerance', preference_level: baseTolerance });
-        }
-      } catch (err) {
-        console.warn("Could not upsert Base Tolerance tag:", err);
-      }
-
-      setProfile((prev: any) => ({ ...prev, base_tolerance: baseTolerance, last_survey_prompted_at: currentTimestamp }));
-      setToleranceSaved(true);
-      setTimeout(() => setToleranceSaved(false), 3000);
-
-      router.refresh();
-    }
-    setSavingTolerance(false);
   };
 
   const handleSaveKinks = async (e?: React.MouseEvent) => {
@@ -554,416 +395,389 @@ export default function SettingsPage() {
     );
   }
 
+  // Safe tab fallback - guaranteed never to render null
+  const currentTab: SettingsTab = ['account', 'billing', 'kinks', 'contributions'].includes(activeTab)
+    ? activeTab
+    : 'account';
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-8 pb-32">
       <div className="max-w-2xl mx-auto space-y-8">
         
         <header className="border-b border-zinc-800 pb-6">
           <h1 className="text-3xl font-serif font-medium text-zinc-100">Account Settings</h1>
-          <p className="text-zinc-500 mt-2">Manage your preferences, boundaries, and subscription securely.</p>
+          <p className="text-zinc-500 mt-2">Manage your profile, billing, and custom preferences securely.</p>
         </header>
 
-        {/* Account Status */}
-        <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
-          <h2 className="text-xl font-medium text-zinc-200">Account Status</h2>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-zinc-950/50 rounded-xl border border-zinc-800/80 gap-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Subscription Plan</p>
-              <p className="text-lg text-zinc-200 mt-1">
-                {profile?.is_active ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Premium Member
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-zinc-600"></span> Inactive Trial
-                  </span>
-                )}
-              </p>
-            </div>
-            
-            <button 
-              onClick={handleManageBilling}
-              disabled={isRedirecting}
-              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm disabled:opacity-50"
-            >
-              {isRedirecting ? 'Redirecting...' : 'Unsubscribe / Manage Billing'}
-            </button>
-          </div>
+        {/* Tab Navigation Header */}
+        <div className="flex border-b border-zinc-800 space-x-2 overflow-x-auto pb-2 scrollbar-none" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'account'}
+            onClick={() => setActiveTab('account')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+              currentTab === 'account'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>👤</span>
+            <span>Account / Profile</span>
+          </button>
 
-          <div className="space-y-6 pt-4 border-t border-zinc-800/50">
-            {/* Nickname / Anonymous Alias */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-zinc-500">Nickname / Anonymous Alias</p>
-                {!isEditingUsername && (
-                  <button 
-                    onClick={() => {
-                      setIsEditingUsername(true);
-                      setNewUsername(profile?.anonymous_alias || profile?.nickname || '');
-                    }}
-                    className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
-                  >
-                    Change Username
-                  </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'billing'}
+            onClick={() => setActiveTab('billing')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+              currentTab === 'billing'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>💳</span>
+            <span>Billing</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'kinks'}
+            onClick={() => setActiveTab('kinks')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+              currentTab === 'kinks'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>🔥</span>
+            <span>Custom Kinks</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'contributions'}
+            onClick={() => setActiveTab('contributions')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+              currentTab === 'contributions'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>💡</span>
+            <span>Contributions</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Account / Profile View */}
+        {currentTab === 'account' && (
+          <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
+            <div className="border-b border-zinc-800/80 pb-4">
+              <h2 className="text-xl font-medium text-zinc-200">Account &amp; Profile</h2>
+              <p className="text-zinc-500 text-sm mt-1">Manage your anonymous identity, pronouns, and contact details.</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Nickname / Anonymous Alias */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-zinc-500">Nickname / Anonymous Alias</p>
+                  {!isEditingUsername && (
+                    <button 
+                      onClick={() => {
+                        setIsEditingUsername(true);
+                        setNewUsername(profile?.anonymous_alias || profile?.nickname || '');
+                      }}
+                      className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
+                    >
+                      Change Username
+                    </button>
+                  )}
+                </div>
+                
+                {!isEditingUsername ? (
+                  <p className="text-zinc-300 font-medium text-lg">{profile?.anonymous_alias || profile?.nickname || 'Not set'}</p>
+                ) : (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        className={`flex-1 bg-zinc-950 border rounded-lg px-4 py-2 text-zinc-200 focus:outline-none transition-colors ${
+                          usernameStatus === 'taken' ? 'border-red-500/50 focus:border-red-500' :
+                          usernameStatus === 'available' ? 'border-green-500/50 focus:border-green-500' :
+                          'border-zinc-800 focus:border-blue-500'
+                        }`}
+                        placeholder="Enter new username"
+                      />
+                      <button
+                        onClick={(e) => handleSaveUsername(e, newUsername.trim())}
+                        disabled={savingUsername || usernameStatus !== 'available'}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        {savingUsername ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingUsername(false);
+                          setNewUsername('');
+                        }}
+                        className="text-zinc-400 hover:text-zinc-300 px-2 py-2"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    
+                    {/* Status Indicator */}
+                    <div className="text-sm">
+                      {usernameStatus === 'checking' && <span className="text-zinc-500">Checking availability...</span>}
+                      {usernameStatus === 'available' && <span className="text-green-400">Username is available!</span>}
+                      {usernameStatus === 'taken' && (
+                        <div className="text-red-400 space-y-2">
+                          <p>This username is already taken.</p>
+                          {suggestions.length > 0 && (
+                            <div>
+                              <p className="text-zinc-400 text-xs uppercase mb-1">Available Suggestions:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {suggestions.map((sug) => (
+                                  <button
+                                    key={sug}
+                                    onClick={() => setNewUsername(sug)}
+                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded border border-zinc-700 text-sm transition-colors"
+                                  >
+                                    {sug}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
               
-              {!isEditingUsername ? (
-                <p className="text-zinc-300 font-medium text-lg">{profile?.anonymous_alias || profile?.nickname || 'Not set'}</p>
-              ) : (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                      className={`flex-1 bg-zinc-950 border rounded-lg px-4 py-2 text-zinc-200 focus:outline-none transition-colors ${
-                        usernameStatus === 'taken' ? 'border-red-500/50 focus:border-red-500' :
-                        usernameStatus === 'available' ? 'border-green-500/50 focus:border-green-500' :
-                        'border-zinc-800 focus:border-blue-500'
-                      }`}
-                      placeholder="Enter new username"
-                    />
-                    <button
-                      onClick={(e) => handleSaveUsername(e, newUsername.trim())}
-                      disabled={savingUsername || usernameStatus !== 'available'}
-                      className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      {savingUsername ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsEditingUsername(false);
-                        setNewUsername('');
-                      }}
-                      className="text-zinc-400 hover:text-zinc-300 px-2 py-2"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  
-                  {/* Status Indicator */}
-                  <div className="text-sm">
-                    {usernameStatus === 'checking' && <span className="text-zinc-500">Checking availability...</span>}
-                    {usernameStatus === 'available' && <span className="text-green-400">Username is available!</span>}
-                    {usernameStatus === 'taken' && (
-                      <div className="text-red-400 space-y-2">
-                        <p>This username is already taken.</p>
-                        {suggestions.length > 0 && (
-                          <div>
-                            <p className="text-zinc-400 text-xs uppercase mb-1">Available Suggestions:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {suggestions.map((sug) => (
-                                <button
-                                  key={sug}
-                                  onClick={() => setNewUsername(sug)}
-                                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded border border-zinc-700 text-sm transition-colors"
-                                >
-                                  {sug}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+              {/* Pronouns */}
+              <div>
+                <p className="text-sm text-zinc-500 mb-1">Pronouns</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={pronouns}
+                    onChange={(e) => setPronouns(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
+                    placeholder="e.g., they/them, she/her"
+                  />
+                  <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-3 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors">Save</button>
                 </div>
-              )}
+                {pronounsSaved && <p className="text-green-500 text-xs mt-2 font-medium">Pronouns saved!</p>}
+              </div>
+
+              {/* Mobile Number with Explicit Payload & DB Logger */}
+              <div>
+                <p className="text-sm text-zinc-500 mb-1">Mobile Number (SMS)</p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500 shrink-0"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                    placeholder="(555) 000-0000"
+                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500"
+                  />
+                  <button 
+                    onClick={handleSaveMobile} 
+                    disabled={savingMobile}
+                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors disabled:opacity-50"
+                  >
+                    {savingMobile ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+                {mobileSaved && <p className="text-green-500 text-xs mt-2 font-medium">Mobile number saved!</p>}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Tab 2: Billing View */}
+        {currentTab === 'billing' && (
+          <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
+            <div className="border-b border-zinc-800/80 pb-4">
+              <h2 className="text-xl font-medium text-zinc-200">Subscription &amp; Billing</h2>
+              <p className="text-zinc-500 text-sm mt-1">Review your plan tier and securely manage your subscription or payment methods.</p>
             </div>
             
-            {/* Pronouns */}
-            <div>
-              <p className="text-sm text-zinc-500 mb-1">Pronouns</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={pronouns}
-                  onChange={(e) => setPronouns(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
-                  placeholder="e.g., they/them, she/her"
-                />
-                <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-3 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors">Save</button>
-              </div>
-              {pronounsSaved && <p className="text-green-500 text-xs mt-2 font-medium">Pronouns saved!</p>}
-            </div>
-
-            {/* Mobile Number with Explicit Payload & DB Logger */}
-            <div>
-              <p className="text-sm text-zinc-500 mb-1">Mobile Number (SMS)</p>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <select
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500 shrink-0"
-                >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="tel"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  placeholder="(555) 000-0000"
-                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 text-sm focus:outline-none focus:border-zinc-500"
-                />
-                <button 
-                  onClick={handleSaveMobile} 
-                  disabled={savingMobile}
-                  className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors disabled:opacity-50"
-                >
-                  {savingMobile ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-              {mobileSaved && <p className="text-green-500 text-xs mt-2 font-medium">Mobile number saved!</p>}
-            </div>
-          </div>
-        </section>
-
-        {/* DEDICATED PROGRESSIVE BOUNDARY MATRIX SURVEY SECTION */}
-        <section id="boundary-survey" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Safety</span>
-              {baseTolerance && (
-                <span className="text-xs font-semibold text-zinc-400 bg-zinc-800/80 px-2.5 py-1 rounded-full border border-zinc-700">
-                  Current: {baseTolerance}
-                </span>
-              )}
-            </div>
-            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Boundary Calibration &amp; Comfort Level</h2>
-            <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
-              Calibrate your baseline comfort tier. This directly guides the intensity of your generated literature, roleplay scenarios, and intimacy games.
-            </p>
-          </div>
-
-          {/* 4 Explicit Tolerance Option Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {TIER_OPTIONS.map((t) => {
-              const isSelected = baseTolerance === t.name;
-              return (
-                <button
-                  key={t.name}
-                  type="button"
-                  onClick={() => setBaseTolerance(t.name)}
-                  className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-red-950/50 border-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)] ring-1 ring-red-500'
-                      : 'bg-zinc-950/70 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-1.5">
-                    <span className="font-serif font-medium text-lg text-zinc-100">{t.name}</span>
-                    <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">{t.badge}</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 font-light leading-relaxed">
-                    {t.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Progressive Checklist Helper */}
-          <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-3">
-            <p className="text-sm text-zinc-300 leading-relaxed font-light">
-              Not sure which tier fits best?{' '}
-              <button
-                type="button"
-                onClick={() => setShowChecklist(prev => !prev)}
-                className="text-red-400 hover:text-red-300 underline underline-offset-4 font-medium transition-colors"
-              >
-                {showChecklist ? "Hide checklist" : "Click here"}
-              </button>{' '}
-              to choose your comfort level and let our matching engine recommend the perfect tier.
-            </p>
-
-            {/* Expandable Comfort & Preference Checklist */}
-            {showChecklist && (
-              <div className="space-y-6 pt-4 border-t border-zinc-800/60 animate-in fade-in duration-200">
-                <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold">
-                  Select activities or sensations you enjoy:
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-zinc-950/60 rounded-xl border border-zinc-800/80 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Active Plan</p>
+                <p className="text-lg text-zinc-200 mt-1">
+                  {profile?.is_active ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Premium Member
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-zinc-600"></span> Inactive Trial
+                    </span>
+                  )}
                 </p>
-                <div className="space-y-5 max-h-96 overflow-y-auto pr-2">
-                  {categoriesList.map((cat) => (
-                    <div key={cat.category} className="space-y-2">
-                      <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{cat.category}</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {cat.items.map((item) => {
-                          const isChecked = selectedItems.some(i => i.label === item.label);
-                          return (
-                            <label
-                              key={item.label}
-                              className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
-                                isChecked
-                                  ? 'bg-red-950/40 border-red-800/80 text-white'
-                                  : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => handleToggleOption(item)}
-                                className="w-3.5 h-3.5 rounded text-red-600 bg-zinc-950 border-zinc-700 focus:ring-red-600"
-                              />
-                              <span className="truncate">{item.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-xs text-zinc-500 mt-1">Full access to AI serialized novellas, custom roleplays, and card decks.</p>
               </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-zinc-400">
-                Selected Baseline:{' '}
-                <strong className="text-zinc-200 font-medium">{baseTolerance || 'None (Please choose a tier)'}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={handleSaveTolerance}
-                disabled={savingTolerance || !baseTolerance}
-                className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
+              
+              <button 
+                onClick={handleManageBilling}
+                disabled={isRedirecting}
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm disabled:opacity-50"
               >
-                {savingTolerance ? 'Saving...' : 'Save Boundary Preferences'}
+                {isRedirecting ? 'Redirecting...' : 'Unsubscribe / Manage Billing'}
               </button>
             </div>
-            {toleranceSaved && <p className="text-green-500 text-xs font-medium">Boundary preferences saved successfully!</p>}
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* CUSTOM KINKS & PREFERENCES CONFIGURATION */}
-        <section id="kinks-settings" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Desires</span>
+        {/* Tab 3: Custom Kinks View */}
+        {currentTab === 'kinks' && (
+          <section id="kinks-settings" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
+            <div className="border-b border-zinc-800/80 pb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Desires</span>
+              </div>
+              <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Custom Kinks &amp; Specific Interests</h2>
+              <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
+                Add specific kinks, themes, or interests (one per line). Our matching engine will incorporate these directly into your generated stories, roleplays, and card game decks.
+              </p>
             </div>
-            <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Custom Kinks &amp; Specific Interests</h2>
-            <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
-              Add specific kinks, themes, or interests (one per line). Our matching engine will incorporate these directly into your generated stories, roleplays, and card game decks.
-            </p>
-          </div>
 
-          <div className="space-y-4">
-            <textarea
-              value={kinkInput}
-              onChange={(e) => setKinkInput(e.target.value)}
-              placeholder={"e.g.\nBondage & light restraint\nPraise and sensory deprivation\nRole reversal\nTemperature play (ice / candle wax)"}
-              rows={5}
-              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors font-mono leading-relaxed"
-            />
+            <div className="space-y-4">
+              <textarea
+                value={kinkInput}
+                onChange={(e) => setKinkInput(e.target.value)}
+                placeholder={"e.g.\nBondage & light restraint\nPraise and sensory deprivation\nRole reversal\nTemperature play (ice / candle wax)"}
+                rows={5}
+                className="w-full bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors font-mono leading-relaxed"
+              />
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-zinc-500">
-                {kinkInput.split('\n').filter(l => l.trim()).length} preference(s) entered
-              </span>
-              <button
-                type="button"
-                onClick={handleSaveKinks}
-                disabled={savingKinks}
-                className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
-              >
-                {savingKinks ? 'Saving Kinks...' : 'Save Kink Preferences'}
-              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                <span className="text-xs text-zinc-500">
+                  {kinkInput.split('\n').filter(l => l.trim()).length} preference(s) entered
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSaveKinks}
+                  disabled={savingKinks}
+                  className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
+                >
+                  {savingKinks ? 'Saving Kinks...' : 'Save Kink Preferences'}
+                </button>
+              </div>
+              {kinksSaved && <p className="text-green-500 text-xs font-medium">Kink preferences saved successfully!</p>}
+              {kinksError && <p className="text-red-500 text-xs font-medium">{kinksError}</p>}
             </div>
-            {kinksSaved && <p className="text-green-500 text-xs font-medium">Kink preferences saved successfully!</p>}
-            {kinksError && <p className="text-red-500 text-xs font-medium">{kinksError}</p>}
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* My Contributions */}
-        <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
-            <div>
-              <h2 className="text-xl font-medium text-zinc-200">My Contributions</h2>
-              <p className="text-zinc-500 text-sm mt-1">Track the status and community ratings of your submitted scenarios.</p>
-            </div>
-            <Link 
-              href="/dashboard/suggest" 
-              className="text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-950/50 border border-red-900/30 px-3 py-1.5 rounded-lg transition-colors uppercase tracking-wider"
-            >
-              + Suggest Idea
-            </Link>
-          </div>
-
-          {contributionsLoading ? (
-            <div className="p-6 text-center text-zinc-500 text-sm animate-pulse">Loading contributions...</div>
-          ) : contributions.length === 0 ? (
-            <div className="p-8 text-center bg-zinc-950/40 rounded-xl border border-zinc-800/60">
-              <span className="text-3xl block mb-2">💡</span>
-              <p className="text-zinc-400 font-medium">No contributions submitted yet.</p>
-              <p className="text-zinc-500 text-sm mt-1 mb-4">Have an intimate story or roleplay idea? Share it with the community.</p>
+        {/* Tab 4: My Contributions View */}
+        {currentTab === 'contributions' && (
+          <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+              <div>
+                <h2 className="text-xl font-medium text-zinc-200">My Contributions</h2>
+                <p className="text-zinc-500 text-sm mt-1">Track the status and community ratings of your submitted scenarios.</p>
+              </div>
               <Link 
-                href="/dashboard/suggest"
-                className="inline-block text-xs font-semibold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg border border-zinc-700 transition-colors"
+                href="/dashboard/suggest" 
+                className="text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-950/50 border border-red-900/30 px-3 py-1.5 rounded-lg transition-colors uppercase tracking-wider"
               >
-                Submit Your First Idea
+                + Suggest Idea
               </Link>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {contributions.map((item: any) => {
-                let title = item.suggestion_text;
-                let description = '';
-                try {
-                  const parsed = JSON.parse(item.suggestion_text);
-                  title = parsed.title || item.suggestion_text;
-                  description = parsed.description || '';
-                } catch {}
 
-                const status = item.status || 'pending';
-                const avgRating = item.average_rating ? Number(item.average_rating) : 0;
-                const timesTested = item.times_tested ?? 0;
+            {contributionsLoading ? (
+              <div className="p-6 text-center text-zinc-500 text-sm animate-pulse">Loading contributions...</div>
+            ) : contributions.length === 0 ? (
+              <div className="p-8 text-center bg-zinc-950/40 rounded-xl border border-zinc-800/60">
+                <span className="text-3xl block mb-2">💡</span>
+                <p className="text-zinc-400 font-medium">No contributions submitted yet.</p>
+                <p className="text-zinc-500 text-sm mt-1 mb-4">Have an intimate story or roleplay idea? Share it with the community.</p>
+                <Link 
+                  href="/dashboard/suggest" 
+                  className="inline-block text-xs font-semibold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg border border-zinc-700 transition-colors"
+                >
+                  Submit Your First Idea
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contributions.map((item: any) => {
+                  let title = item.suggestion_text;
+                  let description = '';
+                  try {
+                    const parsed = JSON.parse(item.suggestion_text);
+                    title = parsed.title || item.suggestion_text;
+                    description = parsed.description || '';
+                  } catch {}
 
-                return (
-                  <div key={item.id} className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-zinc-200 font-medium text-base truncate">{title}</h3>
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wider ${
-                          status === 'approved' ? 'bg-green-950/60 text-green-400 border border-green-800/40' :
-                          status === 'archived' ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' :
-                          'bg-amber-950/60 text-amber-400 border border-amber-800/40'
-                        }`}>
-                          {status}
-                        </span>
-                      </div>
-                      {description && (
-                        <p className="text-zinc-400 text-xs line-clamp-1">{description}</p>
-                      )}
-                      <p className="text-zinc-600 text-[11px]">
-                        Submitted on {new Date(item.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
+                  const status = item.status || 'pending';
+                  const avgRating = item.average_rating ? Number(item.average_rating) : 0;
+                  const timesTested = item.times_tested ?? 0;
 
-                    <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/50">
-                      <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Community Score</span>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {timesTested > 0 ? (
-                          <span className="text-sm font-semibold text-amber-400 flex items-center gap-1">
-                            <span>★</span> {avgRating.toFixed(1)} <span className="text-xs text-zinc-500 font-normal">({timesTested} tests)</span>
+                  return (
+                    <div key={item.id} className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-zinc-200 font-medium text-base truncate">{title}</h3>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wider ${
+                            status === 'approved' ? 'bg-green-950/60 text-green-400 border border-green-800/40' :
+                            status === 'archived' ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' :
+                            'bg-amber-950/60 text-amber-400 border border-amber-800/40'
+                          }`}>
+                            {status}
                           </span>
-                        ) : (
-                          <span className="text-xs text-zinc-400 italic">Untested (New)</span>
+                        </div>
+                        {description && (
+                          <p className="text-zinc-400 text-xs line-clamp-1">{description}</p>
                         )}
+                        <p className="text-zinc-600 text-[11px]">
+                          Submitted on {new Date(item.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/50">
+                        <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Community Score</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {timesTested > 0 ? (
+                            <span className="text-sm font-semibold text-amber-400 flex items-center gap-1">
+                              <span>★</span> {avgRating.toFixed(1)} <span className="text-xs text-zinc-500 font-normal">({timesTested} tests)</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-400 italic">Untested (New)</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
-        <section className="mt-12 border-t border-zinc-800 pt-8">
+        <section className="mt-8 border-t border-zinc-800 pt-6">
           <LogoutButton className="w-full md:w-auto px-6 py-3 bg-red-950/20 text-red-500 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors font-medium" />
         </section>
 

@@ -106,7 +106,7 @@ export default function DashboardHome() {
             <div className="flex items-center gap-3">
               <span className="text-2xl shrink-0">✨</span>
               <p className="text-sm sm:text-base font-medium text-zinc-100 leading-relaxed">
-                Welcome! Please visit the <Link href="/dashboard/settings" className="text-rose-400 hover:text-rose-300 font-bold underline underline-offset-4 transition-colors">settings menu</Link> to complete your onboarding and customize your boundaries.
+                Welcome! Please visit the <Link href="/dashboard/settings" className="text-rose-400 hover:text-rose-300 font-bold underline underline-offset-4 transition-colors">settings menu</Link> to complete your profile and customize your preferences.
               </p>
             </div>
             <div className="flex items-center gap-4 shrink-0">
@@ -205,13 +205,13 @@ export default function DashboardHome() {
               
               {/* Erotic Literature Card */}
               <Link href="/dashboard/literature">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Erotic Literature</h3>
                       <span className="text-2xl">📖</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Immersive romantic stories crafted strictly within your shared boundaries.</p>
+                    <p className="text-zinc-400 text-sm">Immersive romantic stories crafted strictly within your shared boundaries.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
                     Generate Story &rarr;
@@ -221,13 +221,13 @@ export default function DashboardHome() {
 
               {/* Role-Play Scenarios Card */}
               <Link href="/dashboard/roleplay">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Role-Play Scripts</h3>
                       <span className="text-2xl">🎭</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Perspective-based dialogue and step-by-step actions for tonight.</p>
+                    <p className="text-zinc-400 text-sm">Perspective-based dialogue and step-by-step actions for tonight.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
                     Build Scenario &rarr;
@@ -237,13 +237,13 @@ export default function DashboardHome() {
 
               {/* Intimacy Games Card */}
               <Link href="/dashboard/games">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Intimacy Games</h3>
                       <span className="text-2xl">🎲</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
+                    <p className="text-zinc-400 text-sm">Browse card games, movie night rules, drinking games, and date night activities.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
                     Play Tonight &rarr;
@@ -253,13 +253,13 @@ export default function DashboardHome() {
 
               {/* Relationship Randomizer Card */}
               <Link href="/dashboard/randomizer">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">The Randomizer</h3>
                       <span className="text-2xl">⚡</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Quick, spontaneous prompts: Truth or Dare, Intimacy Dice, and quick conversation sparks.</p>
+                    <p className="text-zinc-400 text-sm">Quick, spontaneous prompts: Truth or Dare, Intimacy Dice, and quick conversation sparks.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
                     Roll Randomizer &rarr;
@@ -267,15 +267,15 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Favorites Hub Card */}
+              {/* Saved Favorites Card */}
               <Link href="/dashboard/favorites">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Saved Favorites</h3>
                       <span className="text-2xl">❤️</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Quickly revisit and replay your top-rated stories and intimacy scenarios.</p>
+                    <p className="text-zinc-400 text-sm">Quickly revisit and replay your top-rated stories and intimacy scenarios.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
                     View Favorites &rarr;
@@ -283,18 +283,50 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Settings / Tolerance Management Card */}
-              <Link href="/dashboard/settings">
-                <div className="bg-gray-800/50 border border-gray-700/50 p-6 rounded-xl hover:border-red-500/50 transition-all cursor-pointer group h-full flex flex-col justify-between">
+              {/* Between Us Pass Card */}
+              <Link href="/dashboard/partnerinvite">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Settings & Boundaries</h3>
-                      <span className="text-2xl">🛡️</span>
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Between Us Pass</h3>
+                      <span className="text-2xl">🔗</span>
                     </div>
-                    <p className="text-gray-400 text-sm">Adjust your base tolerance tier, review hard limits, or update your password.</p>
+                    <p className="text-zinc-400 text-sm">Link accounts with your partner or spouse to curate shared games, stories, and roleplay scenarios.</p>
                   </div>
                   <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
-                    Manage Limits &rarr;
+                    Link Partner &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* Guest Pass Card */}
+              <Link href="/dashboard/pass">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Guest Pass</h3>
+                      <span className="text-2xl">🔑</span>
+                    </div>
+                    <p className="text-zinc-400 text-sm">Generate a temporary, customizable pass with selected boundaries and cheat codes for an encounter.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Generate Pass &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* Account Settings Card */}
+              <Link href="/dashboard/settings">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Account Settings</h3>
+                      <span className="text-2xl">⚙️</span>
+                    </div>
+                    <p className="text-zinc-400 text-sm">Manage your profile alias, phone number, subscription billing, and custom preferences.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Manage Settings &rarr;
                   </div>
                 </div>
               </Link>
