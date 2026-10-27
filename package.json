@@ -12,6 +12,7 @@
     "marketing:valentines": "ts-node scripts/cmo-marketing-engine.ts valentines",
     "seed:expanded": "ts-node scripts/seed-expanded-options.ts",
     "seed:tropes": "ts-node scripts/seed-romantasy-tropes.ts",
+    "seed:interests": "ts-node scripts/seed-interest-stories.ts",
     "seed:content": "ts-node scripts/seed-romantasy-tropes.ts && ts-node scripts/seed-intimacy-games.ts",
     "qa:validate": "ts-node scripts/qa-content-validator.ts"
   },
