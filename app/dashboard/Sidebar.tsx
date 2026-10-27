@@ -66,48 +66,75 @@ export default function Sidebar({ logo }: SidebarProps) {
           <Link
             href="/dashboard"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             Dashboard Home
           </Link>
           <Link
+            href="/dashboard/partnerinvite"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/partnerinvite'
+                ? 'bg-red-950/40 text-red-300 border border-red-800/50 font-medium'
+                : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            💑 Between Us Pass
+          </Link>
+          <Link
             href="/dashboard/pass"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg bg-red-950/20 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/pass'
+                ? 'bg-red-950/40 text-red-300 border border-red-800/50 font-medium'
+                : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
-            🎟️ Between Us Pass
+            🎟️ Guest Pass
           </Link>
           <Link
             href="/dashboard/randomizer"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/randomizer' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             🎲 Randomizer Games
           </Link>
           <Link
             href="/dashboard/games"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname?.startsWith('/dashboard/games') ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             ✨ Card Games
           </Link>
           <Link
             href="/dashboard/literature"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/literature' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             📖 Erotic Stories
           </Link>
           <Link
             href="/dashboard/roleplay"
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/roleplay' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             🎭 Role Play
           </Link>
           <Link
             href="/dashboard/favorites"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors"
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/favorites' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             ❤️ Your Favorites
           </Link>
@@ -174,16 +201,20 @@ export default function Sidebar({ logo }: SidebarProps) {
           <Link
             href="/dashboard/messages"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-300 hover:text-white transition-colors mb-1"
+            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors mb-1 ${
+              pathname === '/dashboard/messages' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
           >
             📥 Inbox
           </Link>
           <Link
             href="/dashboard/settings"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 transition-colors"
+            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+              pathname === '/dashboard/settings' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+            }`}
           >
-            ⚙️ Settings & Billing
+            ⚙️ Settings &amp; Billing
           </Link>
           <LogoutButton className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-red-950/20 text-red-500/70 hover:text-red-400 transition-colors mt-2" />
         </div>

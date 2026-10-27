@@ -3,6 +3,7 @@
 import { COUNTRY_CODES, formatE164Phone, splitPhone } from "@/utils/phone";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import Link from "next/link";
 
 export default function GuestPassHub() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -249,8 +250,13 @@ export default function GuestPassHub() {
   return (
     <main className="p-6 md:p-10 w-full max-w-4xl mx-auto text-zinc-100 min-h-screen">
       <header className="mb-10 border-b border-zinc-800 pb-6">
-        <h1 className="text-3xl font-bold mb-2">Between Us Guest Pass</h1>
-        <p className="text-zinc-400">Securely invite a partner and selectively share your desires.</p>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
+          <Link href="/dashboard" className="hover:text-zinc-300 transition-colors">Dashboard</Link>
+          <span>/</span>
+          <span className="text-zinc-300 font-medium">Guest Pass</span>
+        </div>
+        <h1 className="text-3xl font-bold mb-2">Guest Pass</h1>
+        <p className="text-zinc-400">Temporary, customizable access cards to share selected boundaries and encounter instructions with a guest.</p>
       </header>
 
       {/* Saved Configurations Section */}
@@ -258,7 +264,7 @@ export default function GuestPassHub() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-white">Saved Configurations</h2>
-            <p className="text-xs text-zinc-400">Select a pre-saved Between Us Pass setup to auto-populate boundaries and instructions.</p>
+            <p className="text-xs text-zinc-400">Select a pre-saved Guest Pass setup to auto-populate boundaries and instructions.</p>
           </div>
           {selectedConfigId && (
             <button

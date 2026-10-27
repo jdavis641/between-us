@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import Link from 'next/link'
 
 export default function InvitePartnerPage() {
   const [supabase] = useState(() => createClient());
@@ -51,23 +52,59 @@ export default function InvitePartnerPage() {
       }
     }
     fetchPrefs()
-  }, [])
+  }, [supabase])
 
   const handleSearch = async () => {
     const searchTerm = searchValue.trim()
     if (!searchTerm) return
     setIsSearching(true)
 
-    const { data } = await supabase.rpc('search_partner', { search_term: searchTerm });
+    const cleanTerm = searchTerm.trim()
+    // Sanitize phone number input so digits can match whether the user types +1, parentheses, or hyphens
+    const digitsOnly = cleanTerm.replace(/\D/g, '')
 
-    if (data && data.length > 0) {
-      const partner = data[0];
-      setFoundUser({ id: partner.id, username: partner.anonymous_alias || searchTerm });
-    } else {
-      setFoundUser(null);
-      alert("Partner not found.");
+    let partner: any = null
+
+    // 1. Query search_partner RPC first
+    try {
+      const { data, error } = await supabase.rpc('search_partner', { search_term: cleanTerm })
+      if (!error && data && data.length > 0) {
+        partner = data[0]
+      }
+    } catch (rpcErr) {
+      console.warn("search_partner RPC error, falling back to direct profiles query:", rpcErr)
     }
-    setIsSearching(false);
+
+    // 2. Query profiles directly with .or() filter including mobile_number and sanitized digits
+    if (!partner) {
+      try {
+        let orFilter = `anonymous_alias.ilike.%${cleanTerm}%,nickname.ilike.%${cleanTerm}%,email.ilike.%${cleanTerm}%,mobile_number.ilike.%${cleanTerm}%`
+        if (digitsOnly.length >= 7) {
+          orFilter += `,mobile_number.ilike.%${digitsOnly}%`
+        }
+
+        const { data: profileRows, error: profErr } = await supabase
+          .from('profiles')
+          .select('id, anonymous_alias, nickname, email, mobile_number')
+          .or(orFilter)
+          .limit(1)
+
+        if (!profErr && profileRows && profileRows.length > 0) {
+          partner = profileRows[0]
+        }
+      } catch (profErr) {
+        console.warn("Direct profiles query exception:", profErr)
+      }
+    }
+
+    if (partner) {
+      const displayName = partner.anonymous_alias || partner.nickname || partner.email || partner.mobile_number || searchTerm
+      setFoundUser({ id: partner.id, username: displayName })
+    } else {
+      setFoundUser(null)
+      alert("Partner not found. Please verify the username, email, or phone number.")
+    }
+    setIsSearching(false)
   }
 
   const handleSendInvite = async () => {
@@ -133,17 +170,22 @@ export default function InvitePartnerPage() {
       <div className="max-w-2xl mx-auto space-y-8">
         
         <header className="border-b border-zinc-800 pb-6">
-          <h1 className="text-3xl font-serif font-medium text-zinc-100">Link Partner Account</h1>
-          <p className="text-zinc-500 mt-2">Find your partner by their anonymous alias, email, or phone to link accounts.</p>
+          <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
+            <Link href="/dashboard" className="hover:text-zinc-300 transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-zinc-300 font-medium">Between Us Pass</span>
+          </div>
+          <h1 className="text-3xl font-serif font-medium text-zinc-100">Between Us Pass</h1>
+          <p className="text-zinc-500 mt-2">Link accounts with your romantic partner or spouse to curate shared games, stories, and roleplay scenarios.</p>
         </header>
 
         {!inviteSent ? (
           <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
             <div>
               <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 mb-6">
-                <button onClick={() => setSearchMethod('username')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'username' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Username</button>
-                <button onClick={() => setSearchMethod('email')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'email' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Email</button>
-                <button onClick={() => setSearchMethod('phone')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'phone' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Phone</button>
+                <button type="button" onClick={() => setSearchMethod('username')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'username' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Username</button>
+                <button type="button" onClick={() => setSearchMethod('email')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'email' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Email</button>
+                <button type="button" onClick={() => setSearchMethod('phone')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${searchMethod === 'phone' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Phone</button>
               </div>
 
               <div className="flex gap-4">
@@ -151,8 +193,9 @@ export default function InvitePartnerPage() {
                   type={searchMethod === 'email' ? 'email' : searchMethod === 'phone' ? 'tel' : 'text'}
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
-                  placeholder={`Enter their ${searchMethod}`}
-                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-red-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                  placeholder="Search by username, email, or phone number..."
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500"
                 />
                 <button 
                   onClick={handleSearch}
@@ -246,4 +289,3 @@ export default function InvitePartnerPage() {
     </div>
   )
 }
-
