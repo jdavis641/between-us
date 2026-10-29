@@ -1563,7 +1563,7 @@ export const NEVER_HAVE_I_EVER_DATA: Record<IntensityTier, NeverHaveIEverTierDat
   }
 };
 
-export const communicationStartersPlayful: string[] = [
+export const communicationStartersConnection: string[] = [
   "What is a small, quiet moment between us from the past month that made you feel completely safe and loved?",
   "If you could freeze one memory of us together and live inside it for an entire day, which one would you choose?",
   "What is an unspoken habit or mannerism of mine that secretly makes you smile whenever you catch me doing it?",
@@ -1596,7 +1596,7 @@ export const communicationStartersPlayful: string[] = [
   "What is something I can do tonight—completely non-sexual—that would make you feel truly pampered, adored, and seen?"
 ];
 
-export const communicationStartersIntense: string[] = [
+export const communicationStartersDesire: string[] = [
   "What is a specific sexual fantasy you replay in your head when you're alone that you've been hesitant to describe to me?",
   "Where on your body do you crave my touch the most right now, and exactly how do you want my hands or mouth to move?",
   "Describe the hottest, most intoxicating encounter we've ever shared—what made it stand out above everything else?",
@@ -1628,3 +1628,8 @@ export const communicationStartersIntense: string[] = [
   "What is the most intense, uninhibited orgasm you've ever had with me, and what exact combination of touches brought you there?",
   "If tonight has no limits, safe word aside, what is the one thing we haven't done yet that you want us to experience together?"
 ];
+
+// Backward compatibility aliases
+export const communicationStartersPlayful = communicationStartersConnection;
+export const communicationStartersIntense = communicationStartersDesire;
+

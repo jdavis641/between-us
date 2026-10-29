@@ -7,8 +7,8 @@ import {
   RANDOMIZER_DATA,
   TRUTH_OR_DARE_DATA,
   NEVER_HAVE_I_EVER_DATA,
-  communicationStartersPlayful,
-  communicationStartersIntense,
+  communicationStartersConnection,
+  communicationStartersDesire,
   IntensityTier,
   RandomizerType,
   RandomizerGameMode,
@@ -32,7 +32,7 @@ function RandomizerHubContent() {
   const [activeTier, setActiveTier] = useState<IntensityTier>('playful');
   const [activeType, setActiveType] = useState<RandomizerType>('action');
   const [activeTodType, setActiveTodType] = useState<TruthOrDareType>('truth');
-  const [commCategory, setCommCategory] = useState<'playful' | 'intense'>('playful');
+  const [commCategory, setCommCategory] = useState<'connection' | 'desire'>('connection');
 
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -58,7 +58,7 @@ function RandomizerHubContent() {
     tier: IntensityTier = activeTier,
     todType?: TruthOrDareType,
     origType?: RandomizerType,
-    commCat: 'playful' | 'intense' = commCategory
+    commCat: 'connection' | 'desire' = commCategory
   ) => {
     setIsAnimating(true);
     setNhieFeedback(null);
@@ -79,7 +79,7 @@ function RandomizerHubContent() {
       const pool = NEVER_HAVE_I_EVER_DATA[tier].statements;
       nextPrompt = pickRandom(pool, currentPrompt);
     } else if (game === 'communication-starters') {
-      const pool = commCat === 'playful' ? communicationStartersPlayful : communicationStartersIntense;
+      const pool = commCat === 'connection' ? communicationStartersConnection : communicationStartersDesire;
       nextPrompt = pickRandom(pool, currentPrompt);
     }
 
@@ -103,7 +103,7 @@ function RandomizerHubContent() {
   };
 
   // Switch communication category
-  const handleCommCategoryChange = (newCat: 'playful' | 'intense') => {
+  const handleCommCategoryChange = (newCat: 'connection' | 'desire') => {
     setCommCategory(newCat);
     rollGamePrompt('communication-starters', activeTier, undefined, undefined, newCat);
   };
@@ -127,15 +127,15 @@ function RandomizerHubContent() {
   };
 
   const commMeta = {
-    playful: {
-      name: 'Playful',
+    connection: {
+      name: 'Connection',
       badge: '💬 Emotional Reconnection',
       bgBadge: 'bg-indigo-950/60 text-indigo-300 border-indigo-800/80',
       description: 'Deep, non-sexual reconnection prompts focusing on emotional presence, vulnerability, and adoration.'
     },
-    intense: {
-      name: 'Intense',
-      badge: '🔥 Desires & Intimacy',
+    desire: {
+      name: 'Desire',
+      badge: '🔥 Intimacy & Fantasies',
       bgBadge: 'bg-rose-950/60 text-rose-300 border-rose-800/80',
       description: 'Explicit intimacy and desire prompts focusing on fantasies, kinks, tactile anticipation, and unfiltered passion.'
     }
@@ -152,7 +152,7 @@ function RandomizerHubContent() {
           badge: commMeta[commCategory].badge,
           bgBadge: commMeta[commCategory].bgBadge,
           description: commMeta[commCategory].description,
-          color: commCategory === 'playful' ? 'indigo' : 'rose'
+          color: commCategory === 'connection' ? 'indigo' : 'rose'
         };
 
   return (
@@ -330,7 +330,7 @@ function RandomizerHubContent() {
                   Communication Starters
                 </h3>
                 <p className="text-xs text-zinc-400 leading-relaxed font-light">
-                  Curated prompts to bridge the gap: deep emotional reconnection or unapologetic sexual desires.
+                  Curated prompts to bridge the gap: deep emotional connection or unapologetic physical desire.
                 </p>
               </div>
               <div className="mt-4 pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs">
@@ -355,33 +355,43 @@ function RandomizerHubContent() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 shadow-inner gap-1">
-              {/* Playful Option */}
+            <div className="grid grid-cols-2 bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 shadow-inner gap-1.5">
+              {/* Left option: Connection */}
               <button
                 type="button"
-                onClick={() => handleCommCategoryChange('playful')}
-                className={`py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
-                  commCategory === 'playful'
+                onClick={() => handleCommCategoryChange('connection')}
+                className={`py-3 px-3 rounded-xl transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                  commCategory === 'connection'
                     ? 'bg-indigo-950 text-indigo-200 border border-indigo-800/80 shadow-md scale-[1.01]'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
-                <span>💬</span>
-                <span>Playful (Deep Connection)</span>
+                <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
+                  <span>💬</span>
+                  <span>Connection</span>
+                </div>
+                <span className="text-[10px] sm:text-xs opacity-75 font-normal">
+                  Deep Emotional Reconnection
+                </span>
               </button>
 
-              {/* Intense Option */}
+              {/* Right option: Desire */}
               <button
                 type="button"
-                onClick={() => handleCommCategoryChange('intense')}
-                className={`py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
-                  commCategory === 'intense'
+                onClick={() => handleCommCategoryChange('desire')}
+                className={`py-3 px-3 rounded-xl transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                  commCategory === 'desire'
                     ? 'bg-rose-950 text-rose-200 border border-rose-800/80 shadow-md scale-[1.01]'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
-                <span>🔥</span>
-                <span>Intense (Desires & Intimacy)</span>
+                <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm">
+                  <span>🔥</span>
+                  <span>Desire</span>
+                </div>
+                <span className="text-[10px] sm:text-xs opacity-75 font-normal">
+                  Intimacy & Fantasies
+                </span>
               </button>
             </div>
 
@@ -460,7 +470,7 @@ function RandomizerHubContent() {
           onContextMenu={(e) => e.preventDefault()}
           className={`select-none relative bg-zinc-900 border rounded-2xl p-8 md:p-12 mb-8 shadow-2xl transition-all duration-300 flex flex-col justify-between min-h-[280px] md:min-h-[300px] ${
             activeGame === 'communication-starters'
-              ? commCategory === 'playful'
+              ? commCategory === 'connection'
                 ? 'border-indigo-900/60 shadow-[0_0_30px_rgba(99,102,241,0.08)]'
                 : 'border-rose-900/60 shadow-[0_0_30px_rgba(244,63,94,0.08)]'
               : activeTier === 'sensory'
@@ -672,7 +682,7 @@ function RandomizerHubContent() {
               type="button"
               onClick={() => rollGamePrompt('communication-starters', activeTier, undefined, undefined, commCategory)}
               className={`w-full sm:w-auto min-w-[220px] py-4 px-8 rounded-xl font-semibold text-base transition-all duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-3 active:scale-95 border ${
-                commCategory === 'playful'
+                commCategory === 'connection'
                   ? 'bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border-indigo-800/80 hover:shadow-[0_0_20px_rgba(99,102,241,0.25)]'
                   : 'bg-rose-950 hover:bg-rose-900 text-rose-200 border-rose-800/80 hover:shadow-[0_0_20px_rgba(244,63,94,0.3)]'
               }`}
