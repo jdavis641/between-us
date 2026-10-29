@@ -1077,7 +1077,7 @@ export const RANDOMIZER_DATA: Record<IntensityTier, TierData> = {
 
 export const TOTAL_RANDOMIZER_PROMPTS = 1020;
 
-export type RandomizerGameMode = 'original' | 'truth_or_dare' | 'never_have_i_ever';
+export type RandomizerGameMode = 'original' | 'truth_or_dare' | 'never_have_i_ever' | 'communication-starters';
 export type TruthOrDareType = 'truth' | 'dare';
 
 export interface TruthOrDareTierData {
@@ -1563,3 +1563,68 @@ export const NEVER_HAVE_I_EVER_DATA: Record<IntensityTier, NeverHaveIEverTierDat
   }
 };
 
+export const communicationStartersPlayful: string[] = [
+  "What is a small, quiet moment between us from the past month that made you feel completely safe and loved?",
+  "If you could freeze one memory of us together and live inside it for an entire day, which one would you choose?",
+  "What is an unspoken habit or mannerism of mine that secretly makes you smile whenever you catch me doing it?",
+  "When was the last time you looked at me from across a room and thought to yourself, 'I'm so lucky to have them'?",
+  "What is something vulnerable or tender about how you've been feeling lately that you haven't found the right words to say out loud?",
+  "In what specific way do you feel I've helped you grow into a happier, more grounded version of yourself?",
+  "If we had 24 hours together with no phones, no work, and no responsibilities, what would our ideal day of reconnection look like?",
+  "What is one dream or aspiration for our future that you haven't brought up recently because life got too busy?",
+  "What was your very first impression of me when we first met, and what was the moment you realized you were truly falling for me?",
+  "What is something I do that instantly puts your nervous system at ease after a difficult or exhausting day?",
+  "How can I show up for you emotionally this upcoming week in a way that would make you feel deeply supported and cherished?",
+  "What is a compliment or validation you've received from me that stayed with you long after I said it?",
+  "If our relationship were a book, what would the title of our current chapter be, and what do you hope happens in the next one?",
+  "What is a shared challenge or hardship we navigated together that made you respect and love our partnership even more?",
+  "What is something about your childhood or early years that you feel explains who you are today, but we rarely talk about?",
+  "What is one little ritual or tradition we don't have yet that you would love for us to start doing together?",
+  "When do you feel most authentically yourself around me—without any filters, defenses, or expectations?",
+  "What is one thing you appreciate about how we communicate during disagreements, and one thing you think we could soften?",
+  "Tell me about a time when you felt deeply understood by me without having to explain yourself.",
+  "What is a physical feature of mine—non-sexual—that you find incredibly comforting or endearing to look at or touch?",
+  "If you could ask me to forgive you for one small thing without any judgment or debate, what would it be?",
+  "What is something you secretly worry about regarding our future that you'd feel lighter sharing with me right now?",
+  "How has the way you love me evolved from the first few months we were together to right now?",
+  "What is one song, place, or scent that instantly transports you back to the early days of our romance?",
+  "What is something new you'd like to learn or experience together this year that we've never tried before?",
+  "When you think about getting old together, what is the scene or picture that brings the warmest smile to your face?",
+  "What is one kind gesture I made recently that you noticed and appreciated, even if you didn't say anything at the time?",
+  "If you could read my mind for five minutes, what is the one question or truth you would search for?",
+  "What part of your heart or inner world do you feel I haven't fully explored yet?",
+  "What is something I can do tonight—completely non-sexual—that would make you feel truly pampered, adored, and seen?"
+];
+
+export const communicationStartersIntense: string[] = [
+  "What is a specific sexual fantasy you replay in your head when you're alone that you've been hesitant to describe to me?",
+  "Where on your body do you crave my touch the most right now, and exactly how do you want my hands or mouth to move?",
+  "Describe the hottest, most intoxicating encounter we've ever shared—what made it stand out above everything else?",
+  "If I surrendered complete physical control to you tonight and obeyed every single command without question, what would you do to me first?",
+  "What is a dirty thought you had about me recently during an ordinary, everyday moment that made your pulse spike?",
+  "How do you feel about edging, restraint, or orgasm control—and what scenario would push you closest to your absolute edge?",
+  "What is something you want me to whisper directly against your ear or throat when we are at the height of passion?",
+  "If we were in a semi-public setting right now where we could be caught at any moment, what risky touch would you want to risk?",
+  "What kind of lingerie, clothing, or state of undress on me drives you completely wild with desire?",
+  "Tell me about a kink, roleplay scenario, or power dynamic you've secretly wondered about exploring between us.",
+  "What is the most sensitive, electric spot on your body that I don't give enough slow, deliberate attention to?",
+  "Do you crave being taken slowly and worshiped with reverent tenderness, or pinned down and claimed with raw intensity tonight?",
+  "What is an explicit command or instruction you've fantasized about giving me—or receiving from me—in the dark?",
+  "If we took an entire weekend dedicated purely to exploring each other's physical desires without any rush, what rules would we set?",
+  "What is something I do during sex that instantly sends a shiver through your spine and makes your breath catch in your throat?",
+  "Describe in explicit detail how you want me to touch, kiss, and tease you for the next thirty minutes.",
+  "Have you ever fantasized about being blindfolded or tied up so you have no choice but to surrender completely to what I do to you?",
+  "What is a boundary or taboo you used to think was off-limits that you find yourself increasingly curious about trying with me?",
+  "When was the last time you felt an unbearable, overwhelming ache to pull me into bed, and what triggered it?",
+  "If I told you to get on your knees and wait for my next command right now, how would your body react?",
+  "What is the filthiest compliment or praise you secretly want to hear from me while we're making love?",
+  "Tell me about a sexual scenario you dreamed about that felt so vivid and real you woke up physically aroused.",
+  "What is one position or angle that hits your deepest pleasure points in a way that leaves your legs trembling?",
+  "How do you feel about incorporating temperature play, sensory deprivation, or impact play into our bedroom dynamic?",
+  "If you could ask me to do one completely selfish sexual act purely for your pleasure tonight, what would it be?",
+  "What does your body need right now: agonizingly slow anticipation that builds for hours, or immediate, primal release?",
+  "What is an unspoken sexual desire you have that you've been waiting for me to initiate without you having to ask?",
+  "Describe how you want me to look at you when I'm bringing you to the edge of an overwhelming climax.",
+  "What is the most intense, uninhibited orgasm you've ever had with me, and what exact combination of touches brought you there?",
+  "If tonight has no limits, safe word aside, what is the one thing we haven't done yet that you want us to experience together?"
+];
