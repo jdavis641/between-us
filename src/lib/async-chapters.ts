@@ -65,6 +65,11 @@ export async function computeAndAppendChaptersAsync(params: ChapterJobParams): P
   });
 
   try {
+    if (chapter1Text && chapter1Text.includes('## Chapter 2') && chapter1Text.includes('## Chapter 3')) {
+      console.log(`[Async Chunking] Story ${title} (${storyId}) already contains Chapters 2 and 3, skipping.`);
+      return;
+    }
+
     console.log(`[Async Chunking] Generating Chapter 2 for story: ${title} (${storyId})`);
 
     // ==========================================

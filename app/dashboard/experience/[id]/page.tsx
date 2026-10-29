@@ -14,6 +14,70 @@ type ReaderMode = "partner-a" | "partner-b" | "script";
 
 export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
 
+export function splitStoryIntoPages(rawStory: string): string[] {
+  if (!rawStory || typeof rawStory !== 'string' || !rawStory.trim()) return [];
+  const clean = rawStory
+    .replace(/⚠️?\s*Stream interrupted\.?\s*(Click Continue Story to resume)?/gi, '')
+    .trim();
+
+  // 1. Check for Chapter markers: ## Chapter \d+ or # Chapter \d+
+  const chapterRegex = /(?=(?:^|\n)#{1,3}\s*Chapter\s*\d+)/gi;
+  let chapterSplits = clean.split(chapterRegex).map(s => s.trim()).filter(Boolean);
+
+  if (chapterSplits.length > 1) {
+    if (!/^#{1,3}\s*Chapter\s*\d+/i.test(chapterSplits[0]) && chapterSplits[0].length < 150) {
+      chapterSplits[1] = `${chapterSplits[0]}\n\n${chapterSplits[1]}`;
+      chapterSplits.shift();
+    }
+    return chapterSplits;
+  }
+
+  // 2. Check for alternative Chapter headings like "Chapter 1:" on its own line
+  const altChapterRegex = /(?=(?:^|\n)Chapter\s*\d+[:\s])/gi;
+  let altSplits = clean.split(altChapterRegex).map(s => s.trim()).filter(Boolean);
+  if (altSplits.length > 1) {
+    if (!/^Chapter\s*\d+/i.test(altSplits[0]) && altSplits[0].length < 150) {
+      altSplits[1] = `${altSplits[0]}\n\n${altSplits[1]}`;
+      altSplits.shift();
+    }
+    return altSplits;
+  }
+
+  // 3. Fallback: Split on horizontal rules
+  const hrSplits = clean.split(/\n\s*[-*_]{3,}\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (hrSplits.length > 1) {
+    return hrSplits;
+  }
+
+  // 4. Fallback for long unstructured prose: split into ~650 word chunks on paragraph boundaries
+  const paragraphs = clean.split(/\n\n+/);
+  if (paragraphs.length > 3) {
+    const pages: string[] = [];
+    let currentChunk: string[] = [];
+    let currentWordCount = 0;
+
+    for (const para of paragraphs) {
+      const words = para.trim().split(/\s+/).length;
+      if (currentWordCount + words > 650 && currentChunk.length > 0) {
+        pages.push(currentChunk.join('\n\n'));
+        currentChunk = [para];
+        currentWordCount = words;
+      } else {
+        currentChunk.push(para);
+        currentWordCount += words;
+      }
+    }
+    if (currentChunk.length > 0) {
+      pages.push(currentChunk.join('\n\n'));
+    }
+    if (pages.length > 1) {
+      return pages;
+    }
+  }
+
+  return [clean];
+}
+
 export default function ExperienceReader({ params }: { params: any }) {
   const [experience, setExperience] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -31,9 +95,13 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [isFavoriting, setIsFavoriting] = useState(false)
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false)
-  const [isContinuing, setIsContinuing] = useState(false)
-  const [continueError, setContinueError] = useState<string | null>(null)
-  const newChapterRef = useRef<HTMLDivElement>(null)
+  
+  // Paginated Reader State & Smart Scroll
+  const [pages, setPages] = useState<string[]>([])
+  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0)
+  const [isPrefetching, setIsPrefetching] = useState<boolean>(false)
+  const pageContainerRef = useRef<HTMLDivElement>(null)
+  const hasPrefetchedPages4to6 = useRef<boolean>(false)
 
   useEffect(() => {
     async function fetchContent() {
@@ -101,6 +169,30 @@ export default function ExperienceReader({ params }: { params: any }) {
            // Plain text
            data.parsedData = null;
         }
+
+        const scriptContent = data.parsedData?.body || data.parsedData?.text || data.parsedData?.fullScript || data.body || '';
+        const rawContent = typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent);
+        let initialPages: string[] = [];
+        if (Array.isArray(data.parsedData?.pages) && data.parsedData.pages.length > 0) {
+          initialPages = data.parsedData.pages;
+        } else {
+          initialPages = splitStoryIntoPages(rawContent);
+        }
+        if (initialPages.length === 0 && rawContent) {
+          initialPages = [rawContent];
+        }
+        setPages(initialPages);
+
+        try {
+          const savedPage = localStorage.getItem(`story_page_${id}`);
+          if (savedPage) {
+            const pageNum = parseInt(savedPage, 10);
+            if (!isNaN(pageNum) && pageNum >= 0 && pageNum < initialPages.length) {
+              setCurrentPageIndex(pageNum);
+            }
+          }
+        } catch {}
+
         setExperience(data)
       }
       setLoading(false)
@@ -113,6 +205,13 @@ export default function ExperienceReader({ params }: { params: any }) {
     if (loading || !experience || !storyId) return;
 
     try {
+      const savedPage = localStorage.getItem(`story_page_${storyId}`);
+      if (savedPage) {
+        const pageNum = parseInt(savedPage, 10);
+        if (!isNaN(pageNum) && pageNum >= 0 && pageNum < pages.length) {
+          setCurrentPageIndex(pageNum);
+        }
+      }
       const savedPosition = localStorage.getItem(`story_progress_${storyId}`);
       if (savedPosition) {
         const targetScroll = parseInt(savedPosition, 10);
@@ -177,7 +276,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
     const contentObj = experience.parsedData || {};
     const title = contentObj.title || experience.title || "Untitled Story";
-    const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
+    const scriptBody = pages.length > 0 ? pages.join('\n\n') : (contentObj.body || contentObj.fullScript || experience.body);
     const isRoleplay = experience.content_type !== 'midweek_story';
     const storyboard = contentObj.overview || contentObj.storyboard || "";
     const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
@@ -226,7 +325,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
     const contentObj = experience.parsedData || {};
     const title = contentObj.title || experience.title || "Untitled Story";
-    const scriptBody = contentObj.body || contentObj.fullScript || experience.body;
+    const scriptBody = pages.length > 0 ? pages.join('\n\n') : (contentObj.body || contentObj.fullScript || experience.body);
     const isRoleplay = experience.content_type !== 'midweek_story';
     const storyboard = contentObj.overview || contentObj.storyboard || "";
     const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience.pre_experience_tasks || [];
@@ -332,7 +431,7 @@ export default function ExperienceReader({ params }: { params: any }) {
           url: directUrl,
         });
         return;
-      } catch (err) {
+      } catch (err: any) {
         if (err && err.name === 'AbortError') return;
         console.error("Navigator share failed, falling back:", err);
       }
@@ -382,116 +481,174 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
   };
 
-  const handleContinueStory = async () => {
-    if (!experience || isContinuing) return;
-    setIsContinuing(true);
-    setContinueError(null);
+  // Page Navigation Handlers with Smart Scroll strictly to the top of the container
+  const handleNextPage = () => {
+    if (currentPageIndex < pages.length - 1) {
+      const nextIndex = currentPageIndex + 1;
+      setCurrentPageIndex(nextIndex);
+      try {
+        localStorage.setItem(`story_page_${storyId}`, nextIndex.toString());
+      } catch {}
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setContinueError('Session expired or missing. Please refresh and try again.');
-        setIsContinuing(false);
-        return;
+      if (pageContainerRef.current) {
+        pageContainerRef.current.scrollTop = 0;
+        pageContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-
-      const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
-      const existingText = displayContent || cleanContent || experience.body || '';
-
-      const res = await fetch('/api/generate/content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          contentType,
-          hasScripts: contentType === 'roleplay',
-          previousContent: existingText,
-          existingStory: existingText,
-          theme: experience.title || ''
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Continuation failed (${res.status})`);
-      }
-
-      let newText = '';
-      const reader = res.body?.getReader();
-      if (reader) {
-        const decoder = new TextDecoder();
-        let raw = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          raw += decoder.decode(value, { stream: true });
-        }
-        try {
-          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-          newText = parsed.text || parsed.body || parsed.content || parsed.fullScript || '';
-        } catch {
-          newText = raw.trim();
-        }
-      } else {
-        const raw = await res.text();
-        try {
-          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-          newText = parsed.text || parsed.body || parsed.content || parsed.fullScript || '';
-        } catch {
-          newText = raw.trim();
-        }
-      }
-
-      if (newText && newText.trim()) {
-        const appendedBody = existingText ? `${existingText}\n\n${newText.trim()}` : newText.trim();
-        
-        setExperience((prev: any) => {
-          if (!prev) return prev;
-          const parsed = prev.parsedData ? {
-            ...prev.parsedData,
-            body: appendedBody,
-            text: appendedBody,
-            fullScript: contentType === 'roleplay' ? appendedBody : prev.parsedData.fullScript
-          } : null;
-          return {
-            ...prev,
-            body: appendedBody,
-            parsedData: parsed
-          };
-        });
-
-        // Persist update in Supabase
-        if (storyId) {
-          try {
-            await supabase
-              .from('generated_content')
-              .update({
-                body: JSON.stringify({
-                  ...(experience.parsedData || {}),
-                  body: appendedBody,
-                  text: appendedBody,
-                  title: experience.title
-                })
-              })
-              .eq('id', storyId);
-          } catch (updateErr) {
-            console.warn('Failed to persist continuation in Supabase:', updateErr);
-          }
-        }
-
-        setTimeout(() => {
-          newChapterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
-      }
-    } catch (err: any) {
-      console.error('Error continuing story:', err);
-      setContinueError(err?.message || 'Failed to expand story. Please try again.');
-    } finally {
-      setIsContinuing(false);
     }
   };
+
+  const handlePreviousPage = () => {
+    if (currentPageIndex > 0) {
+      const prevIndex = currentPageIndex - 1;
+      setCurrentPageIndex(prevIndex);
+      try {
+        localStorage.setItem(`story_page_${storyId}`, prevIndex.toString());
+      } catch {}
+
+      if (pageContainerRef.current) {
+        pageContainerRef.current.scrollTop = 0;
+        pageContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  // Background Pre-Generation Engine:
+  // When user navigates to Page 2 (index 1), automatically fire a silent background API request
+  // to generate Pages 4-6, sending the ENTIRETY of the updated story state to OpenRouter,
+  // and appending newly generated pages to the cached page array.
+  useEffect(() => {
+    if (currentPageIndex !== 1) return;
+    if (!storyId || !experience) return;
+    if (pages.length >= 6 || hasPrefetchedPages4to6.current || isPrefetching) return;
+
+    hasPrefetchedPages4to6.current = true;
+    let isCancelled = false;
+
+    async function prefetchPages4to6() {
+      setIsPrefetching(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.warn("[Background Prefetch] No active session token found for prefetch");
+          setIsPrefetching(false);
+          return;
+        }
+
+        const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
+        // Send the entirety of the updated story state (all previous pages concatenated)
+        const fullStorySoFar = pages.join('\n\n').trim();
+
+        console.log("[Background Prefetch] Prefetching Pages 4-6 in background...");
+        const res = await fetch('/api/generate/content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            contentType,
+            hasScripts: contentType === 'roleplay',
+            previousContent: fullStorySoFar,
+            existingStory: fullStorySoFar,
+            startChapter: 4,
+            endChapter: 6,
+            theme: experience.title || '',
+            storyId
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`Background prefetch failed (${res.status})`);
+        }
+
+        let raw = '';
+        const reader = res.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            raw += decoder.decode(value, { stream: true });
+          }
+        } else {
+          raw = await res.text();
+        }
+
+        if (isCancelled) return;
+
+        let newContent = '';
+        try {
+          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          newContent = parsed.body || parsed.text || parsed.content || '';
+        } catch {
+          newContent = raw.trim();
+        }
+
+        if (newContent && newContent.trim().length > 0) {
+          const newPages = splitStoryIntoPages(newContent);
+          if (newPages.length > 0) {
+            setPages(prevPages => {
+              const existingFullText = prevPages.join('\n\n');
+              const nonDuplicate = newPages.filter(p => !existingFullText.includes(p.slice(0, 80)));
+              if (nonDuplicate.length === 0) return prevPages;
+              const updated = [...prevPages, ...nonDuplicate];
+
+              // Persist update in Supabase silently
+              const updatedBody = updated.join('\n\n');
+              supabase
+                .from('generated_content')
+                .update({
+                  body: JSON.stringify({
+                    ...(experience.parsedData || {}),
+                    body: updatedBody,
+                    text: updatedBody,
+                    pages: updated,
+                    chapter: updated.length,
+                    title: experience.title
+                  })
+                })
+                .eq('id', storyId)
+                .then(() => {
+                  console.log('[Background Prefetch] Successfully persisted Pages 4-6 to Supabase');
+                })
+                .catch((err: any) => {
+                  console.warn('[Background Prefetch] Failed to persist prefetch to Supabase:', err);
+                });
+
+              return updated;
+            });
+
+            setExperience((prev: any) => {
+              if (!prev) return prev;
+              const updatedBody = `${(prev.body || '').trim()}\n\n${newContent.trim()}`;
+              return {
+                ...prev,
+                body: updatedBody,
+                parsedData: prev.parsedData ? {
+                  ...prev.parsedData,
+                  body: updatedBody,
+                  text: updatedBody
+                } : null
+              };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Background Prefetch] Error pre-generating Pages 4-6:", err);
+      } finally {
+        if (!isCancelled) {
+          setIsPrefetching(false);
+        }
+      }
+    }
+
+    prefetchPages4to6();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentPageIndex, storyId, experience, pages, isPrefetching]);
 
   if (loading) {
     return (
@@ -707,41 +864,59 @@ export default function ExperienceReader({ params }: { params: any }) {
                 </section>
               )}
 
-              <section className="space-y-6 pt-4 font-serif text-zinc-200">
+              <section className="space-y-6 pt-4 font-serif text-zinc-200" style={{ overflowAnchor: 'none' }}>
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
-                <ErrorBoundary fallbackContent={displayContent}>
-                  <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                    {safeMarkdownString(displayContent)}
-                  </ReactMarkdown>
-                </ErrorBoundary>
 
-                <div ref={newChapterRef} />
-
+                {/* Fixed-Height Reading Container to simulate actual book pages */}
                 <div
-                  onClick={() => handleContinueStory()}
-                  className="cursor-pointer bg-emerald-950/40 border border-emerald-800/80 hover:bg-emerald-900/40 text-emerald-300 rounded-xl p-4 text-center mt-6 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all group"
+                  ref={pageContainerRef}
+                  style={{ overflowAnchor: 'none' }}
+                  className="min-h-[550px] max-h-[750px] md:h-[720px] overflow-y-auto rounded-2xl bg-zinc-900/30 border border-zinc-800/80 p-6 sm:p-10 md:p-12 shadow-2xl relative scroll-smooth focus:outline-none"
                 >
-                  <span className="font-medium text-sm md:text-base leading-relaxed w-full text-center sm:text-left flex items-center gap-2 text-emerald-300">
-                    <span className="text-lg group-hover:scale-110 transition-transform">✨</span>
-                    {isContinuing ? "Expanding story chapters in real-time..." : "Click continue story to expand."}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleContinueStory();
-                    }}
-                    disabled={isContinuing}
-                    className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors shrink-0 shadow self-center sm:self-auto cursor-pointer flex items-center gap-1.5"
-                  >
-                    {isContinuing ? "Continuing..." : "Continue Story >"}
-                  </button>
+                  <ErrorBoundary fallbackContent={pages[currentPageIndex] || displayContent}>
+                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                      {safeMarkdownString(pages[currentPageIndex] || displayContent)}
+                    </ReactMarkdown>
+                  </ErrorBoundary>
                 </div>
 
-                {continueError && (
-                  <div className="p-4 bg-red-950/30 border border-red-800 rounded-xl text-red-300 text-sm">
-                    {continueError}
+                {/* Paginated Navigation UI */}
+                <div
+                  style={{ overflowAnchor: 'none' }}
+                  className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 shadow-lg mt-6"
+                >
+                  <button
+                    type="button"
+                    onClick={handlePreviousPage}
+                    disabled={currentPageIndex === 0}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60"
+                    title="Previous Page"
+                  >
+                    <span>&larr;</span> Previous Page
+                  </button>
+
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-medium text-zinc-300 font-serif">
+                      Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+                    </span>
+                    {isPrefetching && (
+                      <span className="text-xs text-rose-400 animate-pulse flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                        Pre-generating chapters in background...
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={handleNextPage}
+                    disabled={currentPageIndex >= pages.length - 1}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
+                    title="Next Page"
+                  >
+                    Next Page <span>&rarr;</span>
+                  </button>
+                </div>
               </section>
 
             </div>
