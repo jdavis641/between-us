@@ -4,8 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
-const GOOGLE_REVIEW_LINK = process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL || 'YOUR_GOOGLE_BUSINESS_REVIEW_LINK';
-
 export default function SurveyPage() {
   const [overallDesign, setOverallDesign] = useState<number>(0);
   const [valueForExperience, setValueForExperience] = useState<number>(0);
@@ -20,6 +18,7 @@ export default function SurveyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showPendingReviewThankYou, setShowPendingReviewThankYou] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const supabase = createClient();
@@ -93,16 +92,33 @@ export default function SurveyPage() {
         throw new Error(`Survey dispatch failed (${res.status})`);
       }
 
-      // Conditional Routing evaluation
+      // Check for the existence of process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL
+      const googleReviewUrl = (process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL || '').trim();
+      const hasGoogleReviewUrl = Boolean(
+        googleReviewUrl &&
+        googleReviewUrl !== 'YOUR_GOOGLE_BUSINESS_REVIEW_LINK' &&
+        !googleReviewUrl.includes('YOUR_GOOGLE_BUSINESS_REVIEW_LINK')
+      );
+
+      // Evaluate user's Google Review selection
       if (willingToReviewGoogle === 'Yes') {
-        setIsRedirecting(true);
-        setIsSubmitted(true);
-        // Ensure Resend payload fires, then redirect
-        setTimeout(() => {
-          window.location.href = GOOGLE_REVIEW_LINK;
-        }, 1200);
+        if (hasGoogleReviewUrl) {
+          setIsRedirecting(true);
+          setShowPendingReviewThankYou(false);
+          setIsSubmitted(true);
+          setTimeout(() => {
+            window.location.href = googleReviewUrl;
+          }, 1200);
+        } else {
+          // If undefined or empty: show an affirmative thank-you screen
+          setIsRedirecting(false);
+          setShowPendingReviewThankYou(true);
+          setIsSubmitted(true);
+        }
       } else {
-        // If 'No': Render a clean UI success state thanking them for their time
+        // If 'No': show standard clean UI success state thanking them for their time
+        setIsRedirecting(false);
+        setShowPendingReviewThankYou(false);
         setIsSubmitted(true);
       }
     } catch (err: any) {
@@ -156,8 +172,26 @@ export default function SurveyPage() {
                   <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
                 </div>
                 <p className="text-xs text-zinc-500">
-                  If you are not redirected automatically, <a href={GOOGLE_REVIEW_LINK} className="text-red-400 underline">click here</a>.
+                  If you are not redirected automatically, <a href={process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL} className="text-red-400 underline">click here</a>.
                 </p>
+              </>
+            ) : showPendingReviewThankYou ? (
+              <>
+                <span className="text-5xl block animate-pulse">🌟</span>
+                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-zinc-100">
+                  Thank You for Your Support!
+                </h2>
+                <p className="text-sm sm:text-base text-zinc-300 max-w-lg mx-auto leading-relaxed">
+                  Thank you for your feedback and support! We'll notify you as soon as our public review portal goes live.
+                </p>
+                <div className="pt-4">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center px-8 py-3.5 bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/70 rounded-xl text-sm font-semibold transition-all shadow-lg active:scale-95"
+                  >
+                    Return to Dashboard
+                  </Link>
+                </div>
               </>
             ) : (
               <>
