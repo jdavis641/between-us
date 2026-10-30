@@ -209,9 +209,22 @@ export function LiteratureMarkdown({ content, isGenerating = false }: { content:
 interface LiteratureClientProps {
   initialTolerance?: string;
   initialKinks?: string[];
+  initialMode?: string;
+  story?: string;
+  setStory?: (story: string) => void;
+  isGenerating?: boolean;
+  setIsGenerating?: (val: boolean) => void;
 }
 
-export default function LiteratureClient({ initialTolerance, initialKinks }: LiteratureClientProps = {}) {
+export default function LiteratureClient({
+  initialTolerance,
+  initialKinks,
+  initialMode,
+  story,
+  setStory,
+  isGenerating,
+  setIsGenerating
+}: LiteratureClientProps = {}) {
   const searchParams = useSearchParams();
   const [theme, setTheme] = useState(() => {
     const p = searchParams?.get('prompt');
@@ -312,6 +325,19 @@ export default function LiteratureClient({ initialTolerance, initialKinks }: Lit
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
+
+  // Sync state upward if parent component passes handlers
+  useEffect(() => {
+    if (setIsGenerating) {
+      setIsGenerating(loading || isContinuing || previewLoading);
+    }
+  }, [loading, isContinuing, previewLoading, setIsGenerating]);
+
+  useEffect(() => {
+    if (setStory && scenario?.body) {
+      setStory(typeof scenario.body === 'string' ? scenario.body : JSON.stringify(scenario.body));
+    }
+  }, [scenario?.body, setStory]);
 
   // Literature Favorites State
   const [isFavorite, setIsFavorite] = useState(false);
