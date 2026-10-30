@@ -173,7 +173,7 @@ export default function SettingsPage() {
           }
         }
 
-        const tolerance = prefData?.preference_level || profileData?.base_tolerance || '';
+        const tolerance = profileData?.base_tolerance || prefData?.preference_level || '';
 
         setProfile({
           ...profileData,
@@ -305,40 +305,62 @@ export default function SettingsPage() {
 
   // Handle Save Boundary Tolerance
   const handleSaveTolerance = async (tier: string) => {
+    const selectedTolerance = tier;
     setSavingTolerance(true);
-    setBaseTolerance(tier);
+    setBaseTolerance(selectedTolerance);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // 1. Update profiles table via service-role API
-        const res = await fetch('/api/profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ base_tolerance: tier, onboarding_completed: true })
-        });
+      const user = session?.user || (await supabase.auth.getUser()).data?.user;
+      if (user) {
+        // Direct update to profiles table targeting base_tolerance
+        const { error } = await supabase
+          .from('profiles')
+          .update({ base_tolerance: selectedTolerance })
+          .eq('id', user.id);
 
-        const data = await res.json();
-        if (res.ok) {
-          setProfile((prev: any) => ({ ...prev, base_tolerance: tier, ...(data.profile || {}) }));
+        if (error) {
+          console.error('Failed to update tolerance:', error);
+        }
+
+        // Active UI state update
+        setBaseTolerance(selectedTolerance);
+        setProfile((prev: any) => ({ ...prev, base_tolerance: selectedTolerance }));
+
+        // 1. Also update profiles table via service-role API if session available
+        if (session) {
+          try {
+            const res = await fetch('/api/profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({ base_tolerance: selectedTolerance, onboarding_completed: true })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.profile) {
+              setProfile((prev: any) => ({ ...prev, ...data.profile, base_tolerance: selectedTolerance }));
+            }
+          } catch (apiErr) {
+            console.warn('API profile update error:', apiErr);
+          }
         }
 
         // 2. Also keep intimacy_preferences Primary Directive in sync
         const { data: existingRows } = await supabase
           .from('intimacy_preferences')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .eq('category_tag', 'Primary Directive')
           .maybeSingle();
 
         const existingId = existingRows?.id || primaryPrefId;
         const upsertRecord: any = {
-          user_id: session.user.id,
+          user_id: user.id,
           category_tag: 'Primary Directive',
-          preference_level: tier
+          preference_level: selectedTolerance
         };
         if (existingId) {
           upsertRecord.id = existingId;
@@ -347,6 +369,9 @@ export default function SettingsPage() {
 
         setToleranceSaved(true);
         setTimeout(() => setToleranceSaved(false), 3000);
+
+        // Router refresh to revalidate server components
+        router.refresh();
       }
     } catch (err: any) {
       console.error('Error saving boundary tolerance:', err);

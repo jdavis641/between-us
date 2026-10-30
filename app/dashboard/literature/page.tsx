@@ -92,6 +92,7 @@ class RomantasyErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundary
 
 function RomantasyContent() {
   const searchParams = useSearchParams();
+  const [supabase] = useState(() => createClient());
 
   // 1. Defensive State Declarations with Safe Initial Defaults
   const [story, setStory] = useState<string>("");
@@ -100,8 +101,6 @@ function RomantasyContent() {
   const [mode, setMode] = useState<string>(() => searchParams?.get('mode') ?? 'solo');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [pageError, setPageError] = useState<string | null>(null);
-
-  const [supabase] = useState(() => createClient());
 
   // Keep mode synchronized with searchParams safely
   useEffect(() => {

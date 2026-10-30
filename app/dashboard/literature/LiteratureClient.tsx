@@ -226,6 +226,8 @@ export default function LiteratureClient({
   setIsGenerating
 }: LiteratureClientProps = {}) {
   const searchParams = useSearchParams();
+  const [supabase] = useState(() => createClient());
+
   const [theme, setTheme] = useState(() => {
     const p = searchParams?.get('prompt');
     const t = searchParams?.get('theme');
@@ -236,6 +238,32 @@ export default function LiteratureClient({
 
   const [userProfileTolerance, setUserProfileTolerance] = useState<string>(initialTolerance || 'Playful');
   const [userKinksOverride, setUserKinksOverride] = useState<string[]>(initialKinks || []);
+  const [targetBoundary, setTargetBoundary] = useState(initialTolerance || "");
+  const [pacing, setPacing] = useState("Medium Burn");
+  const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
+  const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const [activeMode, setActiveMode] = useState<ReaderMode>(initialMode === 'partner-b' ? 'partner-b' : 'partner-a');
+  const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
+  const [streamProgress, setStreamProgress] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [regenerationCount, setRegenerationCount] = useState(0);
+  const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
+
+  // Literature Favorites State
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [storyContentId, setStoryContentId] = useState<string | null>(null);
+  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
+
+  // User Scroll Override & Smart Auto-Scroll States
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  const streamBottomRef = useRef<HTMLDivElement>(null);
+  const newChapterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = searchParams?.get('prompt');
@@ -248,8 +276,6 @@ export default function LiteratureClient({
       setTheme(t);
     }
   }, [searchParams]);
-
-  const [targetBoundary, setTargetBoundary] = useState(initialTolerance || "");
 
   // Load active tolerance from profiles and kinks_override from intimacy_preferences
   useEffect(() => {
@@ -310,21 +336,6 @@ export default function LiteratureClient({
     }
     loadUserToleranceAndKinks();
   }, [supabase]);
-  const [pacing, setPacing] = useState("Medium Burn");
-  const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
-  const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-
-  const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
-  const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isContinuing, setIsContinuing] = useState(false);
-  const [streamProgress, setStreamProgress] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [supabase] = useState(() => createClient());
-  const [regenerationCount, setRegenerationCount] = useState(0);
-  const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
 
   // Sync state upward if parent component passes handlers
   useEffect(() => {
@@ -338,17 +349,6 @@ export default function LiteratureClient({
       setStory(typeof scenario.body === 'string' ? scenario.body : JSON.stringify(scenario.body));
     }
   }, [scenario?.body, setStory]);
-
-  // Literature Favorites State
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isFavoriting, setIsFavoriting] = useState(false);
-  const [storyContentId, setStoryContentId] = useState<string | null>(null);
-  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
-
-  // User Scroll Override & Smart Auto-Scroll States
-  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
-  const streamBottomRef = useRef<HTMLDivElement>(null);
-  const newChapterRef = useRef<HTMLDivElement>(null);
 
   // User Scroll Override Listener:
   // If user scrolls up (more than 100px from the bottom of the viewport),

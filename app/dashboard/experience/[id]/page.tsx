@@ -8,8 +8,6 @@ import SuggestScenario from '@/components/SuggestScenario'
 import ErrorBoundary, { safeMarkdownString } from '@/components/ErrorBoundary'
 import { exportStoryToPdf } from "@/utils/pdfExport"
 
-const supabase = createClient()
-
 type ReaderMode = "partner-a" | "partner-b" | "script";
 
 export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
@@ -79,6 +77,7 @@ export function splitStoryIntoPages(rawStory: string): string[] {
 }
 
 export default function ExperienceReader({ params }: { params: any }) {
+  const [supabase] = useState(() => createClient())
   const [experience, setExperience] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeMode, setActiveMode] = useState<ReaderMode>("script")
@@ -1111,7 +1110,7 @@ export default function ExperienceReader({ params }: { params: any }) {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <div className="w-full max-w-sm">
-                <RatingWidget contentType={isRoleplay ? "roleplay" : "literature"} contentId={params.id} />
+                <RatingWidget contentType={isRoleplay ? "roleplay" : "literature"} contentId={storyId || (experience?.id ?? "")} />
               </div>
               <button
                 onClick={handleToggleFavorite}
