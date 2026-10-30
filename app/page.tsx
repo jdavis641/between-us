@@ -27,6 +27,10 @@ const faqs: FaqItem[] = [
   {
     question: "Is this an inclusive app?",
     answer: "Absolutely. We firmly believe that mind-blowing intimate encounters are a right for everyone. We work diligently to ensure that our system is universally inclusive, intuitively capturing diverse pronouns, genders, and sexual orientations to generate something for everyone. If you do not see your preference, suggest a theme, trope, or category, and our team will include it in the system for everyone to enjoy."
+  },
+  {
+    question: "Who created this app?",
+    answer: "This app was created by a married couple in the American midwest. After years of marriage, kids and responsibilities we found ourselves in a bit of a rut. Eventually becoming more roommates than lovers. Intimacy games that we bought online became repetitive and expensive. We designed an app to increase our communication and connection. It worked, and we hope you enjoy it too!"
   }
 ];
 
