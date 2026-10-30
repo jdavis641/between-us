@@ -244,7 +244,7 @@ function RomantasyContent() {
 
         {/* Main Reading UI protected by Defensive Internal Error Boundary */}
         <RomantasyErrorBoundary onRetry={fetchUserData}>
-          <Suspense fallback={<SafeFlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... This is going to be great!" />}>
+          <Suspense fallback={<SafeFlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... Enjoy!" />}>
             <LiteratureClient
               initialTolerance={tolerance}
               initialKinks={Array.isArray(kinks) ? kinks : []}

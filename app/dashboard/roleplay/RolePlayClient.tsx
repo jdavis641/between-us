@@ -102,7 +102,7 @@ export function RolePlayMarkdown({ content, isGenerating = false }: { content: s
   if (isGenerating && wordCount < 1000) {
     return (
       <div className="py-6">
-        <FlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... This is going to be great!" />
+        <FlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... Enjoy!" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
   const [error, setError] = useState<string | null>(null);
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
-  const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
+  const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... Enjoy!");
 
   // Load active tolerance from profiles and kinks_override from intimacy_preferences
   useEffect(() => {
@@ -273,7 +273,7 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
     setStreamProgress("");
     setRegenerationCount(0);
     setIsAutoScrollPaused(false);
-    setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
+    setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -461,7 +461,7 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
     if (currentRegen >= 2 || (typeof regenOverride === 'number' && regenOverride >= 2)) {
       setLoadingText("It looks like we missed the mark. No worries, we're generating something special for you.");
     } else {
-      setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
+      setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     }
     setLoading(true);
     setIsAutoScrollPaused(false);
@@ -632,7 +632,7 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
     if (nextCount >= 2 || regenerationCount >= 1) {
       setLoadingText("It looks like we missed the mark. No worries, we're generating something special for you.");
     } else {
-      setLoadingText("Reviewing your preferences... Creating your content... This is going to be great!");
+      setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     }
     await handleGenerate(nextCount);
   };
@@ -1001,7 +1001,7 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
             <div className="mt-4 mb-8">
               <FlameLoader
                 isGenerating={isContinuing}
-                progressText="Reviewing your preferences... Creating your content... This is going to be great!"
+                progressText="Reviewing your preferences... Creating your content... Enjoy!"
               />
             </div>
           )}
