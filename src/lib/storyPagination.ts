@@ -1,1 +1,1 @@
-export { splitStoryIntoPages } from '../../app/lib/storyPagination';
+export { paginateContent, splitStoryIntoPages } from '../../app/lib/pagination';

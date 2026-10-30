@@ -1277,13 +1277,16 @@ export async function POST(req: Request) {
     }
 
     const isLiterature = contentType === 'literature';
+    let maxTokens = 4000;
 
     if (isLiterature) {
       const tropeDetails = activeTrope
         ? (typeof activeTrope === 'object' ? `Trope: ${activeTrope.trope || ''} - ${activeTrope.title || ''}. Premise: ${activeTrope.premise || ''}` : `Trope: ${activeTrope}`)
         : '';
       if (!previousContent) {
-        userPrompt = `Write Chapters 1, 2, and 3 of this high-quality romantasy novella. Each chapter must be fully written in rich, uninterrupted narrative prose and clearly delineated by markdown headers:
+        maxTokens = 3500;
+        userPrompt = `Generate an immersive opening narrative of approximately 1,800 words, structured into rich descriptive paragraphs. Do not rush to a premature conclusion.
+Write Chapters 1, 2, and 3 of this high-quality romantasy novella. Each chapter must be fully written in rich, uninterrupted narrative prose and clearly delineated by markdown headers:
 ## Chapter 1: [Title]
 [Full narrative prose for Chapter 1]
 
@@ -1293,16 +1296,18 @@ export async function POST(req: Request) {
 ## Chapter 3: [Title]
 [Full narrative prose for Chapter 3]
 
-Deliver visceral, evocative, and hyper-descriptive prose (minimum 1,800-2,500 words total across all 3 chapters) according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
+Deliver visceral, evocative, and hyper-descriptive prose (approximately 1,800 words total across all 3 chapters) according to: Pacing: ${currentPacing} (${pacingRule}).${tropeDetails ? ` ${tropeDetails}.` : ''} ${userPrompt}`;
       } else {
-        // Send ENTIRETY of previous story state and explicit instructions for next chapters
+        maxTokens = 2500;
+        // Send ENTIRETY of concatenated existing pages as context
         userPrompt = `FULL PREVIOUS STORY CONTEXT (ALL PREVIOUS PAGES & CHAPTERS):
 """
 ${previousContent.trim()}
 """
 
 CONTINUATION DIRECTIVE FOR CHAPTERS ${startChapter} TO ${endChapter}:
-You are continuing the ongoing romantasy novella above. The entire previous story state has been provided.
+You are continuing the ongoing story seamlessly from the previous excerpt. Generate approximately 1,200 words of narrative prose advancing the scene. DO NOT summarize, outline, or repeat previous text. Begin writing prose immediately.
+The entire previous story state has been provided above.
 CRITICAL REPETITION PREVENTION DIRECTIVES:
 1. DO NOT restart the story from the beginning or re-introduce the initial opening premise.
 2. DO NOT repeat any scenes, conversations, sensory descriptions, or paragraphs already present in the previous context above.
@@ -1323,9 +1328,6 @@ Seamlessly continue the roleplay scenario. DO NOT repeat previous dialogue or sc
         userPrompt = `Write the scenario according to: Pacing: ${currentPacing} (${pacingRule}). ${userPrompt}`;
       }
     }
-
-    // High token allocation for elite prose length (up to 4000 tokens)
-    const maxTokens = 4000;
 
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {

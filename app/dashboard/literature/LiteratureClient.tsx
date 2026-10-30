@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import RatingWidget from "@/components/RatingWidget";
@@ -8,7 +8,7 @@ import FlameLoader from "@/components/FlameLoader";
 import ReactMarkdown from "react-markdown";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
 import { exportStoryToPdf } from "@/utils/pdfExport";
-import { splitStoryIntoPages } from "@/lib/storyPagination";
+import { paginateContent, splitStoryIntoPages } from "@/lib/pagination";
 
 type ReaderMode = "partner-a" | "partner-b";
 
@@ -236,9 +236,14 @@ export default function LiteratureClient({
   const [storyContentId, setStoryContentId] = useState<string | null>(null);
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
 
+  // Derived Paginated Content (~600 words per page)
+  const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const storyContent = cleanContent || story || '';
+  const pages = useMemo(() => paginateContent(storyContent, 600), [storyContent]);
+
   // Multi-Page Book State & Scroll Isolation
-  const [pages, setPages] = useState<string[]>([]);
-  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
   const hasPrefetchedPages = useRef<boolean>(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
@@ -328,37 +333,34 @@ export default function LiteratureClient({
     }
   }, [scenario?.body, setStory]);
 
-  // Synchronize initial story prop into paginated chapters if passed from parent
+  // Synchronize initial story prop if passed from parent
   useEffect(() => {
-    if (story && story.trim().length > 0 && pages.length === 0 && !scenario) {
-      const initialPages = splitStoryIntoPages(story);
-      if (initialPages.length > 0) {
-        setPages(initialPages);
-        setScenario({
-          title: theme || "Romantic Literature",
-          body: story
-        });
-      }
+    if (story && story.trim().length > 0 && !scenario) {
+      setScenario({
+        title: theme || "Romantic Literature",
+        body: story
+      });
+      setCurrentPage(1);
     }
-  }, [story, pages.length, scenario, theme]);
+  }, [story, scenario, theme]);
 
   const handleNextPage = () => {
-    if (currentPageIndex < pages.length - 1) {
-      const nextIndex = currentPageIndex + 1;
-      setCurrentPageIndex(nextIndex);
+    if (currentPage < pages.length) {
+      setCurrentPage(prev => Math.min(pages.length, prev + 1));
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
+      window.scrollTo(0, 0);
     }
   };
 
   const handlePreviousPage = () => {
-    if (currentPageIndex > 0) {
-      const prevIndex = currentPageIndex - 1;
-      setCurrentPageIndex(prevIndex);
+    if (currentPage > 1) {
+      setCurrentPage(prev => Math.max(1, prev - 1));
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
+      window.scrollTo(0, 0);
     }
   };
 
@@ -366,8 +368,7 @@ export default function LiteratureClient({
     setLoading(false);
     setIsContinuing(false);
     setScenario(null);
-    setPages([]);
-    setCurrentPageIndex(0);
+    setCurrentPage(1);
     hasPrefetchedPages.current = false;
     setIsPrefetching(false);
     setPreviews(null);
@@ -411,14 +412,9 @@ export default function LiteratureClient({
           const parsed = typeof latest.body === 'string' ? JSON.parse(latest.body) : latest.body;
           const newBody = parsed.body || parsed.text;
           if (newBody && newBody.length > (scenario.body?.length || 0)) {
-            const newPages = splitStoryIntoPages(newBody);
-            if (newPages.length > 0) {
-              setPages(newPages);
-            }
             setScenario(prev => prev ? {
               ...prev,
               body: newBody,
-              pages: newPages,
               chapter: parsed.chapter,
               totalChapters: parsed.totalChapters,
               status: parsed.status
@@ -438,10 +434,10 @@ export default function LiteratureClient({
   }, [scenario?.title, (scenario as any)?.status, (scenario as any)?.body?.length, supabase]);
 
   // Background Prefetch Engine:
-  // When user advances to Page 2 (index 1), trigger a silent background continuation call
-  // to fetch and append the next 3 pages to the array, ensuring subsequent pages are pre-loaded.
+  // When user advances to Page 2 (currentPage === 2), trigger a silent background continuation call
+  // to fetch and append the next 2-3 pages, ensuring subsequent pages are pre-loaded.
   useEffect(() => {
-    if (currentPageIndex !== 1) return;
+    if (currentPage !== 2) return;
     if (!scenario || isPrefetching || hasPrefetchedPages.current) return;
     if (pages.length >= 6) return;
 
@@ -506,50 +502,37 @@ export default function LiteratureClient({
         }
 
         if (newContent && newContent.trim().length > 0) {
-          const newPages = splitStoryIntoPages(newContent);
-          if (newPages.length > 0) {
-            setPages(prevPages => {
-              const existingFullText = prevPages.join('\n\n');
-              const nonDuplicate = newPages.filter(p => !existingFullText.includes(p.slice(0, 80)));
-              if (nonDuplicate.length === 0) return prevPages;
-              const updated = [...prevPages, ...nonDuplicate];
+          const nextText = newContent.trim();
+          setScenario(prev => {
+            if (!prev) return prev;
+            const existingBody = prev.body || prev.overview || "";
+            const updatedFullBody = existingBody ? `${existingBody}\n\n${nextText}` : nextText;
+            return {
+              ...prev,
+              body: updatedFullBody,
+              chapter: (prev as any).chapter ? (prev as any).chapter + 1 : 2
+            };
+          });
 
-              // Update scenario state without causing scroll shift
-              setScenario(prev => {
-                if (!prev) return prev;
-                const updatedFullBody = updated.join('\n\n');
-                return {
-                  ...prev,
+          // Persist update to Supabase silently
+          if (storyContentId) {
+            const existingBody = scenario?.body || "";
+            const updatedFullBody = existingBody ? `${existingBody}\n\n${nextText}` : nextText;
+            supabase
+              .from('generated_content')
+              .update({
+                body: JSON.stringify({
+                  ...(scenario || {}),
                   body: updatedFullBody,
-                  pages: updated,
-                  chapter: updated.length
-                };
+                  text: updatedFullBody,
+                  title: scenario?.title
+                })
+              })
+              .eq('id', storyContentId)
+              .then(() => {})
+              .catch((err: any) => {
+                console.warn('[Background Prefetch] Failed to persist prefetch to Supabase:', err);
               });
-
-              // Persist update to Supabase silently
-              if (storyContentId) {
-                const updatedFullBody = updated.join('\n\n');
-                supabase
-                  .from('generated_content')
-                  .update({
-                    body: JSON.stringify({
-                      ...(scenario || {}),
-                      body: updatedFullBody,
-                      text: updatedFullBody,
-                      pages: updated,
-                      chapter: updated.length,
-                      title: scenario?.title
-                    })
-                  })
-                  .eq('id', storyContentId)
-                  .then(() => {})
-                  .catch((err: any) => {
-                    console.warn('[Background Prefetch] Failed to persist prefetch to Supabase:', err);
-                  });
-              }
-
-              return updated;
-            });
           }
         }
       } catch (err) {
@@ -566,7 +549,7 @@ export default function LiteratureClient({
     return () => {
       isCancelled = true;
     };
-  }, [currentPageIndex, scenario, storyContentId, pages, isPrefetching, theme, supabase]);
+  }, [currentPage, scenario, storyContentId, pages, isPrefetching, theme, supabase]);
 
   // Defensive Resolution of Story Content ID & Favorite Status when scenario title is available
   useEffect(() => {
@@ -679,7 +662,6 @@ export default function LiteratureClient({
     if (!latestGeneratedContent && !scenario) return;
     const currentStoryText = latestGeneratedContent;
     setIsContinuing(true);
-    setIsAutoScrollPaused(false);
     setError(null);
     setStreamProgress("");
     let isStreamInterrupted = false;
@@ -838,15 +820,6 @@ export default function LiteratureClient({
           };
         });
 
-        const newPages = splitStoryIntoPages(newText);
-        if (newPages.length > 0) {
-          setPages(prevPages => {
-            const existingFull = prevPages.join('\n\n');
-            const filtered = newPages.filter(p => !existingFull.includes(p.slice(0, 80)));
-            return filtered.length > 0 ? [...prevPages, ...filtered] : prevPages;
-          });
-        }
-
         if (storyContentId) {
           try {
             const existingBody = cleanContent || scenario?.body || "";
@@ -883,14 +856,6 @@ export default function LiteratureClient({
         const partial = extractStreamingMarkdown(streamProgress);
         const partialText = partial.body || streamProgress;
         if (partialText) {
-          const newPages = splitStoryIntoPages(partialText);
-          if (newPages.length > 0) {
-            setPages(prevPages => {
-              const existingFull = prevPages.join('\n\n');
-              const filtered = newPages.filter(p => !existingFull.includes(p.slice(0, 80)));
-              return filtered.length > 0 ? [...prevPages, ...filtered] : prevPages;
-            });
-          }
           setScenario(prev => {
             if (!prev) return prev;
             const existingBody = prev.body || prev.overview || "";
@@ -1000,7 +965,6 @@ export default function LiteratureClient({
       setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     }
     setLoading(true);
-    setIsAutoScrollPaused(false);
     setError(null);
     setScenario(null);
     setStreamProgress("");
@@ -1138,9 +1102,7 @@ export default function LiteratureClient({
           data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
         }
         setScenario(data);
-        const initialPages = splitStoryIntoPages(data.body);
-        setPages(initialPages.length > 0 ? initialPages : [data.body]);
-        setCurrentPageIndex(0);
+        setCurrentPage(1);
         hasPrefetchedPages.current = false;
         if (currentRegen >= 2) {
           setRegenerationCount(0);
@@ -1168,9 +1130,7 @@ export default function LiteratureClient({
           body: partial.body || streamProgress.trim()
         };
         setScenario(partialData);
-        const initialPages = splitStoryIntoPages(partialData.body);
-        setPages(initialPages.length > 0 ? initialPages : [partialData.body]);
-        setCurrentPageIndex(0);
+        setCurrentPage(1);
         hasPrefetchedPages.current = false;
       }
     } finally {
@@ -1189,8 +1149,6 @@ export default function LiteratureClient({
     await handleGenerate(nextCount);
   };
 
-  const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
-  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const streamingStory = extractStreamingMarkdown(streamProgress);
@@ -1514,7 +1472,7 @@ export default function LiteratureClient({
               </div>
             )}
             <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-              <span>📖</span> Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+              <span>📖</span> Page {currentPage} of {Math.max(pages.length, 1)}
             </span>
           </div>
 
@@ -1526,9 +1484,9 @@ export default function LiteratureClient({
             style={{ overflowAnchor: 'none' }}
             className="min-h-[480px] max-h-[720px] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-6 sm:p-10 md:p-12 mb-6 shadow-2xl font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif focus:outline-none scroll-smooth"
           >
-            <ErrorBoundary fallbackContent={pages[currentPageIndex] || cleanContent}>
+            <ErrorBoundary fallbackContent={pages[currentPage - 1] || cleanContent}>
               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                {safeMarkdownString(pages[currentPageIndex] || cleanContent)}
+                {safeMarkdownString(pages[currentPage - 1] || cleanContent)}
               </ReactMarkdown>
             </ErrorBoundary>
           </div>
@@ -1541,7 +1499,7 @@ export default function LiteratureClient({
             <button
               type="button"
               onClick={handlePreviousPage}
-              disabled={currentPageIndex === 0}
+              disabled={currentPage === 1}
               className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 shadow-sm"
               title="Previous Page"
             >
@@ -1550,7 +1508,7 @@ export default function LiteratureClient({
 
             <div className="flex flex-col items-center">
               <span className="text-sm font-medium text-zinc-200 font-serif">
-                Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+                Page {currentPage} of {Math.max(pages.length, 1)}
               </span>
               {isPrefetching && (
                 <span className="text-xs text-rose-400 animate-pulse flex items-center gap-1.5 mt-0.5">
@@ -1560,15 +1518,35 @@ export default function LiteratureClient({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleNextPage}
-              disabled={currentPageIndex >= pages.length - 1}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
-              title="Next Page"
-            >
-              Next Page <span>&rarr;</span>
-            </button>
+            {currentPage < pages.length ? (
+              <button
+                type="button"
+                onClick={handleNextPage}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
+                title="Next Page"
+              >
+                Next Page <span>&rarr;</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleContinueStory()}
+                disabled={isContinuing}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-800 hover:bg-emerald-700 text-white shadow-md border border-emerald-700"
+                title="Continue Story (Add 2 Pages)"
+              >
+                {isContinuing ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                    Adding 2 Pages...
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span> Continue Story (Add 2 Pages) <span>&rarr;</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {error && error !== STREAM_INTERRUPTED_MESSAGE && !error.toLowerCase().includes("continue story to expand") && (

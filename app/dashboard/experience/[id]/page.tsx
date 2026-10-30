@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
@@ -7,7 +7,7 @@ import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
 import ErrorBoundary, { safeMarkdownString } from '@/components/ErrorBoundary'
 import { exportStoryToPdf } from "@/utils/pdfExport"
-import { splitStoryIntoPages } from "@/lib/storyPagination"
+import { paginateContent, splitStoryIntoPages } from "@/lib/pagination"
 
 export { splitStoryIntoPages }
 
@@ -34,12 +34,24 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false)
   
+  // Content extraction and derived paginated content (~600 words per page)
+  const isRoleplay = experience?.content_type === 'roleplay' || experience?.content_type === 'weekend_scenario';
+  const contentObj = experience?.parsedData || {};
+  const scriptBody = contentObj.body || contentObj.text || contentObj.content || contentObj.story || contentObj.fullScript || experience?.body || experience?.overview || '';
+  const content = typeof scriptBody === 'string' ? scriptBody : (scriptBody ? JSON.stringify(scriptBody, null, 2) : '');
+  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  const displayContent = (cleanContent || '')
+    .replace(/⚠️?\s*Stream interrupted\.?\s*(Click Continue Story to resume)?/gi, '')
+    .replace(/Click continue story to expand\.?/gi, '')
+    .trim();
+
+  const pages = useMemo(() => paginateContent(displayContent, 600), [displayContent]);
+
   // Paginated Reader State & Smart Scroll
-  const [pages, setPages] = useState<string[]>([])
-  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0)
-  const [isPrefetching, setIsPrefetching] = useState<boolean>(false)
-  const pageContainerRef = useRef<HTMLDivElement>(null)
-  const hasPrefetchedPages4to6 = useRef<boolean>(false)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const hasPrefetchedPages4to6 = useRef<boolean>(false);
 
   useEffect(() => {
     async function fetchContent() {
@@ -122,25 +134,12 @@ export default function ExperienceReader({ params }: { params: any }) {
            data.parsedData = null;
         }
 
-        const scriptContent = data.parsedData?.body || data.parsedData?.text || data.parsedData?.fullScript || data.body || '';
-        const rawContent = typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent);
-        let initialPages: string[] = [];
-        if (Array.isArray(data.parsedData?.pages) && data.parsedData.pages.length > 0) {
-          initialPages = data.parsedData.pages;
-        } else {
-          initialPages = splitStoryIntoPages(rawContent);
-        }
-        if (initialPages.length === 0 && rawContent) {
-          initialPages = [rawContent];
-        }
-        setPages(initialPages);
-
         try {
           const savedPage = localStorage.getItem(`story_page_${id}`);
           if (savedPage) {
             const pageNum = parseInt(savedPage, 10);
-            if (!isNaN(pageNum) && pageNum >= 0 && pageNum < initialPages.length) {
-              setCurrentPageIndex(pageNum);
+            if (!isNaN(pageNum) && pageNum >= 1) {
+              setCurrentPage(pageNum);
             }
           }
         } catch {}
@@ -160,8 +159,8 @@ export default function ExperienceReader({ params }: { params: any }) {
       const savedPage = localStorage.getItem(`story_page_${storyId}`);
       if (savedPage) {
         const pageNum = parseInt(savedPage, 10);
-        if (!isNaN(pageNum) && pageNum >= 0 && pageNum < pages.length) {
-          setCurrentPageIndex(pageNum);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= pages.length) {
+          setCurrentPage(pageNum);
         }
       }
       const savedPosition = localStorage.getItem(`story_progress_${storyId}`);
@@ -435,9 +434,9 @@ export default function ExperienceReader({ params }: { params: any }) {
 
   // Page Navigation Handlers with Smart Scroll strictly to the top of the container
   const handleNextPage = () => {
-    if (currentPageIndex < pages.length - 1) {
-      const nextIndex = currentPageIndex + 1;
-      setCurrentPageIndex(nextIndex);
+    if (currentPage < pages.length) {
+      const nextIndex = currentPage + 1;
+      setCurrentPage(nextIndex);
       try {
         localStorage.setItem(`story_page_${storyId}`, nextIndex.toString());
       } catch {}
@@ -445,13 +444,14 @@ export default function ExperienceReader({ params }: { params: any }) {
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
+      window.scrollTo(0, 0);
     }
   };
 
   const handlePreviousPage = () => {
-    if (currentPageIndex > 0) {
-      const prevIndex = currentPageIndex - 1;
-      setCurrentPageIndex(prevIndex);
+    if (currentPage > 1) {
+      const prevIndex = currentPage - 1;
+      setCurrentPage(prevIndex);
       try {
         localStorage.setItem(`story_page_${storyId}`, prevIndex.toString());
       } catch {}
@@ -459,146 +459,127 @@ export default function ExperienceReader({ params }: { params: any }) {
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
+      window.scrollTo(0, 0);
     }
   };
 
   // Background Pre-Generation Engine:
-  // When user navigates to Page 2 (index 1), automatically fire a silent background API request
-  // to generate Pages 4-6, sending the ENTIRETY of the updated story state to OpenRouter,
+  // When user navigates to Page 2 (currentPage === 2), automatically fire a silent background API request
+  // to generate the next chapters, sending the ENTIRETY of the updated story state to OpenRouter,
   // and appending newly generated pages to the cached page array.
+  const prefetchPages4to6 = async () => {
+    if (!storyId || !experience || isPrefetching) return;
+    setIsPrefetching(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.warn("[Background Prefetch] No active session token found for prefetch");
+        setIsPrefetching(false);
+        return;
+      }
+
+      const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
+      // Send the entirety of the updated story state (all previous pages concatenated)
+      const fullStorySoFar = pages.join('\n\n').trim();
+
+      console.log("[Background Prefetch] Prefetching next chapters in background...");
+      const res = await fetch('/api/generate/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          contentType,
+          hasScripts: contentType === 'roleplay',
+          previousContent: fullStorySoFar,
+          existingStory: fullStorySoFar,
+          startChapter: pages.length + 1,
+          endChapter: pages.length + 2,
+          theme: experience.title || '',
+          storyId
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Background prefetch failed (${res.status})`);
+      }
+
+      let raw = '';
+      const reader = res.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          raw += decoder.decode(value, { stream: true });
+        }
+      } else {
+        raw = await res.text();
+      }
+
+      let newContent = '';
+      try {
+        const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+        newContent = parsed.body || parsed.text || parsed.content || '';
+      } catch {
+        newContent = raw.trim();
+      }
+
+      if (newContent && newContent.trim().length > 0) {
+        const nextText = newContent.trim();
+        setExperience((prev: any) => {
+          if (!prev) return prev;
+          const updatedBody = `${(prev.body || '').trim()}\n\n${nextText}`;
+          return {
+            ...prev,
+            body: updatedBody,
+            parsedData: prev.parsedData ? {
+              ...prev.parsedData,
+              body: updatedBody,
+              text: updatedBody
+            } : null
+          };
+        });
+
+        // Persist update in Supabase silently
+        if (storyId) {
+          const updatedBody = `${(experience?.body || '').trim()}\n\n${nextText}`;
+          supabase
+            .from('generated_content')
+            .update({
+              body: JSON.stringify({
+                ...(experience.parsedData || {}),
+                body: updatedBody,
+                text: updatedBody,
+                title: experience.title
+              })
+            })
+            .eq('id', storyId)
+            .then(() => {
+              console.log('[Background Prefetch] Successfully persisted continuation to Supabase');
+            })
+            .catch((err: any) => {
+              console.warn('[Background Prefetch] Failed to persist prefetch to Supabase:', err);
+            });
+        }
+      }
+    } catch (err) {
+      console.warn("[Background Prefetch] Error pre-generating pages:", err);
+    } finally {
+      setIsPrefetching(false);
+    }
+  };
+
   useEffect(() => {
-    if (currentPageIndex !== 1) return;
+    if (currentPage !== 2) return;
     if (!storyId || !experience) return;
     if (pages.length >= 6 || hasPrefetchedPages4to6.current || isPrefetching) return;
 
     hasPrefetchedPages4to6.current = true;
-    let isCancelled = false;
-
-    async function prefetchPages4to6() {
-      setIsPrefetching(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          console.warn("[Background Prefetch] No active session token found for prefetch");
-          setIsPrefetching(false);
-          return;
-        }
-
-        const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
-        // Send the entirety of the updated story state (all previous pages concatenated)
-        const fullStorySoFar = pages.join('\n\n').trim();
-
-        console.log("[Background Prefetch] Prefetching Pages 4-6 in background...");
-        const res = await fetch('/api/generate/content', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            contentType,
-            hasScripts: contentType === 'roleplay',
-            previousContent: fullStorySoFar,
-            existingStory: fullStorySoFar,
-            startChapter: 4,
-            endChapter: 6,
-            theme: experience.title || '',
-            storyId
-          })
-        });
-
-        if (!res.ok) {
-          throw new Error(`Background prefetch failed (${res.status})`);
-        }
-
-        let raw = '';
-        const reader = res.body?.getReader();
-        if (reader) {
-          const decoder = new TextDecoder();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            raw += decoder.decode(value, { stream: true });
-          }
-        } else {
-          raw = await res.text();
-        }
-
-        if (isCancelled) return;
-
-        let newContent = '';
-        try {
-          const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-          newContent = parsed.body || parsed.text || parsed.content || '';
-        } catch {
-          newContent = raw.trim();
-        }
-
-        if (newContent && newContent.trim().length > 0) {
-          const newPages = splitStoryIntoPages(newContent);
-          if (newPages.length > 0) {
-            setPages(prevPages => {
-              const existingFullText = prevPages.join('\n\n');
-              const nonDuplicate = newPages.filter(p => !existingFullText.includes(p.slice(0, 80)));
-              if (nonDuplicate.length === 0) return prevPages;
-              const updated = [...prevPages, ...nonDuplicate];
-
-              // Persist update in Supabase silently
-              const updatedBody = updated.join('\n\n');
-              supabase
-                .from('generated_content')
-                .update({
-                  body: JSON.stringify({
-                    ...(experience.parsedData || {}),
-                    body: updatedBody,
-                    text: updatedBody,
-                    pages: updated,
-                    chapter: updated.length,
-                    title: experience.title
-                  })
-                })
-                .eq('id', storyId)
-                .then(() => {
-                  console.log('[Background Prefetch] Successfully persisted Pages 4-6 to Supabase');
-                })
-                .catch((err: any) => {
-                  console.warn('[Background Prefetch] Failed to persist prefetch to Supabase:', err);
-                });
-
-              return updated;
-            });
-
-            setExperience((prev: any) => {
-              if (!prev) return prev;
-              const updatedBody = `${(prev.body || '').trim()}\n\n${newContent.trim()}`;
-              return {
-                ...prev,
-                body: updatedBody,
-                parsedData: prev.parsedData ? {
-                  ...prev.parsedData,
-                  body: updatedBody,
-                  text: updatedBody
-                } : null
-              };
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[Background Prefetch] Error pre-generating Pages 4-6:", err);
-      } finally {
-        if (!isCancelled) {
-          setIsPrefetching(false);
-        }
-      }
-    }
-
     prefetchPages4to6();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentPageIndex, storyId, experience, pages, isPrefetching]);
+  }, [currentPage, storyId, experience, pages, isPrefetching]);
 
   if (loading) {
     return (
@@ -617,9 +598,6 @@ export default function ExperienceReader({ params }: { params: any }) {
     )
   }
 
-  const isRoleplay = experience?.content_type === 'roleplay' || experience?.content_type === 'weekend_scenario';
-  const contentObj = experience?.parsedData || {};
-  
   const rawPartnerA = contentObj.partnerA || contentObj.partnerAPerspective || contentObj.partner_a_perspective || contentObj.partner_a;
   const rawPartnerB = contentObj.partnerB || contentObj.partnerBPerspective || contentObj.partner_b_perspective || contentObj.partner_b;
 
@@ -636,10 +614,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
   const preTasks = contentObj.tasks || contentObj.preExperienceTasks || experience?.pre_experience_tasks || [];
   const storyboard = contentObj.overview || contentObj.storyboard || "The stage is set for an intimate encounter.";
-  const scriptBody = contentObj.body || contentObj.text || contentObj.content || contentObj.story || contentObj.fullScript || experience?.body || experience?.overview || '';
 
-  const content = typeof scriptBody === 'string' ? scriptBody : (scriptBody ? JSON.stringify(scriptBody, null, 2) : '');
-  const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanStoryboard = (storyboard || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (partnerA || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerB = (partnerB || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
@@ -649,10 +624,6 @@ export default function ExperienceReader({ params }: { params: any }) {
                              (cleanContent || '').includes("Click continue story to expand") ||
                              experience?.status === 'interrupted' ||
                              experience?.is_interrupted === true;
-
-  const displayContent = (cleanContent || '')
-    .replace(/⚠️?\s*Stream interrupted\.?\s*(Click Continue Story to resume)?/gi, '')
-    .trim();
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8 lg:p-12 pb-32 font-sans selection:bg-red-900/50">
@@ -823,9 +794,9 @@ export default function ExperienceReader({ params }: { params: any }) {
                   style={{ overflowAnchor: 'none' }}
                   className="min-h-[550px] max-h-[750px] md:h-[720px] overflow-y-auto rounded-2xl bg-zinc-900/30 border border-zinc-800/80 p-6 sm:p-10 md:p-12 shadow-2xl relative scroll-smooth focus:outline-none"
                 >
-                  <ErrorBoundary fallbackContent={pages[currentPageIndex] || displayContent}>
+                  <ErrorBoundary fallbackContent={pages[currentPage - 1] || displayContent}>
                     <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                      {safeMarkdownString(pages[currentPageIndex] || displayContent)}
+                      {safeMarkdownString(pages[currentPage - 1] || displayContent)}
                     </ReactMarkdown>
                   </ErrorBoundary>
                 </div>
@@ -838,7 +809,7 @@ export default function ExperienceReader({ params }: { params: any }) {
                   <button
                     type="button"
                     onClick={handlePreviousPage}
-                    disabled={currentPageIndex === 0}
+                    disabled={currentPage === 1}
                     className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60"
                     title="Previous Page"
                   >
@@ -847,7 +818,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
                   <div className="flex flex-col items-center">
                     <span className="text-sm font-medium text-zinc-300 font-serif">
-                      Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+                      Page {currentPage} of {Math.max(pages.length, 1)}
                     </span>
                     {isPrefetching && (
                       <span className="text-xs text-rose-400 animate-pulse flex items-center gap-1.5 mt-0.5">
@@ -857,15 +828,38 @@ export default function ExperienceReader({ params }: { params: any }) {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleNextPage}
-                    disabled={currentPageIndex >= pages.length - 1}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
-                    title="Next Page"
-                  >
-                    Next Page <span>&rarr;</span>
-                  </button>
+                  {currentPage < pages.length ? (
+                    <button
+                      type="button"
+                      onClick={handleNextPage}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
+                      title="Next Page"
+                    >
+                      Next Page <span>&rarr;</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hasPrefetchedPages4to6.current = false;
+                        prefetchPages4to6();
+                      }}
+                      disabled={isPrefetching}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-800 hover:bg-emerald-700 text-white shadow-md border border-emerald-700"
+                      title="Continue Story (Add 2 Pages)"
+                    >
+                      {isPrefetching ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                          Adding 2 Pages...
+                        </>
+                      ) : (
+                        <>
+                          <span>✨</span> Continue Story (Add 2 Pages) <span>&rarr;</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </section>
 
