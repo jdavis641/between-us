@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     // Check existing content
     const { data: content, error: fetchError } = await supabase
       .from('generated_content')
-      .select('id, user_id, is_favorite, theme_tags')
+      .select('id, user_id, theme_tags')
       .eq('id', contentId)
       .maybeSingle();
 
@@ -130,7 +130,7 @@ export async function GET(req: Request) {
     // Check generated_content
     const { data: content } = await supabase
       .from('generated_content')
-      .select('is_favorite, theme_tags')
+      .select('theme_tags')
       .eq('id', contentId)
       .maybeSingle();
 

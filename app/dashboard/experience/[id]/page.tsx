@@ -7,74 +7,13 @@ import RatingWidget from '@/components/RatingWidget'
 import SuggestScenario from '@/components/SuggestScenario'
 import ErrorBoundary, { safeMarkdownString } from '@/components/ErrorBoundary'
 import { exportStoryToPdf } from "@/utils/pdfExport"
+import { splitStoryIntoPages } from "@/lib/storyPagination"
+
+export { splitStoryIntoPages }
 
 type ReaderMode = "partner-a" | "partner-b" | "script";
 
 export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
-
-export function splitStoryIntoPages(rawStory: string): string[] {
-  if (!rawStory || typeof rawStory !== 'string' || !rawStory.trim()) return [];
-  const clean = rawStory
-    .replace(/⚠️?\s*Stream interrupted\.?\s*(Click Continue Story to resume)?/gi, '')
-    .trim();
-
-  // 1. Check for Chapter markers: ## Chapter \d+ or # Chapter \d+
-  const chapterRegex = /(?=(?:^|\n)#{1,3}\s*Chapter\s*\d+)/gi;
-  let chapterSplits = clean.split(chapterRegex).map(s => s.trim()).filter(Boolean);
-
-  if (chapterSplits.length > 1) {
-    if (!/^#{1,3}\s*Chapter\s*\d+/i.test(chapterSplits[0]) && chapterSplits[0].length < 150) {
-      chapterSplits[1] = `${chapterSplits[0]}\n\n${chapterSplits[1]}`;
-      chapterSplits.shift();
-    }
-    return chapterSplits;
-  }
-
-  // 2. Check for alternative Chapter headings like "Chapter 1:" on its own line
-  const altChapterRegex = /(?=(?:^|\n)Chapter\s*\d+[:\s])/gi;
-  let altSplits = clean.split(altChapterRegex).map(s => s.trim()).filter(Boolean);
-  if (altSplits.length > 1) {
-    if (!/^Chapter\s*\d+/i.test(altSplits[0]) && altSplits[0].length < 150) {
-      altSplits[1] = `${altSplits[0]}\n\n${altSplits[1]}`;
-      altSplits.shift();
-    }
-    return altSplits;
-  }
-
-  // 3. Fallback: Split on horizontal rules
-  const hrSplits = clean.split(/\n\s*[-*_]{3,}\s*\n/).map(s => s.trim()).filter(Boolean);
-  if (hrSplits.length > 1) {
-    return hrSplits;
-  }
-
-  // 4. Fallback for long unstructured prose: split into ~650 word chunks on paragraph boundaries
-  const paragraphs = clean.split(/\n\n+/);
-  if (paragraphs.length > 3) {
-    const pages: string[] = [];
-    let currentChunk: string[] = [];
-    let currentWordCount = 0;
-
-    for (const para of paragraphs) {
-      const words = para.trim().split(/\s+/).length;
-      if (currentWordCount + words > 650 && currentChunk.length > 0) {
-        pages.push(currentChunk.join('\n\n'));
-        currentChunk = [para];
-        currentWordCount = words;
-      } else {
-        currentChunk.push(para);
-        currentWordCount += words;
-      }
-    }
-    if (currentChunk.length > 0) {
-      pages.push(currentChunk.join('\n\n'));
-    }
-    if (pages.length > 1) {
-      return pages;
-    }
-  }
-
-  return [clean];
-}
 
 export default function ExperienceReader({ params }: { params: any }) {
   const [supabase] = useState(() => createClient())
@@ -136,16 +75,30 @@ export default function ExperienceReader({ params }: { params: any }) {
         return;
       }
 
-      const { data } = await supabase
-        .from('generated_content')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
+      let data: any = null;
+      try {
+        const { data: rowData, error: fetchErr } = await supabase
+          .from('generated_content')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (fetchErr) {
+          console.warn("Defensive fetch of generated_content encountered error:", fetchErr);
+        }
+        data = rowData;
+      } catch (e) {
+        console.warn("Exception fetching generated_content:", e);
+      }
 
       if (data) {
-        if (data.is_favorite === true || (typeof data.theme_tags === 'string' && data.theme_tags.includes('[favorite]'))) {
-          setIsFavorite(true);
-        } else {
+        // Defensive: do not make is_favorite a hard dependency if not hydrated; fallback gracefully to false
+        const isFav = typeof data.is_favorite === 'boolean'
+          ? data.is_favorite
+          : Boolean(typeof data.theme_tags === 'string' && data.theme_tags.includes('[favorite]'));
+        setIsFavorite(isFav);
+
+        if (!isFav) {
           // Check user_favorites via API
           try {
             const favRes = await fetch(`/api/favorites/toggle?contentId=${id}`);
@@ -491,7 +444,6 @@ export default function ExperienceReader({ params }: { params: any }) {
 
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
-        pageContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   };
@@ -506,7 +458,6 @@ export default function ExperienceReader({ params }: { params: any }) {
 
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
-        pageContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   };
