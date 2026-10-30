@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getShuffledCardGames } from '@/utils/shuffle';
+import { getShuffledCardGames, clearAndReseedShuffleCache } from '@/utils/shuffle';
 
-export default function GameList({ sections }: { sections: any[] }) {
+export default function GameList({ sections, tolerance }: { sections: any[]; tolerance?: string | null }) {
   const [activeHash, setActiveHash] = useState('');
   const [displaySections, setDisplaySections] = useState(sections);
   const searchParams = useSearchParams();
@@ -13,14 +13,24 @@ export default function GameList({ sections }: { sections: any[] }) {
   const themeParam = searchParams?.get('theme') || searchParams?.get('seasonal_tag') || '';
   const isHalloween = themeParam.toLowerCase() === 'halloween';
 
+  // Clear and re-seed session shuffle cache if tolerance changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && tolerance) {
+      const stored = sessionStorage.getItem('between_us_card_tolerance');
+      if (stored && stored !== tolerance.toLowerCase()) {
+        clearAndReseedShuffleCache(tolerance);
+      }
+    }
+  }, [tolerance]);
+
   // Session-based card game reshuffle & seasonal filtering
   useEffect(() => {
     setDisplaySections(
       sections.map(sec => {
         let items = sec.data || [];
         if (sec.id === 'card' && items.length > 0) {
-          // Perform session-based reshuffling for card games
-          items = getShuffledCardGames(items);
+          // Perform session-based reshuffling for card games strictly honoring tolerance
+          items = getShuffledCardGames(items, tolerance || undefined);
         }
 
         // Auto-filter if theme === 'halloween'

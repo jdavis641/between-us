@@ -49,16 +49,55 @@ export function getSessionShuffleSeed(storageKey = 'between_us_card_shuffle_seed
 }
 
 /**
+ * Resets and re-seeds the card game session shuffle cache in sessionStorage.
+ * Clears old cached ordering so that changing tolerance (e.g., to "Playful") immediately
+ * purges any cached "Intense" card games from prior sessions.
+ */
+export function clearAndReseedShuffleCache(newTolerance?: string): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.startsWith('between_us_card_') || key.startsWith('between_us_shuffle_'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => sessionStorage.removeItem(k));
+
+    if (newTolerance) {
+      sessionStorage.setItem('between_us_card_tolerance', newTolerance.toLowerCase());
+    }
+
+    const freshSeed = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    sessionStorage.setItem('between_us_card_session_id', freshSeed);
+  } catch (err) {
+    console.warn("Session shuffle cache reset error:", err);
+  }
+}
+
+/**
  * Shuffles card games using session-based ordering.
  * Persists the resulting order in sessionStorage so that navigation within the same
  * session keeps the cards in a stable, fresh order, but each new session reshuffles.
+ * If active tolerance changes, automatically purges the cache and re-seeds.
  */
-export function getShuffledCardGames<T extends { id: string }>(cards: T[]): T[] {
+export function getShuffledCardGames<T extends { id: string }>(cards: T[], tolerance?: string): T[] {
   if (typeof window === 'undefined' || cards.length <= 1) {
     return cards;
   }
 
   try {
+    if (tolerance) {
+      const storedTolerance = sessionStorage.getItem('between_us_card_tolerance');
+      if (storedTolerance && storedTolerance !== tolerance.toLowerCase()) {
+        clearAndReseedShuffleCache(tolerance);
+      } else if (!storedTolerance) {
+        sessionStorage.setItem('between_us_card_tolerance', tolerance.toLowerCase());
+      }
+    }
+
     const sessionSeed = getSessionShuffleSeed('between_us_card_session_id');
     const storageKey = `between_us_card_order_${sessionSeed}`;
     const savedOrder = sessionStorage.getItem(storageKey);

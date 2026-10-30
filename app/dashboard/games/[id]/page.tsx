@@ -1,10 +1,29 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import MovieGameGenerator from '@/components/MovieGameGenerator'
 import InteractionBar from '@/components/InteractionBar'
 import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0 // dynamically fetch data on every request
+
+function formatKinkModifierRule(kinks: string[], tolerance?: string | null): string {
+  const joinedKinks = kinks.slice(0, 3).join(', ');
+  const tier = (tolerance || '').toLowerCase().trim();
+  if (tier === 'sensory') {
+    return `🃏 Wildcard / Sensory Dare: Draw this card to explore ${joinedKinks} with gentle, feather-light sensory touch, warm breath, and lingering eye contact.`;
+  }
+  if (tier === 'playful') {
+    return `🃏 Wildcard / Playful Dare: Draw this card to assign a playful dare or forfeit incorporating ${joinedKinks} (suggestive teasing, fun role reversal, or light touch challenges).`;
+  }
+  if (tier === 'intense') {
+    return `🃏 Wildcard / Intense Penalty: The drawing partner must execute or submit to ${joinedKinks} as an explicit physical penalty or direct command sequence.`;
+  }
+  if (tier === 'extreme') {
+    return `🃏 Wildcard / Extreme Forfeit: Complete physical surrender centering on ${joinedKinks} under absolute command with zero hesitation or refusal.`;
+  }
+  return `🃏 Wildcard / Custom Modifier: Incorporate ${joinedKinks} as a custom dare or physical penalty tailored to your comfort level.`;
+}
 
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -152,6 +171,54 @@ export default async function GameDetailPage({ params }: PageProps) {
         "Take turns initiating each phase of the game at your own pace.",
         "Check in frequently to adapt intensity to your shared comfort level."
       ];
+    }
+
+    // Retrieve active user base_tolerance and kinks_override to dynamically inject scaled Wildcard modifiers
+    try {
+      const serverSupabase = await createServerClient();
+      const { data: { user } } = await serverSupabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await serverSupabase
+          .from('profiles')
+          .select('base_tolerance')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const userBaseTolerance = profile?.base_tolerance || null;
+
+        const { data: preferences } = await serverSupabase
+          .from('intimacy_preferences')
+          .select('category_tag, preference_level, kinks_override')
+          .eq('user_id', user.id)
+          .neq('category_tag', 'Guest Pass Config');
+
+        const kinkRow = preferences?.find((p: any) => p.category_tag === 'Primary Directive' && p.kinks_override)
+          || preferences?.find((p: any) => p.kinks_override);
+
+        let userKinks: string[] = [];
+        if (kinkRow?.kinks_override) {
+          try {
+            const parsed = JSON.parse(kinkRow.kinks_override);
+            if (Array.isArray(parsed)) {
+              userKinks = parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
+            } else if (parsed && typeof parsed === 'object' && parsed.kinks) {
+              userKinks = Array.isArray(parsed.kinks) ? parsed.kinks : [String(parsed.kinks)];
+            } else if (typeof parsed === 'string') {
+              userKinks = [parsed];
+            }
+          } catch {
+            if (typeof kinkRow.kinks_override === 'string') {
+              userKinks = kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+            }
+          }
+        }
+
+        if (userKinks.length > 0 && !parsedRules.some(r => r.includes('🃏 Wildcard'))) {
+          parsedRules.push(formatKinkModifierRule(userKinks, userBaseTolerance));
+        }
+      }
+    } catch (kinkErr) {
+      console.warn("Could not load user kinks for game detail:", kinkErr);
     }
 
     const getIntensityBadge = (intensity?: string) => {

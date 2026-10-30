@@ -118,7 +118,12 @@ export function RolePlayMarkdown({ content, isGenerating = false }: { content: s
   );
 }
 
-export default function RolePlayClient() {
+interface RolePlayClientProps {
+  initialTolerance?: string;
+  initialKinks?: string[];
+}
+
+export default function RolePlayClient({ initialTolerance, initialKinks }: RolePlayClientProps = {}) {
   const searchParams = useSearchParams();
   const rawMode = searchParams.get("mode");
   const initialMode = rawMode === "group" ? "group" : "couple";
@@ -132,6 +137,9 @@ export default function RolePlayClient() {
     return t || "";
   });
 
+  const [userProfileTolerance, setUserProfileTolerance] = useState<string>(initialTolerance || 'Playful');
+  const [userKinksOverride, setUserKinksOverride] = useState<string[]>(initialKinks || []);
+
   useEffect(() => {
     const p = searchParams.get("prompt");
     const t = searchParams.get("theme");
@@ -144,8 +152,8 @@ export default function RolePlayClient() {
     }
   }, [searchParams]);
 
-  const [targetBoundary, setTargetBoundary] = useState("");
-  const [kinksInput, setKinksInput] = useState("");
+  const [targetBoundary, setTargetBoundary] = useState(initialTolerance || "");
+  const [kinksInput, setKinksInput] = useState(() => (initialKinks && initialKinks.length > 0) ? initialKinks.join(', ') : "");
   const pacing = "Medium Burn";
   const [activeMode, setActiveMode] = useState<ReaderMode>("partner-a");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
@@ -156,6 +164,73 @@ export default function RolePlayClient() {
   const [supabase] = useState(() => createClient());
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... This is going to be great!");
+
+  // Load active tolerance from profiles and kinks_override from intimacy_preferences
+  useEffect(() => {
+    async function loadUserToleranceAndKinks() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('base_tolerance')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.base_tolerance) {
+          setUserProfileTolerance(profile.base_tolerance);
+          if (!targetBoundary) {
+            setTargetBoundary(profile.base_tolerance);
+          }
+        }
+
+        const { data: prefData } = await supabase
+          .from('intimacy_preferences')
+          .select('category_tag, preference_level, kinks_override')
+          .eq('user_id', user.id)
+          .neq('category_tag', 'Guest Pass Config');
+
+        if (!profile?.base_tolerance && prefData) {
+          const basePref = prefData.find((p: any) => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive');
+          if (basePref?.preference_level) {
+            setUserProfileTolerance(basePref.preference_level);
+            if (!targetBoundary) {
+              setTargetBoundary(basePref.preference_level);
+            }
+          }
+        }
+
+        const kinkRow = prefData?.find((p: any) => p.category_tag === 'Primary Directive' && p.kinks_override)
+          || prefData?.find((p: any) => p.kinks_override);
+
+        if (kinkRow?.kinks_override) {
+          try {
+            const parsed = JSON.parse(kinkRow.kinks_override);
+            if (Array.isArray(parsed)) {
+              const list = parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
+              setUserKinksOverride(list);
+              setKinksInput(prev => prev ? prev : list.join(', '));
+            } else if (parsed && typeof parsed === 'object' && parsed.kinks) {
+              const list = Array.isArray(parsed.kinks) ? parsed.kinks : [String(parsed.kinks)];
+              setUserKinksOverride(list);
+              setKinksInput(prev => prev ? prev : list.join(', '));
+            } else if (typeof parsed === 'string') {
+              setUserKinksOverride([parsed]);
+              setKinksInput(prev => prev ? prev : parsed);
+            }
+          } catch {
+            const list = kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+            setUserKinksOverride(list);
+            setKinksInput(prev => prev ? prev : list.join(', '));
+          }
+        }
+      } catch (loadErr) {
+        console.warn("Could not load user profile tolerance and kinks:", loadErr);
+      }
+    }
+    loadUserToleranceAndKinks();
+  }, [supabase]);
 
   // User Scroll Override & Smart Auto-Scroll States
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
@@ -223,10 +298,13 @@ export default function RolePlayClient() {
         return;
       }
 
-      const selectedKinks = kinksInput
+      const inputKinks = kinksInput
         .split(/[,;\n]+/)
         .map(k => k.trim())
         .filter(Boolean);
+
+      const combinedKinks = Array.from(new Set([...userKinksOverride, ...inputKinks]));
+      const effectiveTolerance = targetBoundary || userProfileTolerance || 'Playful';
 
       const res = await fetch("/api/generate/content", {
         method: "POST",
@@ -242,9 +320,11 @@ export default function RolePlayClient() {
           hasScripts: true,
           theme: theme,
           prompt: theme,
-          selectedKinks: selectedKinks,
-          kinks: selectedKinks,
-          targetBoundary: targetBoundary,
+          trope: theme,
+          selectedKinks: combinedKinks,
+          kinks: combinedKinks,
+          tolerance: effectiveTolerance,
+          targetBoundary: effectiveTolerance,
           previousContent: currentStoryText,
           existingStory: currentStoryText,
           pacing: pacing
@@ -399,10 +479,13 @@ export default function RolePlayClient() {
         return;
       }
 
-      const selectedKinks = kinksInput
+      const inputKinks = kinksInput
         .split(/[,;\n]+/)
         .map(k => k.trim())
         .filter(Boolean);
+
+      const combinedKinks = Array.from(new Set([...userKinksOverride, ...inputKinks]));
+      const effectiveTolerance = targetBoundary || userProfileTolerance || 'Playful';
 
       const res = await fetch("/api/generate/content", {
         method: "POST",
@@ -418,9 +501,11 @@ export default function RolePlayClient() {
           hasScripts: true,
           theme: theme,
           prompt: theme,
-          selectedKinks: selectedKinks,
-          kinks: selectedKinks,
-          targetBoundary: targetBoundary,
+          trope: theme,
+          selectedKinks: combinedKinks,
+          kinks: combinedKinks,
+          tolerance: effectiveTolerance,
+          targetBoundary: effectiveTolerance,
           pacing: pacing,
           regenerationCount: currentRegen
         })

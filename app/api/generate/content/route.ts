@@ -140,7 +140,10 @@ function buildSystemInstruction({
   activeTrope,
   theme,
   styleReference,
-  userCustomKinks = []
+  userCustomKinks = [],
+  tropeOrScenario,
+  kinks,
+  tolerance
 }: {
   preferences: any[];
   playMode: string;
@@ -159,8 +162,36 @@ function buildSystemInstruction({
   theme?: string;
   styleReference?: { title?: string; excerpt: string };
   userCustomKinks?: string[];
+  tropeOrScenario?: any;
+  kinks?: any;
+  tolerance?: string;
 }) {
-  const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
+  const baseTolerance = tolerance || targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
+
+  // Unified Generation Priority Hierarchy Inputs
+  const effectiveTolerance = tolerance || targetBoundary || baseTolerance;
+  const effectiveTropeOrScenario = tropeOrScenario || activeTrope || theme || '';
+  const tropeDescription = typeof effectiveTropeOrScenario === 'object' && effectiveTropeOrScenario !== null
+    ? (effectiveTropeOrScenario.premise || effectiveTropeOrScenario.trope || effectiveTropeOrScenario.title || JSON.stringify(effectiveTropeOrScenario))
+    : String(effectiveTropeOrScenario || '').trim();
+
+  let effectiveKinksList: string[] = [];
+  if (Array.isArray(kinks) && kinks.length > 0) {
+    effectiveKinksList = kinks.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
+  } else if (typeof kinks === 'string' && kinks.trim()) {
+    try {
+      const parsed = JSON.parse(kinks);
+      if (Array.isArray(parsed)) {
+        effectiveKinksList = parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
+      } else {
+        effectiveKinksList = [kinks.trim()];
+      }
+    } catch {
+      effectiveKinksList = kinks.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+    }
+  } else if (Array.isArray(userCustomKinks) && userCustomKinks.length > 0) {
+    effectiveKinksList = userCustomKinks;
+  }
 
   const mandatoryThemes = preferences
     ?.filter(p => p.preference_level === 'Definitely' || p.preference_level === 'Curious')
@@ -197,6 +228,18 @@ function buildSystemInstruction({
   }
 
   let sys = `You are an expert intimacy and relationship guide.\n\n`;
+
+  // UNIFIED CONTENT GENERATION PRIORITY HIERARCHY DIRECTIVE
+  sys += `CONTENT GENERATION PRIORITY:
+1. SUBMITTED TROPE / SCENARIO (Role Play & Romantasy): The overarching plot, setting, character dynamic, and narrative direction MUST center strictly on the user's chosen trope or scenario prompt.
+2. KINKS (All Content): The user's specified kinks MUST be woven in some capacity into the interaction, sensory mechanics, dirty talk, dares, or physical escalation.
+3. TOLERANCE LEVEL (All Content): The intensity, vocabulary, physical friction, and psychological boundary thresholds MUST strictly adhere to the user's active tolerance level (Sensory = mild/romantic, Playful = suggestive/teasing/light dominance, Intense = raw/explicit/heavy dynamics, Extreme = taboo/unrestricted).
+FALLBACK RULE: If no custom tropes/scenarios or kinks are provided, the active Tolerance Level becomes the primary driver and sole governing boundary for all themes and mechanics.\n\n`;
+
+  sys += `PRIORITY ENFORCEMENT & BALANCING DIRECTIVES:
+- Active Tolerance Level: ${effectiveTolerance}
+${tropeDescription ? `- Submitted Trope/Scenario Premise: "${tropeDescription}"\n` : '- Submitted Trope/Scenario: None provided (Active Tolerance Level serves as governing foundation)\n'}${effectiveKinksList.length > 0 ? `- User Specified Kinks: ${effectiveKinksList.join(', ')}\n` : '- User Specified Kinks: None provided\n'}
+BALANCING RULE: When trope and kinks are present, the generator MUST NOT downgrade or sanitize them, but balances them strictly within the "${effectiveTolerance}" boundary threshold unless overridden.\n\n`;
 
   if (theme && typeof theme === 'string' && theme.trim().length > 0) {
     if (previousContent) {
@@ -678,6 +721,8 @@ export async function POST(req: Request) {
     const pacing = body.pacing;
     const storyLength = body.storyLength;
     const activeTrope = body.activeTrope;
+    const requestTrope = body.trope ? (typeof body.trope === 'object' ? body.trope : sanitizePromptInput(body.trope, 1000)) : null;
+    const requestTolerance = sanitizePromptInput(body.tolerance, 100);
     const validModes = ["couple", "group"];
     const playMode = validModes.includes(body.playMode?.toLowerCase()) ? body.playMode.toLowerCase() : "couple";
     
@@ -692,6 +737,7 @@ export async function POST(req: Request) {
     // If custom prompt or kink override is present, BYPASS the static database inventory search
     const hasCustomPromptOrKinks = Boolean(
       (customPrompt && customPrompt.trim().length > 0) ||
+      (requestTrope && (typeof requestTrope === 'string' ? requestTrope.trim().length > 0 : true)) ||
       (requestKinks.length > 0)
     );
     
@@ -723,9 +769,23 @@ export async function POST(req: Request) {
       .select('category_tag, preference_level, kinks_override')
       .eq('user_id', user.id);
 
-    // Derive Base Tolerance and Target Boundary
-    const baseTolerance = targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
-    const effectiveTolerance = targetBoundary || baseTolerance;
+    // Primary query: authenticated user's active base_tolerance from public.profiles
+    let profileBaseTolerance: string | null = null;
+    try {
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('base_tolerance')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profileRow?.base_tolerance) {
+        profileBaseTolerance = profileRow.base_tolerance;
+      }
+    } catch {}
+
+    // Derive Base Tolerance and Target Boundary honoring priority hierarchy
+    const prefTolerance = preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level;
+    const baseTolerance = requestTolerance || targetBoundary || profileBaseTolerance || prefTolerance || 'Playful';
+    const effectiveTolerance = requestTolerance || targetBoundary || baseTolerance;
 
     // Extract User Custom Kinks
     let userCustomKinks: string[] = [];
@@ -993,6 +1053,11 @@ export async function POST(req: Request) {
               );
               if (hasExcluded) continue;
 
+              // Strict Tolerance Tier Filter: Strictly reject candidates that do not match effective tolerance (never serve Intense/Extreme to Playful)
+              if (effectiveTolerance && rowTier && rowTier !== effectiveTolerance.toLowerCase()) {
+                continue;
+              }
+
               let score = 0;
 
               // Strict Tolerance Tier Match (Sensory, Playful, Intense, Extreme)
@@ -1183,7 +1248,10 @@ export async function POST(req: Request) {
       activeTrope,
       theme,
       styleReference: selectedStyleReference || undefined,
-      userCustomKinks: allCustomKinks
+      userCustomKinks: allCustomKinks,
+      tropeOrScenario: requestTrope || activeTrope || theme || customPrompt,
+      kinks: allCustomKinks.length > 0 ? allCustomKinks : requestKinks,
+      tolerance: effectiveTolerance
     });
 
     let pacingRule = '';

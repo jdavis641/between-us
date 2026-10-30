@@ -206,7 +206,12 @@ export function LiteratureMarkdown({ content, isGenerating = false }: { content:
   );
 }
 
-export default function LiteratureClient() {
+interface LiteratureClientProps {
+  initialTolerance?: string;
+  initialKinks?: string[];
+}
+
+export default function LiteratureClient({ initialTolerance, initialKinks }: LiteratureClientProps = {}) {
   const searchParams = useSearchParams();
   const [theme, setTheme] = useState(() => {
     const p = searchParams?.get('prompt');
@@ -215,6 +220,9 @@ export default function LiteratureClient() {
     if (t?.toLowerCase() === 'halloween') return 'Gothic Victorian Masquerade: Midnight Whispers & Velvet Shadows';
     return t || '';
   });
+
+  const [userProfileTolerance, setUserProfileTolerance] = useState<string>(initialTolerance || 'Playful');
+  const [userKinksOverride, setUserKinksOverride] = useState<string[]>(initialKinks || []);
 
   useEffect(() => {
     const p = searchParams?.get('prompt');
@@ -228,7 +236,67 @@ export default function LiteratureClient() {
     }
   }, [searchParams]);
 
-  const [targetBoundary, setTargetBoundary] = useState("");
+  const [targetBoundary, setTargetBoundary] = useState(initialTolerance || "");
+
+  // Load active tolerance from profiles and kinks_override from intimacy_preferences
+  useEffect(() => {
+    async function loadUserToleranceAndKinks() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('base_tolerance')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.base_tolerance) {
+          setUserProfileTolerance(profile.base_tolerance);
+          if (!targetBoundary) {
+            setTargetBoundary(profile.base_tolerance);
+          }
+        }
+
+        const { data: prefData } = await supabase
+          .from('intimacy_preferences')
+          .select('category_tag, preference_level, kinks_override')
+          .eq('user_id', user.id)
+          .neq('category_tag', 'Guest Pass Config');
+
+        if (!profile?.base_tolerance && prefData) {
+          const basePref = prefData.find((p: any) => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive');
+          if (basePref?.preference_level) {
+            setUserProfileTolerance(basePref.preference_level);
+            if (!targetBoundary) {
+              setTargetBoundary(basePref.preference_level);
+            }
+          }
+        }
+
+        const kinkRow = prefData?.find((p: any) => p.category_tag === 'Primary Directive' && p.kinks_override)
+          || prefData?.find((p: any) => p.kinks_override);
+
+        if (kinkRow?.kinks_override) {
+          try {
+            const parsed = JSON.parse(kinkRow.kinks_override);
+            if (Array.isArray(parsed)) {
+              setUserKinksOverride(parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean));
+            } else if (parsed && typeof parsed === 'object' && parsed.kinks) {
+              setUserKinksOverride(Array.isArray(parsed.kinks) ? parsed.kinks : [String(parsed.kinks)]);
+            } else if (typeof parsed === 'string') {
+              setUserKinksOverride([parsed]);
+            }
+          } catch {
+            setUserKinksOverride(kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean));
+          }
+        }
+      } catch (loadErr) {
+        console.warn("Could not load user profile tolerance and kinks:", loadErr);
+      }
+    }
+    loadUserToleranceAndKinks();
+  }, [supabase]);
   const [pacing, setPacing] = useState("Medium Burn");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
   const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
@@ -468,11 +536,14 @@ export default function LiteratureClient() {
           contentType: "literature",
           hasScripts: false,
           theme: theme,
-          targetBoundary: targetBoundary,
+          trope: activeTrope?.premise || activeTrope?.trope || theme || '',
+          activeTrope: activeTrope,
+          kinks: userKinksOverride,
+          tolerance: targetBoundary || userProfileTolerance || 'Playful',
+          targetBoundary: targetBoundary || userProfileTolerance || 'Playful',
           previousContent: currentStoryText,
           existingStory: currentStoryText,
-          pacing: pacing,
-          activeTrope: activeTrope
+          pacing: pacing
         })
       }).catch((fetchErr) => {
         console.error("Continuation fetch error:", fetchErr);
@@ -680,8 +751,11 @@ export default function LiteratureClient() {
         credentials: "include",
         cache: "no-store",
         body: JSON.stringify({
-          targetBoundary,
+          targetBoundary: targetBoundary || userProfileTolerance || 'Playful',
+          tolerance: targetBoundary || userProfileTolerance || 'Playful',
           theme,
+          trope: theme,
+          kinks: userKinksOverride,
           pacing
         })
       });
@@ -776,9 +850,12 @@ export default function LiteratureClient() {
           hasScripts: false,
           theme: theme,
           prompt: theme,
-          targetBoundary: targetBoundary,
-          pacing: pacing,
+          trope: activeTrope?.premise || activeTrope?.trope || theme || '',
           activeTrope: activeTrope,
+          kinks: userKinksOverride,
+          tolerance: targetBoundary || userProfileTolerance || 'Playful',
+          targetBoundary: targetBoundary || userProfileTolerance || 'Playful',
+          pacing: pacing,
           regenerationCount: currentRegen
         })
       }).catch((fetchErr) => {

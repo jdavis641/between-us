@@ -25,6 +25,61 @@ type Game = {
   category: string;
   intensity: string;
   content?: any;
+  seasonal_tag?: string;
+}
+
+function formatKinkModifierRule(kinks: string[], tolerance?: string | null): string {
+  const joinedKinks = kinks.slice(0, 3).join(', ');
+  const tier = (tolerance || '').toLowerCase().trim();
+  if (tier === 'sensory') {
+    return `🃏 Wildcard / Sensory Dare: Draw this card to explore ${joinedKinks} with gentle, feather-light sensory touch, warm breath, and lingering eye contact.`;
+  }
+  if (tier === 'playful') {
+    return `🃏 Wildcard / Playful Dare: Draw this card to assign a playful dare or forfeit incorporating ${joinedKinks} (suggestive teasing, fun role reversal, or light touch challenges).`;
+  }
+  if (tier === 'intense') {
+    return `🃏 Wildcard / Intense Penalty: The drawing partner must execute or submit to ${joinedKinks} as an explicit physical penalty or direct command sequence.`;
+  }
+  if (tier === 'extreme') {
+    return `🃏 Wildcard / Extreme Forfeit: Complete physical surrender centering on ${joinedKinks} under absolute command with zero hesitation or refusal.`;
+  }
+  return `🃏 Wildcard / Custom Modifier: Incorporate ${joinedKinks} as a custom dare or physical penalty tailored to your comfort level.`;
+}
+
+function injectKinksIntoGame(game: Game, userKinks: string[], tolerance?: string | null): Game {
+  if (!userKinks || userKinks.length === 0) return game;
+  const modifierRule = formatKinkModifierRule(userKinks, tolerance);
+
+  let contentObj = game.content;
+  if (typeof contentObj === 'string') {
+    try {
+      contentObj = JSON.parse(contentObj);
+    } catch {
+      contentObj = { rules: [contentObj] };
+    }
+  }
+
+  let rules: string[] = [];
+  if (Array.isArray(contentObj?.rules)) {
+    rules = [...contentObj.rules];
+  } else if (Array.isArray(contentObj)) {
+    rules = [...contentObj];
+  } else if (contentObj && typeof contentObj === 'object') {
+    rules = Array.isArray(contentObj.steps) ? [...contentObj.steps] : [];
+  }
+
+  // Ensure modifier rule is not already present
+  if (!rules.some(r => r.includes('🃏 Wildcard'))) {
+    rules.push(modifierRule);
+  }
+
+  return {
+    ...game,
+    content: {
+      ...(typeof contentObj === 'object' && contentObj !== null ? contentObj : {}),
+      rules
+    }
+  };
 }
 
 export default async function GamesHub({
@@ -37,30 +92,56 @@ export default async function GamesHub({
   const serverSupabase = await createServerClient();
 
   let userBaseTolerance: string | null = null;
+  let userKinks: string[] = [];
 
   try {
     const { data: { user } } = await serverSupabase.auth.getUser();
 
     if (user) {
+      // 1. Primary query: authenticated user's active base_tolerance from public.profiles
+      const { data: profile } = await serverSupabase
+        .from('profiles')
+        .select('base_tolerance')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      userBaseTolerance = profile?.base_tolerance || null;
+
+      // 2. Query custom kinks from public.intimacy_preferences.kinks_override
       const { data: preferences } = await serverSupabase
         .from('intimacy_preferences')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('category_tag, preference_level, kinks_override')
+        .eq('user_id', user.id)
+        .neq('category_tag', 'Guest Pass Config');
 
-      const prefRow = preferences?.find((p: any) => 
-        p.category_tag === 'Primary Directive' || 
-        p.category_tag === 'Base Tolerance' ||
-        p.category_tag === 'base_tolerance'
-      );
-      userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null;
+      // Fallback base_tolerance if not found in profiles
+      if (!userBaseTolerance && preferences) {
+        const prefRow = preferences.find((p: any) => 
+          p.category_tag === 'Primary Directive' || 
+          p.category_tag === 'Base Tolerance' ||
+          p.category_tag === 'base_tolerance'
+        );
+        userBaseTolerance = prefRow?.preference_level || (prefRow as any)?.base_tolerance || null;
+      }
 
-      if (!userBaseTolerance) {
-        const { data: profile } = await serverSupabase
-          .from('profiles')
-          .select('base_tolerance')
-          .eq('id', user.id)
-          .maybeSingle();
-        userBaseTolerance = profile?.base_tolerance || null;
+      const kinkRow = preferences?.find((p: any) => p.category_tag === 'Primary Directive' && p.kinks_override)
+        || preferences?.find((p: any) => p.kinks_override);
+
+      if (kinkRow?.kinks_override) {
+        try {
+          const parsed = JSON.parse(kinkRow.kinks_override);
+          if (Array.isArray(parsed)) {
+            userKinks = parsed.map((k: any) => typeof k === 'string' ? k : (k?.text || '')).filter(Boolean);
+          } else if (parsed && typeof parsed === 'object' && parsed.kinks) {
+            userKinks = Array.isArray(parsed.kinks) ? parsed.kinks : [String(parsed.kinks)];
+          } else if (typeof parsed === 'string') {
+            userKinks = [parsed];
+          }
+        } catch {
+          if (typeof kinkRow.kinks_override === 'string') {
+            userKinks = kinkRow.kinks_override.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+          }
+        }
       }
     }
   } catch (authErr) {
@@ -71,20 +152,29 @@ export default async function GamesHub({
   try {
     // 1. Query public.intimacy_games using admin client to ensure RLS never blocks catalog reads
     const adminClient = getAdminClient();
-    const { data, error } = await adminClient
+    let query = adminClient
       .from('intimacy_games')
-      .select('*')
-      .order('created_at', { ascending: true });
+      .select('*');
+
+    // Strictly filter query to intimacy_games where intensity matches base_tolerance (case-insensitive)
+    if (userBaseTolerance) {
+      query = query.ilike('intensity', userBaseTolerance.trim());
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
 
     if (!error && data && data.length > 0) {
       dbGames = data;
     } else if (error) {
       console.warn("GamesHub admin database fetch warning:", error.message || error);
-      // Fallback query via server client
-      const { data: serverData } = await serverSupabase
+      // Fallback query via server client with identical intensity filter
+      let serverQuery = serverSupabase
         .from('intimacy_games')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .select('*');
+      if (userBaseTolerance) {
+        serverQuery = serverQuery.ilike('intensity', userBaseTolerance.trim());
+      }
+      const { data: serverData } = await serverQuery.order('created_at', { ascending: true });
       if (serverData && serverData.length > 0) {
         dbGames = serverData;
       }
@@ -94,7 +184,16 @@ export default async function GamesHub({
   }
 
   // Use database games if available, otherwise seamlessly use fallback matrix catalog
-  const games: Game[] = (dbGames && dbGames.length > 0) ? dbGames : (FALLBACK_GAMES as any[]);
+  let rawGames: Game[] = (dbGames && dbGames.length > 0) ? dbGames : (FALLBACK_GAMES as any[]);
+
+  // Strict tolerance tier filtering: if base_tolerance is set (e.g. Playful), strictly exclude any Intense/Extreme games
+  if (userBaseTolerance) {
+    const targetTier = userBaseTolerance.toLowerCase().trim();
+    rawGames = rawGames.filter((g: any) => g.intensity?.toLowerCase().trim() === targetTier);
+  }
+
+  // Inject user's kinks_override into card game rule sets as suggested dares, penalties, or modifiers
+  const games: Game[] = rawGames.map(g => injectKinksIntoGame(g, userKinks, userBaseTolerance));
 
   // Category normalization helpers supporting flexible naming
   const isCardGame = (c: string) => {
@@ -117,11 +216,10 @@ export default async function GamesHub({
   const getCategoryGames = (filterFn: (cat: string) => boolean) => {
     const allInCat = (games || []).filter((g: any) => filterFn(g.category));
     if (!userBaseTolerance) return allInCat;
-    const toleranceFiltered = allInCat.filter((g: any) => 
-      g.intensity?.toLowerCase() === userBaseTolerance?.toLowerCase()
+    // Strictly return only games matching the active tolerance level. Never default to Intense or Extreme.
+    return allInCat.filter((g: any) => 
+      g.intensity?.toLowerCase().trim() === userBaseTolerance?.toLowerCase().trim()
     );
-    // If strict tolerance yields no games in this category, display all in category to keep catalog fresh & accessible
-    return toleranceFiltered.length > 0 ? toleranceFiltered : allInCat;
   };
 
   let cardGames = getCategoryGames(isCardGame);
@@ -168,7 +266,12 @@ export default async function GamesHub({
           Select a category to spark a new connection tonight. Hand-picked games designed specifically for your shared boundaries.
           {userBaseTolerance && (
             <span className="block mt-2 text-sm text-zinc-500">
-              Showing games matching your tolerance: <span className="font-semibold text-rose-400">{userBaseTolerance}</span>
+              Showing games matching your tolerance: <span className="font-semibold text-rose-400 capitalize">{userBaseTolerance}</span>
+            </span>
+          )}
+          {userKinks.length > 0 && (
+            <span className="block mt-1 text-xs text-rose-400/80">
+              ✨ {userKinks.length} custom kink modifier{userKinks.length > 1 ? 's' : ''} integrated into game rule cards.
             </span>
           )}
         </p>
@@ -190,7 +293,7 @@ export default async function GamesHub({
         <Suspense fallback={
           <div className="py-12 text-center text-zinc-500 font-light">Loading intimacy games...</div>
         }>
-          <GameList sections={sections} />
+          <GameList sections={sections} tolerance={userBaseTolerance} />
         </Suspense>
       </div>
     </div>
