@@ -6,8 +6,55 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import LogoutButton from '../../components/LogoutButton';
+import { boundaryMatrix, BoundaryItem } from '../../lib/boundaryData';
 
-type SettingsTab = 'account' | 'billing' | 'kinks' | 'contributions';
+type SettingsTab = 'account' | 'kinks' | 'contributions' | 'billing';
+
+const TOLERANCE_TIERS = [
+  {
+    id: 'Sensory',
+    name: 'Sensory',
+    icon: '🌿',
+    desc: 'Gentle romantic presence, soft touch, and sensory appreciation.'
+  },
+  {
+    id: 'Playful',
+    name: 'Playful',
+    icon: '🔥',
+    desc: 'Teasing, playful experimentation, toys, and lighthearted spice.'
+  },
+  {
+    id: 'Intense',
+    name: 'Intense',
+    icon: '⚡',
+    desc: 'Power dynamics, bondage, impact play, and deep dominance.'
+  },
+  {
+    id: 'Extreme',
+    name: 'Extreme',
+    icon: '🩸',
+    desc: 'Taboo themes, psychological edge-play, and heavy restraints.'
+  }
+];
+
+const calculateRecommendedTier = (topics: string[]): 'Sensory' | 'Playful' | 'Intense' | 'Extreme' => {
+  if (topics.length === 0) return 'Sensory';
+  
+  const extremeIds = (boundaryMatrix.Extreme || []).map((item: BoundaryItem) => item.id);
+  const intenseIds = (boundaryMatrix.Intense || []).map((item: BoundaryItem) => item.id);
+  const playfulIds = (boundaryMatrix.Playful || []).map((item: BoundaryItem) => item.id);
+  
+  if (topics.some(id => extremeIds.includes(id))) {
+    return 'Extreme';
+  }
+  if (topics.some(id => intenseIds.includes(id))) {
+    return 'Intense';
+  }
+  if (topics.some(id => playfulIds.includes(id))) {
+    return 'Playful';
+  }
+  return 'Sensory';
+};
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -19,7 +66,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Tab State - defaults cleanly to 'account'
+  // Tab State - sequence strictly: 1. Account/Profile, 2. Kinks, 3. Contributions, 4. Billing
   const [activeTab, setActiveTab] = useState<SettingsTab>('account');
 
   // Username Modification State
@@ -30,8 +77,12 @@ export default function SettingsPage() {
   const [mobileSaved, setMobileSaved] = useState(false);
   const [savingMobile, setSavingMobile] = useState(false);
 
-  // Intimacy Preference Level State
+  // Boundary Tolerance State
   const [baseTolerance, setBaseTolerance] = useState("");
+  const [savingTolerance, setSavingTolerance] = useState(false);
+  const [toleranceSaved, setToleranceSaved] = useState(false);
+  const [isMatrixOpen, setIsMatrixOpen] = useState(false);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   // Custom Kinks State
   const [kinkInput, setKinkInput] = useState('');
@@ -156,6 +207,30 @@ export default function SettingsPage() {
     fetchProfile();
   }, [supabase]);
 
+  // Pre-populate topic checklist with items up to active tier
+  useEffect(() => {
+    if (baseTolerance) {
+      const bLower = baseTolerance.toLowerCase();
+      const initial: string[] = [];
+      if (bLower === 'sensory') {
+        (boundaryMatrix.Sensory || []).forEach((i: BoundaryItem) => initial.push(i.id));
+      } else if (bLower === 'playful') {
+        (boundaryMatrix.Sensory || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Playful || []).forEach((i: BoundaryItem) => initial.push(i.id));
+      } else if (bLower === 'intense') {
+        (boundaryMatrix.Sensory || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Playful || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Intense || []).forEach((i: BoundaryItem) => initial.push(i.id));
+      } else if (bLower === 'extreme') {
+        (boundaryMatrix.Sensory || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Playful || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Intense || []).forEach((i: BoundaryItem) => initial.push(i.id));
+        (boundaryMatrix.Extreme || []).forEach((i: BoundaryItem) => initial.push(i.id));
+      }
+      setSelectedTopics(initial);
+    }
+  }, [baseTolerance]);
+
   // Handle Save Mobile with explicit payload through /api/profile service role pipeline
   const handleSaveMobile = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -167,7 +242,6 @@ export default function SettingsPage() {
 
     setSavingMobile(true);
     const formPhone = formatE164Phone(countryCode, mobileNumber) || (mobileNumber.trim() ? mobileNumber.trim() : null);
-    console.log("[Settings] Updating mobile_number payload via /api/profile:", { mobile_number: formPhone });
 
     try {
       const res = await fetch('/api/profile', {
@@ -185,7 +259,6 @@ export default function SettingsPage() {
         console.error("[Settings] API rejected mobile_number commit:", data);
         alert('Error saving mobile number: ' + (data.error || 'Server error'));
       } else {
-        console.log("[Settings] API committed mobile_number successfully:", data);
         const committedNumber = data.profile?.mobile_number ?? formPhone;
         setProfile((prev: any) => ({ ...prev, mobile_number: committedNumber }));
         const split = splitPhone(committedNumber);
@@ -227,6 +300,59 @@ export default function SettingsPage() {
       } catch (err: any) {
         alert('Error saving pronouns: ' + (err.message || 'Network error'));
       }
+    }
+  };
+
+  // Handle Save Boundary Tolerance
+  const handleSaveTolerance = async (tier: string) => {
+    setSavingTolerance(true);
+    setBaseTolerance(tier);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // 1. Update profiles table via service-role API
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ base_tolerance: tier, onboarding_completed: true })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          setProfile((prev: any) => ({ ...prev, base_tolerance: tier, ...(data.profile || {}) }));
+        }
+
+        // 2. Also keep intimacy_preferences Primary Directive in sync
+        const { data: existingRows } = await supabase
+          .from('intimacy_preferences')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('category_tag', 'Primary Directive')
+          .maybeSingle();
+
+        const existingId = existingRows?.id || primaryPrefId;
+        const upsertRecord: any = {
+          user_id: session.user.id,
+          category_tag: 'Primary Directive',
+          preference_level: tier
+        };
+        if (existingId) {
+          upsertRecord.id = existingId;
+        }
+        await supabase.from('intimacy_preferences').upsert(upsertRecord);
+
+        setToleranceSaved(true);
+        setTimeout(() => setToleranceSaved(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error saving boundary tolerance:', err);
+      alert('Error saving tolerance: ' + (err.message || 'Network error'));
+    } finally {
+      setSavingTolerance(false);
     }
   };
 
@@ -395,8 +521,8 @@ export default function SettingsPage() {
     );
   }
 
-  // Safe tab fallback - guaranteed never to render null
-  const currentTab: SettingsTab = ['account', 'billing', 'kinks', 'contributions'].includes(activeTab)
+  // Safe tab fallback - strictly one of the 4 tabs, never null
+  const currentTab: SettingsTab = ['account', 'kinks', 'contributions', 'billing'].includes(activeTab)
     ? activeTab
     : 'account';
 
@@ -406,62 +532,50 @@ export default function SettingsPage() {
         
         <header className="border-b border-zinc-800 pb-6">
           <h1 className="text-3xl font-serif font-medium text-zinc-100">Account Settings</h1>
-          <p className="text-zinc-500 mt-2">Manage your profile, billing, and custom preferences securely.</p>
+          <p className="text-zinc-500 mt-2">Manage your profile, boundary tolerances, kinks, and billing securely.</p>
         </header>
 
-        {/* Tab Navigation Header */}
+        {/* Tab Navigation Header: Strictly 1. Account/Profile, 2. Kinks, 3. Contributions, 4. Billing */}
         <div className="flex border-b border-zinc-800 space-x-2 overflow-x-auto pb-2 scrollbar-none" role="tablist">
+          {/* Tab 1: Account / Profile */}
           <button
             type="button"
             role="tab"
             aria-selected={currentTab === 'account'}
             onClick={() => setActiveTab('account')}
-            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
               currentTab === 'account'
                 ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
             }`}
           >
             <span>👤</span>
-            <span>Account / Profile</span>
+            <span>Account/Profile</span>
           </button>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={currentTab === 'billing'}
-            onClick={() => setActiveTab('billing')}
-            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
-              currentTab === 'billing'
-                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
-            }`}
-          >
-            <span>💳</span>
-            <span>Billing</span>
-          </button>
-
+          {/* Tab 2: Kinks */}
           <button
             type="button"
             role="tab"
             aria-selected={currentTab === 'kinks'}
             onClick={() => setActiveTab('kinks')}
-            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
               currentTab === 'kinks'
                 ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
             }`}
           >
             <span>🔥</span>
-            <span>Custom Kinks</span>
+            <span>Kinks</span>
           </button>
 
+          {/* Tab 3: Contributions */}
           <button
             type="button"
             role="tab"
             aria-selected={currentTab === 'contributions'}
             onClick={() => setActiveTab('contributions')}
-            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
               currentTab === 'contributions'
                 ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
@@ -470,14 +584,30 @@ export default function SettingsPage() {
             <span>💡</span>
             <span>Contributions</span>
           </button>
+
+          {/* Tab 4: Billing */}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'billing'}
+            onClick={() => setActiveTab('billing')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
+              currentTab === 'billing'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>💳</span>
+            <span>Billing</span>
+          </button>
         </div>
 
-        {/* Tab 1: Account / Profile View */}
+        {/* View 1: Account / Profile View */}
         {currentTab === 'account' && (
           <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
             <div className="border-b border-zinc-800/80 pb-4">
               <h2 className="text-xl font-medium text-zinc-200">Account &amp; Profile</h2>
-              <p className="text-zinc-500 text-sm mt-1">Manage your anonymous identity, pronouns, and contact details.</p>
+              <p className="text-zinc-500 text-sm mt-1">Manage your anonymous identity, boundary tolerance, pronouns, and contact details.</p>
             </div>
 
             <div className="space-y-6">
@@ -491,7 +621,7 @@ export default function SettingsPage() {
                         setIsEditingUsername(true);
                         setNewUsername(profile?.anonymous_alias || profile?.nickname || '');
                       }}
-                      className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
+                      className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide cursor-pointer"
                     >
                       Change Username
                     </button>
@@ -517,7 +647,7 @@ export default function SettingsPage() {
                       <button
                         onClick={(e) => handleSaveUsername(e, newUsername.trim())}
                         disabled={savingUsername || usernameStatus !== 'available'}
-                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white disabled:text-zinc-500 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                       >
                         {savingUsername ? 'Saving...' : 'Save'}
                       </button>
@@ -526,7 +656,7 @@ export default function SettingsPage() {
                           setIsEditingUsername(false);
                           setNewUsername('');
                         }}
-                        className="text-zinc-400 hover:text-zinc-300 px-2 py-2"
+                        className="text-zinc-400 hover:text-zinc-300 px-2 py-2 cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -547,7 +677,7 @@ export default function SettingsPage() {
                                   <button
                                     key={sug}
                                     onClick={() => setNewUsername(sug)}
-                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded border border-zinc-700 text-sm transition-colors"
+                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded border border-zinc-700 text-sm transition-colors cursor-pointer"
                                   >
                                     {sug}
                                   </button>
@@ -561,9 +691,162 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Dedicated Boundary Tolerance Card / Module */}
+              <div className="pt-6 border-t border-zinc-800/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div>
+                    <h3 className="text-base font-medium text-zinc-200">Boundary Tolerance</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Sets the baseline intensity threshold for stories, roleplay scenarios, and card games.
+                    </p>
+                  </div>
+                  <div className="text-xs text-zinc-400 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800 w-fit shrink-0">
+                    Saved Tier: <span className="font-semibold text-rose-400 capitalize">{baseTolerance || profile?.base_tolerance || 'Not set'}</span>
+                  </div>
+                </div>
+
+                {/* 4 Interactive Baseline Tolerance Tiers */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                  {TOLERANCE_TIERS.map((tier) => {
+                    const isSelected = (baseTolerance || '').toLowerCase() === tier.id.toLowerCase();
+                    return (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() => handleSaveTolerance(tier.id)}
+                        disabled={savingTolerance}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          isSelected
+                            ? 'bg-zinc-800 border-rose-500/80 ring-1 ring-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.18)]'
+                            : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xl">{tier.icon}</span>
+                            {isSelected && (
+                              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/60">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-semibold text-white group-hover:text-rose-300 transition-colors">
+                            {tier.name}
+                          </h4>
+                          <p className="text-[11px] text-zinc-400 font-light mt-1 line-clamp-2 leading-relaxed">
+                            {tier.desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {toleranceSaved && (
+                  <p className="text-green-500 text-xs mt-2.5 font-medium flex items-center gap-1.5 animate-in fade-in">
+                    <span>✓</span> Boundary tolerance tier saved successfully to your profile!
+                  </p>
+                )}
+
+                {/* Exact Helper Link */}
+                <div className="mt-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsMatrixOpen(!isMatrixOpen)}
+                    className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-4 transition-colors font-medium flex items-center gap-1.5 cursor-pointer text-left"
+                  >
+                    <span>Not sure? Click here to select specific topics of interest and calculate your recommended tier.</span>
+                    <span className="text-[10px] opacity-80">{isMatrixOpen ? '▲' : '▼'}</span>
+                  </button>
+                </div>
+
+                {/* Interactive Preference Matrix / Checklist Drawer */}
+                {isMatrixOpen && (
+                  <div className="mt-4 p-5 bg-zinc-950/90 border border-zinc-800 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-800/70 gap-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-zinc-200">Preference Matrix &amp; Topic Checklist</h4>
+                        <p className="text-xs text-zinc-500">Check the topics that interest you to dynamically recalculate and preview your recommended tier.</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-zinc-400">Calculated Tier:</span>
+                        <span className="text-xs font-bold text-rose-400 bg-rose-950/70 border border-rose-800/80 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                          {calculateRecommendedTier(selectedTopics)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Topics Checklist by Category / Tier */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                      {(Object.entries(boundaryMatrix) as [string, BoundaryItem[]][]).map(([tierKey, items]) => (
+                        <div key={tierKey} className="space-y-2 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/70">
+                          <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                            <span>{tierKey === 'Sensory' ? '🌿' : tierKey === 'Playful' ? '🔥' : tierKey === 'Intense' ? '⚡' : '🩸'}</span>
+                            <span>{tierKey} Tier</span>
+                          </span>
+                          <div className="space-y-1.5">
+                            {items.map((item: BoundaryItem) => {
+                              const checked = selectedTopics.includes(item.id);
+                              return (
+                                <label
+                                  key={item.id}
+                                  className={`flex items-start gap-2.5 p-1.5 rounded hover:bg-zinc-800/50 cursor-pointer text-xs transition-colors select-none ${
+                                    checked ? 'text-zinc-100 font-medium' : 'text-zinc-400'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedTopics((prev) => [...prev, item.id]);
+                                      } else {
+                                        setSelectedTopics((prev) => prev.filter((id) => id !== item.id));
+                                      }
+                                    }}
+                                    className="mt-0.5 w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-900 text-rose-600 focus:ring-rose-500"
+                                  />
+                                  <span>{item.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-zinc-800/70 gap-3">
+                      <span className="text-xs text-zinc-500">
+                        {selectedTopics.length} topic(s) selected
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rec = calculateRecommendedTier(selectedTopics);
+                            handleSaveTolerance(rec);
+                          }}
+                          disabled={savingTolerance}
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Apply Recommended Tier ({calculateRecommendedTier(selectedTopics)})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsMatrixOpen(false)}
+                          className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {/* Pronouns */}
-              <div>
+              <div className="pt-6 border-t border-zinc-800/80">
                 <p className="text-sm text-zinc-500 mb-1">Pronouns</p>
                 <div className="flex items-center gap-2">
                   <input
@@ -573,7 +856,7 @@ export default function SettingsPage() {
                     className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-200 focus:outline-none focus:border-zinc-500"
                     placeholder="e.g., they/them, she/her"
                   />
-                  <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-3 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors">Save</button>
+                  <button onClick={handleSavePronouns} className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-3 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors cursor-pointer">Save</button>
                 </div>
                 {pronounsSaved && <p className="text-green-500 text-xs mt-2 font-medium">Pronouns saved!</p>}
               </div>
@@ -603,7 +886,7 @@ export default function SettingsPage() {
                   <button 
                     onClick={handleSaveMobile} 
                     disabled={savingMobile}
-                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors disabled:opacity-50"
+                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     {savingMobile ? 'Saving...' : 'Save'}
                   </button>
@@ -614,50 +897,14 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Tab 2: Billing View */}
-        {currentTab === 'billing' && (
-          <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
-            <div className="border-b border-zinc-800/80 pb-4">
-              <h2 className="text-xl font-medium text-zinc-200">Subscription &amp; Billing</h2>
-              <p className="text-zinc-500 text-sm mt-1">Review your plan tier and securely manage your subscription or payment methods.</p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-zinc-950/60 rounded-xl border border-zinc-800/80 gap-4">
-              <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Active Plan</p>
-                <p className="text-lg text-zinc-200 mt-1">
-                  {profile?.is_active ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Premium Member
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-zinc-600"></span> Inactive Trial
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">Full access to AI serialized novellas, custom roleplays, and card decks.</p>
-              </div>
-              
-              <button 
-                onClick={handleManageBilling}
-                disabled={isRedirecting}
-                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm disabled:opacity-50"
-              >
-                {isRedirecting ? 'Redirecting...' : 'Unsubscribe / Manage Billing'}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* Tab 3: Custom Kinks View */}
+        {/* View 2: Kinks View */}
         {currentTab === 'kinks' && (
           <section id="kinks-settings" className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6 scroll-mt-8">
             <div className="border-b border-zinc-800/80 pb-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-widest text-red-500 font-bold">Preferences &amp; Desires</span>
               </div>
-              <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Custom Kinks &amp; Specific Interests</h2>
+              <h2 className="text-2xl font-serif font-medium text-zinc-100 mt-1">Kinks &amp; Specific Interests</h2>
               <p className="text-zinc-400 text-sm mt-1 leading-relaxed font-light">
                 Add specific kinks, themes, or interests (one per line). Our matching engine will incorporate these directly into your generated stories, roleplays, and card game decks.
               </p>
@@ -680,7 +927,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveKinks}
                   disabled={savingKinks}
-                  className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950"
+                  className="py-2.5 px-6 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-xl transition-all shadow-md shadow-red-950 cursor-pointer"
                 >
                   {savingKinks ? 'Saving Kinks...' : 'Save Kink Preferences'}
                 </button>
@@ -691,7 +938,7 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Tab 4: My Contributions View */}
+        {/* View 3: My Contributions View */}
         {currentTab === 'contributions' && (
           <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
@@ -777,8 +1024,44 @@ export default function SettingsPage() {
           </section>
         )}
 
+        {/* View 4: Billing View */}
+        {currentTab === 'billing' && (
+          <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
+            <div className="border-b border-zinc-800/80 pb-4">
+              <h2 className="text-xl font-medium text-zinc-200">Subscription &amp; Billing</h2>
+              <p className="text-zinc-500 text-sm mt-1">Review your plan tier and securely manage your subscription or payment methods.</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-zinc-950/60 rounded-xl border border-zinc-800/80 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Active Plan</p>
+                <p className="text-lg text-zinc-200 mt-1">
+                  {profile?.is_active ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Premium Member
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-zinc-600"></span> Inactive Trial
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">Full access to AI serialized novellas, custom roleplays, and card decks.</p>
+              </div>
+              
+              <button 
+                onClick={handleManageBilling}
+                disabled={isRedirecting}
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium px-6 py-3 rounded-xl transition-colors whitespace-nowrap shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {isRedirecting ? 'Redirecting...' : 'Unsubscribe / Manage Billing'}
+              </button>
+            </div>
+          </section>
+        )}
+
         <section className="mt-8 border-t border-zinc-800 pt-6">
-          <LogoutButton className="w-full md:w-auto px-6 py-3 bg-red-950/20 text-red-500 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors font-medium" />
+          <LogoutButton className="w-full md:w-auto px-6 py-3 bg-red-950/20 text-red-500 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors font-medium cursor-pointer" />
         </section>
 
       </div>

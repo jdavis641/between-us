@@ -183,7 +183,7 @@ export default function DashboardHome() {
                           <span className="text-xs text-gray-400 font-medium">• {activeHoliday.name}</span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                          {activeHoliday.seasonal_tag === 'halloween' ? 'Halloween: Shadows, Whispers & Gothic Intimacy' : activeHoliday.title}
+                          {activeHoliday.seasonal_tag === 'halloween' ? 'Halloween: Shadows, Whispers & Gothic Intimacy' : ((activeHoliday as any).title || activeHoliday.name)}
                         </h3>
                         <p className="text-sm text-gray-300 mt-1">
                           {activeHoliday.seasonal_tag === 'halloween'
@@ -201,41 +201,9 @@ export default function DashboardHome() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Erotic Literature Card */}
-              <Link href="/dashboard/literature">
-                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Erotic Literature</h3>
-                      <span className="text-2xl">📖</span>
-                    </div>
-                    <p className="text-zinc-400 text-sm">Immersive romantic stories crafted strictly within your shared boundaries.</p>
-                  </div>
-                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
-                    Generate Story &rarr;
-                  </div>
-                </div>
-              </Link>
-
-              {/* Role-Play Scenarios Card */}
-              <Link href="/dashboard/roleplay">
-                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Role-Play Scripts</h3>
-                      <span className="text-2xl">🎭</span>
-                    </div>
-                    <p className="text-zinc-400 text-sm">Perspective-based dialogue and step-by-step actions for tonight.</p>
-                  </div>
-                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
-                    Build Scenario &rarr;
-                  </div>
-                </div>
-              </Link>
-
-              {/* Intimacy Games Card */}
+              {/* 1. Intimacy Games */}
               <Link href="/dashboard/games">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
@@ -251,7 +219,7 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Relationship Randomizer Card */}
+              {/* 2. The Randomizer */}
               <Link href="/dashboard/randomizer">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
@@ -267,7 +235,39 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Saved Favorites Card */}
+              {/* 3. Romantasy */}
+              <Link href="/dashboard/literature">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Romantasy</h3>
+                      <span className="text-2xl">📖</span>
+                    </div>
+                    <p className="text-zinc-400 text-sm">Immersive romantic stories crafted strictly within your shared boundaries.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Generate Story &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* 4. Role Play */}
+              <Link href="/dashboard/roleplay">
+                <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold group-hover:text-red-400 transition-colors">Role Play</h3>
+                      <span className="text-2xl">🎭</span>
+                    </div>
+                    <p className="text-zinc-400 text-sm">Perspective-based dialogue and step-by-step actions for tonight.</p>
+                  </div>
+                  <div className="mt-4 text-xs font-semibold text-red-400 group-hover:translate-x-1 transition-transform inline-flex items-center">
+                    Build Scenario &rarr;
+                  </div>
+                </div>
+              </Link>
+
+              {/* 5. Saved Favorites */}
               <Link href="/dashboard/favorites">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
@@ -283,7 +283,7 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Between Us Pass Card */}
+              {/* 6. Between Us Pass */}
               <Link href="/dashboard/partnerinvite">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
@@ -299,7 +299,7 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Guest Pass Card */}
+              {/* 7. Guest Pass */}
               <Link href="/dashboard/pass">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>
@@ -315,7 +315,7 @@ export default function DashboardHome() {
                 </div>
               </Link>
 
-              {/* Account Settings Card */}
+              {/* 8. Account Settings */}
               <Link href="/dashboard/settings">
                 <div className="border border-zinc-800 bg-zinc-950/60 p-6 rounded-xl hover:border-red-900/50 transition-colors cursor-pointer group h-full flex flex-col justify-between">
                   <div>

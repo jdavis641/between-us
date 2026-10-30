@@ -1,6 +1,12 @@
 // app/lib/boundaryData.ts
 
-export const boundaryMatrix = {
+export interface BoundaryItem {
+  id: string;
+  label: string;
+  category: string;
+}
+
+export const boundaryMatrix: Record<'Sensory' | 'Playful' | 'Intense' | 'Extreme', BoundaryItem[]> = {
   Sensory: [
     { id: 'hugging', label: 'Hugging', category: 'Intimacy' },
     { id: 'kissing_mouth', label: 'Kissing (mouth)', category: 'Intimacy' },
@@ -28,4 +34,4 @@ export const boundaryMatrix = {
     { id: 'watersports', label: 'Watersports (Golden Showers)', category: 'Fluids' },
     { id: 'cuckolding', label: 'Cuckolding / Hotwifing', category: 'Taboo Scenarios' },
   ]
-}
+};
