@@ -713,7 +713,7 @@ function RandomizerHubContent() {
               Role Play →
             </Link>
             <Link href="/dashboard/literature" className="text-purple-400 hover:text-purple-300 underline transition-colors">
-              Erotic Stories →
+              Romantasy →
             </Link>
           </div>
         </div>

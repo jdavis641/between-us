@@ -61,8 +61,8 @@ export default function Sidebar({ logo }: SidebarProps) {
           isOpen ? "block animate-in slide-in-from-top-2 duration-200" : "hidden"
         } md:block`}
       >
-        {/* Main */}
-        <div className="space-y-2">
+        {/* Top-Level Primary Navigation in Exact Dashboard Order */}
+        <div className="space-y-1.5">
           <Link
             href="/dashboard"
             onClick={() => setIsOpen(false)}
@@ -72,6 +72,63 @@ export default function Sidebar({ logo }: SidebarProps) {
           >
             Dashboard Home
           </Link>
+
+          {/* 1. Intimacy Games */}
+          <Link
+            href="/dashboard/games"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname?.startsWith('/dashboard/games') ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            🎲 Intimacy Games
+          </Link>
+
+          {/* 2. The Randomizer */}
+          <Link
+            href="/dashboard/randomizer"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/randomizer' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            ⚡ The Randomizer
+          </Link>
+
+          {/* 3. Romantasy */}
+          <Link
+            href="/dashboard/literature"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/literature' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            📖 Romantasy
+          </Link>
+
+          {/* 4. Role Play */}
+          <Link
+            href="/dashboard/roleplay"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/roleplay' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            🎭 Role Play
+          </Link>
+
+          {/* 5. Saved Favorites */}
+          <Link
+            href="/dashboard/favorites"
+            onClick={() => setIsOpen(false)}
+            className={`block px-3 py-2 rounded-lg transition-colors ${
+              pathname === '/dashboard/favorites' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+            }`}
+          >
+            ❤️ Saved Favorites
+          </Link>
+
+          {/* 6. Between Us Pass */}
           <Link
             href="/dashboard/partnerinvite"
             onClick={() => setIsOpen(false)}
@@ -83,6 +140,8 @@ export default function Sidebar({ logo }: SidebarProps) {
           >
             💑 Between Us Pass
           </Link>
+
+          {/* 7. Guest Pass */}
           <Link
             href="/dashboard/pass"
             onClick={() => setIsOpen(false)}
@@ -94,53 +153,48 @@ export default function Sidebar({ logo }: SidebarProps) {
           >
             🎟️ Guest Pass
           </Link>
+
+          {/* 8. Account Settings */}
           <Link
-            href="/dashboard/randomizer"
+            href="/dashboard/settings"
             onClick={() => setIsOpen(false)}
             className={`block px-3 py-2 rounded-lg transition-colors ${
-              pathname === '/dashboard/randomizer' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
+              pathname === '/dashboard/settings' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
             }`}
           >
-            🎲 Randomizer Games
-          </Link>
-          <Link
-            href="/dashboard/games"
-            onClick={() => setIsOpen(false)}
-            className={`block px-3 py-2 rounded-lg transition-colors ${
-              pathname?.startsWith('/dashboard/games') ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
-            }`}
-          >
-            ✨ Card Games
-          </Link>
-          <Link
-            href="/dashboard/literature"
-            onClick={() => setIsOpen(false)}
-            className={`block px-3 py-2 rounded-lg transition-colors ${
-              pathname === '/dashboard/literature' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
-            }`}
-          >
-            📖 Erotic Stories
-          </Link>
-          <Link
-            href="/dashboard/roleplay"
-            className={`block px-3 py-2 rounded-lg transition-colors ${
-              pathname === '/dashboard/roleplay' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
-            }`}
-          >
-            🎭 Role Play
-          </Link>
-          <Link
-            href="/dashboard/favorites"
-            onClick={() => setIsOpen(false)}
-            className={`block px-3 py-2 rounded-lg transition-colors ${
-              pathname === '/dashboard/favorites' ? 'bg-zinc-900 text-white font-medium' : 'hover:bg-zinc-900 text-zinc-300 hover:text-white'
-            }`}
-          >
-            ❤️ Your Favorites
+            ⚙️ Account Settings
           </Link>
         </div>
 
-        {/* Intimacy Games */}
+        {/* Romantasy Category Section / Reading Modes */}
+        <div>
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-3">Romantasy</h3>
+          <div className="space-y-1">
+            <Link
+              href="/dashboard/literature?mode=solo"
+              onClick={() => setIsOpen(false)}
+              className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+            >
+              Solo Reading
+            </Link>
+            <Link
+              href="/dashboard/literature?mode=couple"
+              onClick={() => setIsOpen(false)}
+              className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+            >
+              Couples Romantasy
+            </Link>
+            <Link
+              href="/dashboard/literature?mode=group"
+              onClick={() => setIsOpen(false)}
+              className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+            >
+              Group Scenarios
+            </Link>
+          </div>
+        </div>
+
+        {/* Intimacy Games Category Section */}
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-3">Intimacy Games</h3>
           <div className="space-y-1">
@@ -184,7 +238,7 @@ export default function Sidebar({ logo }: SidebarProps) {
               onClick={() => setIsOpen(false)}
               className="block px-3 py-1.5 text-sm rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
             >
-              💡 Suggest an erotic literature scenario for public enjoyment
+              💡 Suggest Scenario
             </Link>
             <Link
               href="/dashboard/improve"
@@ -196,7 +250,7 @@ export default function Sidebar({ logo }: SidebarProps) {
           </div>
         </div>
 
-        {/* Account */}
+        {/* Account & Logout Footer */}
         <div className="pt-4 mt-4 border-t border-zinc-900">
           <Link
             href="/dashboard/messages"
@@ -216,7 +270,7 @@ export default function Sidebar({ logo }: SidebarProps) {
           >
             ⚙️ Settings &amp; Billing
           </Link>
-          <LogoutButton className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-red-950/20 text-red-500/70 hover:text-red-400 transition-colors mt-2" />
+          <LogoutButton className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-red-950/20 text-red-500/70 hover:text-red-400 transition-colors mt-2 cursor-pointer" />
         </div>
       </nav>
     </aside>
