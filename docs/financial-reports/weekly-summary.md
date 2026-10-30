@@ -1,7 +1,7 @@
 # CFO Weekly Financial & Subscriber Summary
 
-**Execution Timestamp:** 2026-10-23T20:10:31.390Z  
-**Reporting Period:** Week ending 2026-10-23  
+**Execution Timestamp:** 2026-10-30T21:17:28.240Z  
+**Reporting Period:** Week ending 2026-10-30  
 **Data Source:** mock/fallback  
 **Target Operating Threshold:** >= 80.00% Gross Margin  
 
