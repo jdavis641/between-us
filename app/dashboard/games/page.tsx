@@ -2,7 +2,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import GameList from '@/components/GameList'
+import GamesClient from './GamesClient'
 import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0
@@ -293,7 +293,12 @@ export default async function GamesHub({
         <Suspense fallback={
           <div className="py-12 text-center text-zinc-500 font-light">Loading intimacy games...</div>
         }>
-          <GameList sections={sections} tolerance={userBaseTolerance} />
+          <GamesClient 
+            initialSections={sections} 
+            tolerance={userBaseTolerance} 
+            seasonalTag={seasonalTag}
+            userKinks={userKinks}
+          />
         </Suspense>
       </div>
     </div>

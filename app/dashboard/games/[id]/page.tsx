@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import MovieGameGenerator from '@/components/MovieGameGenerator'
 import InteractionBar from '@/components/InteractionBar'
+import DrinkingRulesView from '@/components/DrinkingRulesView'
 import { FALLBACK_GAMES } from '@/lib/games-catalog'
 
 export const revalidate = 0 // dynamically fetch data on every request
@@ -256,25 +257,12 @@ export default async function GameDetailPage({ params }: PageProps) {
 
           {game.category === 'movie' && <MovieGameGenerator gameTitle={game.title} />}
           
-          {/* Rules & Content Section */}
-          <div className="space-y-8 py-4 select-none">
-            <h2 className="text-2xl font-serif font-medium text-zinc-100">How to Play</h2>
-            {parsedRules && parsedRules.length > 0 ? (
-              <ol className="space-y-4 list-decimal list-inside">
-                {parsedRules.map((rule: string, index: number) => (
-                  <li key={index} className="flex space-x-4 bg-zinc-900 p-5 rounded-xl border border-zinc-800 shadow-sm">
-                    <span className="text-red-500 font-bold text-lg leading-none">{index + 1}.</span>
-                    <span className="text-zinc-300 font-light leading-relaxed">{rule}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="text-zinc-400 p-6 bg-zinc-900/50 rounded-xl border border-zinc-800 border-dashed text-center">
-                <p className="font-medium text-zinc-300">No rules found.</p>
-                <p className="text-sm text-zinc-500 mt-1">No specific rules or instructions could be parsed for this scenario.</p>
-              </div>
-            )}
-          </div>
+          {/* Rules & Content Section with Dynamic Drinking Pace Selector */}
+          <DrinkingRulesView
+            initialRules={parsedRules}
+            category={game.category}
+            intensity={game.intensity}
+          />
 
           {/* The Feedback Loop */}
           <div className="pt-10 border-t border-zinc-800">

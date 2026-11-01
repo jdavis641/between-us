@@ -22,41 +22,42 @@ export default function MovieGameGenerator({ gameTitle }: { gameTitle: string })
         ...(anonKey ? { "apikey": anonKey } : {}),
         ...(token ? { "Authorization": `Bearer ${token}` } : (anonKey ? { "Authorization": `Bearer ${anonKey}` } : {}))
       };
-      const res = await fetch("/api/generate/content", {
+      const res = await fetch("/api/generate/movie-game", {
         method: "POST",
         headers: reqHeaders,
         body: JSON.stringify({
-          contentType: "roleplay",
-          playMode: "couple",
-          hasScripts: false,
-          theme: `Movie/Genre: ${movieInput}. Generate exactly 5 custom, alternating-role viewing rules mapped directly to specific tropes within this title.`,
-          targetBoundary: "Playful"
+          movie_title: movieInput,
+          category: 'movie_drinking'
         })
       });
       
-      const reader = res.body?.getReader();
-      let rawText = "";
-
-      if (reader) {
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          rawText += decoder.decode(value, { stream: true });
-        }
-      } else {
-        rawText = await res.text();
-      }
-
       let data: any;
-      try {
-        const cleaned = rawText.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
-        data = JSON.parse(cleaned);
-      } catch (e) {
-        data = JSON.parse(rawText);
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        // Fallback to /api/generate/content
+        const fallbackRes = await fetch("/api/generate/content", {
+          method: "POST",
+          headers: reqHeaders,
+          body: JSON.stringify({
+            movie_title: movieInput,
+            category: 'movie_drinking'
+          })
+        });
+        const rawText = await fallbackRes.text();
+        try {
+          const cleaned = rawText.trim().replace(/^\`\`\`json\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\`\`\`\s*$/i, '').trim();
+          data = JSON.parse(cleaned);
+        } catch {
+          data = JSON.parse(rawText);
+        }
       }
 
-      if (data.preExperienceTasks) {
+      if (data?.content?.rules && Array.isArray(data.content.rules)) {
+        setGeneratedRules(data.content.rules);
+      } else if (Array.isArray(data?.rules)) {
+        setGeneratedRules(data.rules);
+      } else if (data.preExperienceTasks) {
         setGeneratedRules(data.preExperienceTasks);
       } else if (data.partnerAPerspective) {
         setGeneratedRules([data.partnerAPerspective]);

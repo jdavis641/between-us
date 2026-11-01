@@ -9,6 +9,7 @@ import { getActiveHoliday } from "@/utils/holidayTheme";
 import { getSemanticEmbedding, cosineSimilarity, formatVectorForPg } from "@/lib/embeddings";
 import { computeAndAppendChaptersAsync, enforceAnatomicalReality } from "@/lib/async-chapters";
 import { DetailedStoryMetadata, extractDetailedMetaTags, extractIntimacyMetaTags } from "@/lib/metadata";
+import { generateMovieDrinkingGame, normalizeDrinkingPace } from "@/lib/movie-game-generator";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -713,6 +714,22 @@ export async function POST(req: Request) {
 
     const contentType = body.contentType || 'literature';
     const category = body.category;
+
+    // Dedicated AI Movie Drinking Game Generation intercept
+    if (category === 'movie_drinking' || body.movie_title || ((category === 'movie' || category === 'drinking') && (body.movie_title || body.searchTerm))) {
+      const movieTitle = (body.movie_title || body.movieTitle || body.searchTerm || body.theme || '').trim();
+      if (movieTitle) {
+        const drinkingPace = normalizeDrinkingPace(body.drinking_pace || body.drinkingPace || body.pace);
+        const movieGame = await generateMovieDrinkingGame(movieTitle, drinkingPace);
+        return NextResponse.json(movieGame, {
+          headers: {
+            'Cache-Control': 'no-store',
+            'X-Generated-Category': 'movie_drinking',
+            'X-Drinking-Pace': drinkingPace
+          }
+        });
+      }
+    }
     const hasScripts = body.hasScripts;
     const theme = sanitizePromptInput(body.theme, 1000);
     const customPrompt = sanitizePromptInput(body.prompt || body.customPrompt, 2000);
