@@ -144,7 +144,8 @@ function buildSystemInstruction({
   userCustomKinks = [],
   tropeOrScenario,
   kinks,
-  tolerance
+  tolerance,
+  offLimits = []
 }: {
   preferences: any[];
   playMode: string;
@@ -166,6 +167,7 @@ function buildSystemInstruction({
   tropeOrScenario?: any;
   kinks?: any;
   tolerance?: string;
+  offLimits?: string[];
 }) {
   const baseTolerance = tolerance || targetBoundary || (preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level || 'Moderate');
 
@@ -200,11 +202,13 @@ function buildSystemInstruction({
     .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
     .join(', ') || 'None specified';
 
-  const excludedVariables = preferences
+  const prefExcluded = preferences
     ?.filter(p => p.preference_level === 'Off-Limits')
     .map(p => p.category_tag)
-    .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
-    .join(', ') || 'None specified';
+    .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
+
+  const combinedExcluded = Array.from(new Set([...prefExcluded, ...offLimits])).filter(Boolean);
+  const excludedVariables = combinedExcluded.length > 0 ? combinedExcluded.join(', ') : 'None specified';
 
   let primaryDirective = null;
   const kinkRow = preferences?.find(p => p.kinks_override && p.category_tag !== 'Guest Pass Config');
@@ -355,6 +359,12 @@ You must strictly uphold anatomical and biological reality in all descriptions:
 - Mandatory Included Themes: ${mandatoryThemes}
 - Strictly Excluded Variables: ${excludedVariables}
 Boundary Enforcement is absolute and uncompromising: Items in the Strictly Excluded Variables list must NEVER appear, be hinted at, or be referenced under any circumstances. Mandatory Included Themes and Primary Directive Overrides must serve as key narrative pillars.\n\n`;
+
+  if (combinedExcluded.length > 0) {
+    const joined_off_limits_list = combinedExcluded.join(', ');
+    sys += `STRICT EXCLUSIONS / OFF-LIMITS:
+CRITICAL DIRECTIVE: The user has marked the following concepts as strictly forbidden. Under no circumstance should any of these themes, words, or actions appear in the output: ${joined_off_limits_list}.\n\n`;
+  }
 
   if (primaryDirective) {
     sys += `Primary Directive Override:\nPrioritize these text parameters above all other matrix selections:\n${primaryDirective}\n\n`;
@@ -780,6 +790,35 @@ export async function POST(req: Request) {
       
     const groupId = groupMember?.group_id;
 
+    // Fetch User Profile for off_limits
+    let userProfileOffLimits: string[] = [];
+    if (!user.is_guest) {
+      try {
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('off_limits')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (userProfile?.off_limits) {
+          if (Array.isArray(userProfile.off_limits)) {
+            userProfileOffLimits = userProfile.off_limits.map((s: any) => String(s).trim()).filter(Boolean);
+          } else if (typeof userProfile.off_limits === 'string') {
+            try {
+              const parsed = JSON.parse(userProfile.off_limits);
+              if (Array.isArray(parsed)) {
+                userProfileOffLimits = parsed.map((s: any) => String(s).trim()).filter(Boolean);
+              }
+            } catch {
+              userProfileOffLimits = userProfile.off_limits.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+            }
+          }
+        }
+      } catch (profileFetchErr) {
+        console.warn('[Content] Error fetching user profile off_limits:', profileFetchErr);
+      }
+    }
+
     // Fetch Preferences
     const { data: preferences } = await supabase
       .from('intimacy_preferences')
@@ -798,6 +837,26 @@ export async function POST(req: Request) {
         profileBaseTolerance = profileRow.base_tolerance;
       }
     } catch {}
+
+    // Off-Limits from intimacy_preferences where preference_level = 'Off-Limits'
+    const prefOffLimits = preferences
+      ?.filter(p => p.preference_level === 'Off-Limits')
+      .map(p => p.category_tag.trim())
+      .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
+
+    // Optional off_limits from request body if passed directly by client
+    const requestOffLimits: string[] = Array.isArray(body.off_limits)
+      ? body.off_limits.map((s: any) => String(s).trim()).filter(Boolean)
+      : (typeof body.off_limits === 'string' && body.off_limits.trim()
+          ? body.off_limits.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean)
+          : []);
+
+    // Consolidated off_limits array
+    const userOffLimits = Array.from(new Set([
+      ...userProfileOffLimits,
+      ...prefOffLimits,
+      ...requestOffLimits
+    ])).map(item => sanitizePromptInput(item, 200)).filter(Boolean);
 
     // Derive Base Tolerance and Target Boundary honoring priority hierarchy
     const prefTolerance = preferences?.find(p => p.category_tag === 'Base Tolerance' || p.category_tag === 'Primary Directive')?.preference_level;
@@ -837,10 +896,13 @@ export async function POST(req: Request) {
       .filter(tag => tag && tag !== 'Base' && tag !== 'Base Tolerance' && tag !== 'Guest Pass Config') || [];
 
     // Strictly Excluded Variables (Off-Limits)
-    const excludedThemes = preferences
-      ?.filter(p => p.preference_level === 'Off-Limits')
-      .map(p => p.category_tag.toLowerCase())
-      .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
+    const excludedThemes = Array.from(new Set([
+      ...preferences
+        ?.filter(p => p.preference_level === 'Off-Limits')
+        .map(p => p.category_tag.toLowerCase())
+        .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [],
+      ...userOffLimits.map(s => s.toLowerCase())
+    ]));
 
     // Target Metatags for High-Relevance Matching (Themes, Sexual Topics, Tropes, Kinks, Boundaries)
     const tropeTags = activeTrope
@@ -1268,7 +1330,8 @@ export async function POST(req: Request) {
       userCustomKinks: allCustomKinks,
       tropeOrScenario: requestTrope || activeTrope || theme || customPrompt,
       kinks: allCustomKinks.length > 0 ? allCustomKinks : requestKinks,
-      tolerance: effectiveTolerance
+      tolerance: effectiveTolerance,
+      offLimits: userOffLimits
     });
 
     let pacingRule = '';

@@ -25,6 +25,7 @@ export interface Database {
           account_created_at?: string | null;
           created_at?: string | null;
           last_survey_prompted_at?: string | null;
+          off_limits?: string[] | Json | null;
         };
         Insert: {
           id: string;
@@ -41,6 +42,7 @@ export interface Database {
           account_created_at?: string | null;
           created_at?: string | null;
           last_survey_prompted_at?: string | null;
+          off_limits?: string[] | Json | null;
         };
         Update: {
           id?: string;
@@ -57,6 +59,7 @@ export interface Database {
           account_created_at?: string | null;
           created_at?: string | null;
           last_survey_prompted_at?: string | null;
+          off_limits?: string[] | Json | null;
         };
       };
       invitations: {

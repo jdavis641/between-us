@@ -7,8 +7,9 @@ import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import LogoutButton from '../../components/LogoutButton';
 import { boundaryMatrix, BoundaryItem } from '../../lib/boundaryData';
+import OffLimitsManager from './components/OffLimitsManager';
 
-type SettingsTab = 'account' | 'kinks' | 'contributions' | 'billing';
+type SettingsTab = 'account' | 'kinks' | 'boundaries' | 'contributions' | 'billing';
 
 const TOLERANCE_TIERS = [
   {
@@ -91,6 +92,12 @@ export default function SettingsPage() {
   const [kinksError, setKinksError] = useState<string | null>(null);
   const [primaryPrefId, setPrimaryPrefId] = useState<string | null>(null);
 
+  // Off-Limits State
+  const [offLimits, setOffLimits] = useState<string[]>([]);
+  const [savingOffLimits, setSavingOffLimits] = useState(false);
+  const [offLimitsSaved, setOffLimitsSaved] = useState(false);
+  const [offLimitsError, setOffLimitsError] = useState<string | null>(null);
+
   const [newUsername, setNewUsername] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -108,6 +115,8 @@ export default function SettingsPage() {
         setActiveTab('billing');
       } else if (hash === '#kinks-settings' || hash === '#kinks') {
         setActiveTab('kinks');
+      } else if (hash === '#off-limits' || hash === '#boundaries') {
+        setActiveTab('boundaries');
       } else if (hash === '#contributions') {
         setActiveTab('contributions');
       } else {
@@ -184,6 +193,40 @@ export default function SettingsPage() {
         const splitMobile = splitPhone(profileData?.mobile_number);
         setCountryCode(splitMobile.countryCode);
         setMobileNumber(splitMobile.nationalNumber);
+
+        // Fetch user off-limits preferences from profiles and intimacy_preferences
+        let loadedOffLimits: string[] = [];
+        if (profileData?.off_limits) {
+          if (Array.isArray(profileData.off_limits)) {
+            loadedOffLimits = profileData.off_limits.map((s: any) => String(s).trim()).filter(Boolean);
+          } else if (typeof profileData.off_limits === 'string') {
+            try {
+              const parsed = JSON.parse(profileData.off_limits);
+              if (Array.isArray(parsed)) {
+                loadedOffLimits = parsed.map((s: any) => String(s).trim()).filter(Boolean);
+              }
+            } catch {
+              loadedOffLimits = profileData.off_limits.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+            }
+          }
+        }
+
+        try {
+          const { data: offLimitRows, error: offLimitsErr } = await supabase
+            .from('intimacy_preferences')
+            .select('category_tag')
+            .eq('user_id', session.user.id)
+            .eq('preference_level', 'Off-Limits');
+
+          if (!offLimitsErr && offLimitRows && offLimitRows.length > 0) {
+            const fromPrefs = offLimitRows.map((r: any) => String(r.category_tag).trim()).filter(Boolean);
+            loadedOffLimits = Array.from(new Set([...loadedOffLimits, ...fromPrefs]));
+          }
+        } catch (err) {
+          console.warn('[Settings] Failed to fetch off-limits from intimacy_preferences:', err);
+        }
+
+        setOffLimits(loadedOffLimits);
 
         // Fetch user contributions
         try {
@@ -444,6 +487,110 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveOffLimits = async (updatedOffLimits?: string[]) => {
+    const listToSave = updatedOffLimits !== undefined ? updatedOffLimits : offLimits;
+    setSavingOffLimits(true);
+    setOffLimitsSaved(false);
+    setOffLimitsError(null);
+
+    try {
+      let userId: string | null = null;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        userId = session.user.id;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+      }
+
+      if (!userId) {
+        throw new Error("Please log in to save your off-limits settings.");
+      }
+
+      // 1. Persist to profiles table (off_limits column)
+      try {
+        if (session?.access_token) {
+          const res = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ off_limits: listToSave })
+          });
+          if (!res.ok) {
+            await supabase.from('profiles').update({ off_limits: listToSave }).eq('id', userId);
+          }
+        } else {
+          await supabase.from('profiles').update({ off_limits: listToSave }).eq('id', userId);
+        }
+      } catch (profileErr) {
+        console.warn('[Settings] Error updating profile off_limits:', profileErr);
+        try {
+          await supabase.from('profiles').update({ off_limits: listToSave }).eq('id', userId);
+        } catch {}
+      }
+
+      // 2. Persist in intimacy_preferences where preference_level = 'Off-Limits'
+      const { data: existingOffLimitsRows } = await supabase
+        .from('intimacy_preferences')
+        .select('id, category_tag')
+        .eq('user_id', userId)
+        .eq('preference_level', 'Off-Limits');
+
+      const existingMap = new Map<string, string>();
+      (existingOffLimitsRows || []).forEach((row: any) => {
+        if (row.category_tag) {
+          existingMap.set(row.category_tag.trim().toLowerCase(), row.id);
+        }
+      });
+
+      const currentNormalized = new Set(listToSave.map(t => t.trim().toLowerCase()));
+
+      // Delete rows that are no longer in listToSave
+      const idsToDelete: string[] = [];
+      existingMap.forEach((id, tagLower) => {
+        if (!currentNormalized.has(tagLower)) {
+          idsToDelete.push(id);
+        }
+      });
+
+      if (idsToDelete.length > 0) {
+        await supabase
+          .from('intimacy_preferences')
+          .delete()
+          .in('id', idsToDelete);
+      }
+
+      // Insert new items into intimacy_preferences
+      const rowsToInsert = listToSave
+        .filter(tag => !existingMap.has(tag.trim().toLowerCase()))
+        .map(tag => ({
+          user_id: userId,
+          category_tag: tag.trim(),
+          preference_level: 'Off-Limits'
+        }));
+
+      if (rowsToInsert.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('intimacy_preferences')
+          .insert(rowsToInsert);
+        if (insertErr) {
+          console.warn('[Settings] Error inserting into intimacy_preferences:', insertErr);
+        }
+      }
+
+      setOffLimits(listToSave);
+      setOffLimitsSaved(true);
+      setTimeout(() => setOffLimitsSaved(false), 3500);
+    } catch (err: any) {
+      console.error('[Settings] Error saving off-limits:', err);
+      setOffLimitsError(err.message || 'Failed to save off-limits rules.');
+    } finally {
+      setSavingOffLimits(false);
+    }
+  };
+
   // Debounced Username Availability Check
   useEffect(() => {
     const currentName = profile?.anonymous_alias || profile?.nickname;
@@ -546,8 +693,8 @@ export default function SettingsPage() {
     );
   }
 
-  // Safe tab fallback - strictly one of the 4 tabs, never null
-  const currentTab: SettingsTab = ['account', 'kinks', 'contributions', 'billing'].includes(activeTab)
+  // Safe tab fallback - guaranteed never to render null
+  const currentTab: SettingsTab = ['account', 'kinks', 'boundaries', 'contributions', 'billing'].includes(activeTab)
     ? activeTab
     : 'account';
 
@@ -595,6 +742,21 @@ export default function SettingsPage() {
           </button>
 
           {/* Tab 3: Contributions */}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={currentTab === 'boundaries'}
+            onClick={() => setActiveTab('boundaries')}
+            className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
+              currentTab === 'boundaries'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
+            }`}
+          >
+            <span>🚫</span>
+            <span>Off-Limits</span>
+          </button>
+
           <button
             type="button"
             role="tab"
@@ -960,10 +1122,36 @@ export default function SettingsPage() {
               {kinksSaved && <p className="text-green-500 text-xs font-medium">Kink preferences saved successfully!</p>}
               {kinksError && <p className="text-red-500 text-xs font-medium">{kinksError}</p>}
             </div>
+
+            {/* Embedded Off-Limits Card inside Kinks & Preferences tab */}
+            <div className="pt-6 border-t border-zinc-800/80">
+              <OffLimitsManager
+                offLimits={offLimits}
+                onChange={(updated) => setOffLimits(updated)}
+                onSave={handleSaveOffLimits}
+                isSaving={savingOffLimits}
+                saveSuccess={offLimitsSaved}
+                errorMessage={offLimitsError}
+              />
+            </div>
           </section>
         )}
 
-        {/* View 3: My Contributions View */}
+        {/* Tab 3: Off-Limits & Boundaries Dedicated View */}
+        {currentTab === 'boundaries' && (
+          <section id="boundaries-settings" className="space-y-6">
+            <OffLimitsManager
+              offLimits={offLimits}
+              onChange={(updated) => setOffLimits(updated)}
+              onSave={handleSaveOffLimits}
+              isSaving={savingOffLimits}
+              saveSuccess={offLimitsSaved}
+              errorMessage={offLimitsError}
+            />
+          </section>
+        )}
+
+        {/* View 4: My Contributions View */}
         {currentTab === 'contributions' && (
           <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">

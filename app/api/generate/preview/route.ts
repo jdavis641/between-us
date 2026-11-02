@@ -98,6 +98,33 @@ export async function POST(req: Request) {
 
     const admin = getAdminClient();
 
+    // Fetch user profile for off_limits
+    let userProfileOffLimits: string[] = [];
+    try {
+      const { data: profileRow } = await admin
+        .from('profiles')
+        .select('off_limits')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileRow?.off_limits) {
+        if (Array.isArray(profileRow.off_limits)) {
+          userProfileOffLimits = profileRow.off_limits.map((s: any) => String(s).trim()).filter(Boolean);
+        } else if (typeof profileRow.off_limits === 'string') {
+          try {
+            const parsed = JSON.parse(profileRow.off_limits);
+            if (Array.isArray(parsed)) {
+              userProfileOffLimits = parsed.map((s: any) => String(s).trim()).filter(Boolean);
+            }
+          } catch {
+            userProfileOffLimits = profileRow.off_limits.split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Preview] Failed to fetch profile off_limits:', e);
+    }
+
     // Fetch Preferences using service-role authority
     const { data: preferences } = await admin
       .from('intimacy_preferences')
@@ -112,11 +139,22 @@ export async function POST(req: Request) {
       .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
       .join(', ') || 'None specified';
 
-    const excludedVariables = preferences
+    const prefExcluded = preferences
       ?.filter(p => p.preference_level === 'Off-Limits')
       .map(p => p.category_tag)
-      .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config')
-      .join(', ') || 'None specified';
+      .filter(tag => tag && tag !== 'Base' && tag !== 'Guest Pass Config') || [];
+
+    const requestOffLimits: string[] = Array.isArray(body.off_limits)
+      ? body.off_limits.map((s: any) => String(s).trim()).filter(Boolean)
+      : [];
+
+    const allExcluded = Array.from(new Set([
+      ...prefExcluded,
+      ...userProfileOffLimits,
+      ...requestOffLimits
+    ])).filter(Boolean);
+
+    const excludedVariables = allExcluded.length > 0 ? allExcluded.join(', ') : 'None specified';
 
     let primaryDirective = null;
     let savedKinks: string[] = [];
@@ -156,6 +194,8 @@ USER PREFERENCES & CONSTRAINTS:
 - Mandatory Included Themes: ${mandatoryThemes}
 - Strictly Excluded Variables (ABSOLUTELY FORBIDDEN): ${excludedVariables}
 - Play Mode / Perspective: ${playMode}
+${allExcluded.length > 0 ? `STRICT EXCLUSIONS / OFF-LIMITS:
+CRITICAL DIRECTIVE: The user has marked the following concepts as strictly forbidden. Under no circumstance should any of these themes, words, or actions appear in the output: ${allExcluded.join(', ')}.` : ''}
 ${primaryDirective ? `- Primary Directive Override: ${primaryDirective}` : ''}
 ${theme ? `- Custom Theme / Idea: ${theme}` : ''}
 ${savedKinks.length > 0 ? `USER SAVED KINK PREFERENCES (METATAGS):

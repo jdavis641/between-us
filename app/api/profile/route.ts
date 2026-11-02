@@ -130,6 +130,11 @@ export async function POST(req: Request) {
     if ('literature_prompt_status' in body) {
       updatePayload.literature_prompt_status = body.literature_prompt_status;
     }
+    if ('off_limits' in body) {
+      updatePayload.off_limits = Array.isArray(body.off_limits)
+        ? body.off_limits
+        : (body.off_limits ? [body.off_limits] : []);
+    }
 
     if (Object.keys(updatePayload).length === 0) {
       return NextResponse.json({ error: 'No valid profile fields provided for update' }, { status: 400 });
