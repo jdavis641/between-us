@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { email, code, share_id, pass_token, pass, invite_token, token } = await req.json();
+    const { email, code, share_id, lens, pass_token, pass, invite_token, token } = await req.json();
 
     if (!email || !code) {
       return NextResponse.json({ error: 'Email and code are required.' }, { status: 400 });
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     const cookieStore = await cookies();
     const cookiesToSetBuffer: { name: string; value: string; options: any }[] = [];
     const persistedShareId = share_id || cookieStore.get('share_id')?.value || null;
+    const persistedLens = lens || cookieStore.get('share_lens')?.value || null;
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -265,7 +266,14 @@ export async function POST(req: Request) {
     // Enforce Stripe Tollbooth for unrecognized or non-paying users
     if (!isUserActive) {
       const stripeBase = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${data.user.id}&prefilled_email=${encodeURIComponent(cleanEmail)}`;
-      const destination = persistedShareId ? `${stripeBase}&share_id=${encodeURIComponent(persistedShareId)}` : stripeBase;
+      let stripeDest = stripeBase;
+      if (persistedShareId) {
+        stripeDest += `&share_id=${encodeURIComponent(persistedShareId)}`;
+        if (persistedLens) {
+          stripeDest += `&lens=${encodeURIComponent(persistedLens)}`;
+        }
+      }
+      const destination = stripeDest;
       const response = NextResponse.json({ destination });
       cookiesToSetBuffer.forEach(({ name, value, options }) => {
         response.cookies.set(name, value, options);
@@ -282,9 +290,18 @@ export async function POST(req: Request) {
 
     // Active users with shared content bypass onboarding
     if (persistedShareId) {
-      destination = `/dashboard/experience/${persistedShareId}`;
+      let targetPath = `/dashboard/experience/${persistedShareId}`;
+      if (!persistedShareId.includes('?') && persistedLens) {
+        targetPath += `?lens=${encodeURIComponent(persistedLens)}`;
+      }
+      destination = targetPath;
       cookiesToSetBuffer.push({
         name: 'share_id',
+        value: '',
+        options: { path: '/', maxAge: 0 }
+      });
+      cookiesToSetBuffer.push({
+        name: 'share_lens',
         value: '',
         options: { path: '/', maxAge: 0 }
       });

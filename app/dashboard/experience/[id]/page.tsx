@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, Suspense } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import RatingWidget from '@/components/RatingWidget'
@@ -15,17 +16,23 @@ type ReaderMode = "partner-a" | "partner-b" | "script";
 
 export const STREAM_INTERRUPTED_MESSAGE = "Click continue story to expand.";
 
-export default function ExperienceReader({ params }: { params: any }) {
+function ExperienceReaderInner({ params }: { params: any }) {
+  const searchParams = useSearchParams()
+  const lensParam = searchParams.get('lens')?.toLowerCase()
+  const isRecipientLensB = lensParam === 'b'
+
   const [supabase] = useState(() => createClient())
   const [experience, setExperience] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeMode, setActiveMode] = useState<ReaderMode>("script")
+  const [activeMode, setActiveMode] = useState<ReaderMode>(() => isRecipientLensB ? "partner-b" : "partner-a")
   const [textSize, setTextSize] = useState<"text-lg" | "text-xl" | "text-2xl">("text-lg")
   const [storyId, setStoryId] = useState<string>("")
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareMethod, setShareMethod] = useState<'email' | 'sms'>('email')
   const [shareRecipient, setShareRecipient] = useState('')
   const [isSharing, setIsSharing] = useState(false)
+  const [isPartnerDispatching, setIsPartnerDispatching] = useState(false)
+  const [partnerDispatchSuccess, setPartnerDispatchSuccess] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [shareToast, setShareToast] = useState<string | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
@@ -33,7 +40,14 @@ export default function ExperienceReader({ params }: { params: any }) {
   const [isFavoriting, setIsFavoriting] = useState(false)
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null)
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false)
-  
+
+  // Perspective safety: if recipient lens=b, strictly prevent staying in partner-a mode
+  useEffect(() => {
+    if (isRecipientLensB && activeMode === "partner-a") {
+      setActiveMode("partner-b");
+    }
+  }, [isRecipientLensB, activeMode]);
+
   // Content extraction and derived paginated content (~600 words per page)
   const isRoleplay = experience?.content_type === 'roleplay' || experience?.content_type === 'weekend_scenario';
   const contentObj = experience?.parsedData || {};
@@ -64,10 +78,13 @@ export default function ExperienceReader({ params }: { params: any }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         try {
-          sessionStorage.setItem('share_id', id);
-          document.cookie = `share_id=${encodeURIComponent(id)}; path=/; max-age=86400; SameSite=Lax`;
+          const fullShareParam = lensParam ? `${id}?lens=${encodeURIComponent(lensParam)}` : id;
+          sessionStorage.setItem('share_id', fullShareParam);
+          if (lensParam) sessionStorage.setItem('share_lens', lensParam);
+          document.cookie = `share_id=${encodeURIComponent(fullShareParam)}; path=/; max-age=86400; SameSite=Lax`;
+          if (lensParam) document.cookie = `share_lens=${encodeURIComponent(lensParam)}; path=/; max-age=86400; SameSite=Lax`;
         } catch (e) {}
-        window.location.href = `/login?share_id=${id}`;
+        window.location.href = `/login?share_id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`;
         return;
       }
 
@@ -80,10 +97,13 @@ export default function ExperienceReader({ params }: { params: any }) {
 
       if (profile && profile.is_active === false) {
         try {
-          sessionStorage.setItem('share_id', id);
-          document.cookie = `share_id=${encodeURIComponent(id)}; path=/; max-age=86400; SameSite=Lax`;
+          const fullShareParam = lensParam ? `${id}?lens=${encodeURIComponent(lensParam)}` : id;
+          sessionStorage.setItem('share_id', fullShareParam);
+          if (lensParam) sessionStorage.setItem('share_lens', lensParam);
+          document.cookie = `share_id=${encodeURIComponent(fullShareParam)}; path=/; max-age=86400; SameSite=Lax`;
+          if (lensParam) document.cookie = `share_lens=${encodeURIComponent(lensParam)}; path=/; max-age=86400; SameSite=Lax`;
         } catch (e) {}
-        window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}&prefilled_email=${encodeURIComponent(session.user.email || '')}&share_id=${id}`;
+        window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}&prefilled_email=${encodeURIComponent(session.user.email || '')}&share_id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`;
         return;
       }
 
@@ -103,6 +123,25 @@ export default function ExperienceReader({ params }: { params: any }) {
         console.warn("Exception fetching generated_content:", e);
       }
 
+      // Permissions & Read Access Fallback:
+      // If direct client query returns null (e.g. recipient reading shared experience via RLS),
+      // fetch via our dedicated read-access endpoint with service-role authority
+      if (!data) {
+        try {
+          const res = await fetch(`/api/share?id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`, {
+            headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.experience) {
+              data = json.experience;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Fallback fetch from /api/share failed:", apiErr);
+        }
+      }
+
       if (data) {
         // Defensive: do not make is_favorite a hard dependency if not hydrated; fallback gracefully to false
         const isFav = typeof data.is_favorite === 'boolean'
@@ -111,7 +150,6 @@ export default function ExperienceReader({ params }: { params: any }) {
         setIsFavorite(isFav);
 
         if (!isFav) {
-          // Check user_favorites via API
           try {
             const favRes = await fetch(`/api/favorites/toggle?contentId=${id}`);
             if (favRes.ok) {
@@ -123,15 +161,15 @@ export default function ExperienceReader({ params }: { params: any }) {
           } catch {}
         }
 
-        // Try to parse the body as JSON if it was stored as JSON from Gemini
+        // Try to parse the body as JSON if stored as JSON string
         try {
-           const parsedBody = JSON.parse(data.body.replace(/```json|```/g, '').trim());
-           if (typeof parsedBody === 'object' && parsedBody !== null) {
-              data.parsedData = parsedBody;
-           }
+          const parsedBody = JSON.parse(data.body.replace(/```json|```/g, '').trim());
+          if (typeof parsedBody === 'object' && parsedBody !== null) {
+            data.parsedData = parsedBody;
+          }
         } catch(e) {
-           // Plain text
-           data.parsedData = null;
+          // Plain text fallback
+          data.parsedData = null;
         }
 
         try {
@@ -144,12 +182,23 @@ export default function ExperienceReader({ params }: { params: any }) {
           }
         } catch {}
 
-        setExperience(data)
+        // Default perspective toggle:
+        // Recipient strictly defaults to "partner-b".
+        // Generator / Creator defaults to "partner-a".
+        if (isRecipientLensB) {
+          setActiveMode("partner-b");
+        } else if (data.content_type === 'roleplay' || data.content_type === 'weekend_scenario') {
+          setActiveMode("partner-a");
+        } else {
+          setActiveMode("script");
+        }
+
+        setExperience(data);
       }
-      setLoading(false)
+      setLoading(false);
     }
-    fetchContent()
-  }, [params])
+    fetchContent();
+  }, [params, lensParam, isRecipientLensB]);
 
   // Restore reading progress from localStorage on mount / once story is loaded
   useEffect(() => {
@@ -179,7 +228,7 @@ export default function ExperienceReader({ params }: { params: any }) {
     } catch (err) {
       console.warn("Could not retrieve saved story progress:", err);
     }
-  }, [loading, experience, storyId]);
+  }, [loading, experience, storyId, pages.length]);
 
   // Track and debounce scroll position to save to localStorage
   useEffect(() => {
@@ -248,7 +297,7 @@ export default function ExperienceReader({ params }: { params: any }) {
       if (preTasks && preTasks.length > 0) {
         fileContent += `## Pre-Experience Tasks\n${preTasks.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}\n\n`;
       }
-      if (partnerA) {
+      if (partnerA && !isRecipientLensB) {
         fileContent += `## Partner A Perspective\n${partnerA}\n\n`;
       }
       if (partnerB) {
@@ -297,7 +346,7 @@ export default function ExperienceReader({ params }: { params: any }) {
       if (preTasks && preTasks.length > 0) {
         fileContent += `## Pre-Experience Tasks\n${preTasks.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}\n\n`;
       }
-      if (partnerA) {
+      if (partnerA && !isRecipientLensB) {
         fileContent += `## Partner A Perspective\n${partnerA}\n\n`;
       }
       if (partnerB) {
@@ -309,6 +358,71 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
 
     exportStoryToPdf(title, fileContent, experience.content_type ? experience.content_type.toUpperCase() : 'STORY');
+  };
+
+  const handleCopyDirectLink = async () => {
+    const directUrl = isRoleplay 
+      ? `https://betweenusapp.io/dashboard/experience/${storyId}?lens=b`
+      : `https://betweenusapp.io/dashboard/experience/${storyId}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(directUrl);
+      }
+      setCopiedLink(true);
+      setShareToast('Recipient link (?lens=b) copied to clipboard');
+      setTimeout(() => {
+        setCopiedLink(false);
+        setShareToast(null);
+      }, 3500);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
+
+  const handlePartnerDispatch = async () => {
+    if (isPartnerDispatching || !storyId) return;
+    setIsPartnerDispatching(true);
+    setShareError(null);
+    setPartnerDispatchSuccess(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const contentObj = experience?.parsedData || {};
+      const title = contentObj.title || experience?.title || "Roleplay Scenario";
+
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          storyId,
+          storyTitle: title,
+          recipient: 'partner',
+          isPartnerDispatch: true,
+          lens: 'b'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch to partner');
+      }
+
+      setPartnerDispatchSuccess(data.message || 'Dispatched directly to partner!');
+      setShareToast('Roleplay dispatched to partner!');
+      setTimeout(() => {
+        setIsShareModalOpen(false);
+        setPartnerDispatchSuccess(null);
+        setShareToast(null);
+      }, 2500);
+    } catch (err: any) {
+      console.error("Error dispatching to partner:", err);
+      setShareError(err.message || 'Failed to dispatch to partner. Please use direct link or email/SMS.');
+    } finally {
+      setIsPartnerDispatching(false);
+    }
   };
 
   const handleShareStory = async (e?: React.FormEvent) => {
@@ -332,7 +446,8 @@ export default function ExperienceReader({ params }: { params: any }) {
         body: JSON.stringify({
           storyId,
           storyTitle: title,
-          recipient: shareRecipient.trim()
+          recipient: shareRecipient.trim(),
+          lens: isRoleplay ? 'b' : (lensParam || 'b')
         })
       });
 
@@ -344,7 +459,7 @@ export default function ExperienceReader({ params }: { params: any }) {
 
       setShareRecipient('');
       setIsShareModalOpen(false);
-      setShareToast('Story shared successfully');
+      setShareToast('Story shared successfully with Lens B recipient view');
       setTimeout(() => setShareToast(null), 4000);
     } catch (err: any) {
       console.error("Error sharing story:", err);
@@ -354,25 +469,11 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
   };
 
-  const handleCopyDirectLink = async () => {
-    const directUrl = `https://betweenusapp.io/dashboard/experience/${storyId}`;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(directUrl);
-      }
-      setCopiedLink(true);
-      setShareToast('Story link copied to clipboard');
-      setTimeout(() => {
-        setCopiedLink(false);
-        setShareToast(null);
-      }, 3500);
-    } catch (err) {
-      console.error("Failed to copy link:", err);
-    }
-  };
-
   const handleShareClick = async () => {
-    const directUrl = `https://betweenusapp.io/dashboard/experience/${storyId}`;
+    const directUrl = isRoleplay
+      ? `https://betweenusapp.io/dashboard/experience/${storyId}?lens=b`
+      : `https://betweenusapp.io/dashboard/experience/${storyId}`;
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         const contentObj = experience?.parsedData || {};
@@ -424,7 +525,7 @@ export default function ExperienceReader({ params }: { params: any }) {
       }
     } catch (err: any) {
       console.error('Error toggling favorite:', err);
-      setIsFavorite(!nextFavorite); // Revert on failure
+      setIsFavorite(!nextFavorite);
       setFavoriteToast('Failed to update favorite status');
       setTimeout(() => setFavoriteToast(null), 3500);
     } finally {
@@ -463,10 +564,6 @@ export default function ExperienceReader({ params }: { params: any }) {
     }
   };
 
-  // Background Pre-Generation Engine:
-  // When user navigates to Page 2 (currentPage === 2), automatically fire a silent background API request
-  // to generate the next chapters, sending the ENTIRETY of the updated story state to OpenRouter,
-  // and appending newly generated pages to the cached page array.
   const prefetchPages4to6 = async () => {
     if (!storyId || !experience || isPrefetching) return;
     setIsPrefetching(true);
@@ -479,7 +576,6 @@ export default function ExperienceReader({ params }: { params: any }) {
       }
 
       const contentType = experience.content_type === 'roleplay' || experience.content_type === 'weekend_scenario' ? 'roleplay' : 'literature';
-      // Send the entirety of the updated story state (all previous pages concatenated)
       const fullStorySoFar = pages.join('\n\n').trim();
 
       console.log("[Background Prefetch] Prefetching next chapters in background...");
@@ -543,7 +639,6 @@ export default function ExperienceReader({ params }: { params: any }) {
           };
         });
 
-        // Persist update in Supabase silently
         if (storyId) {
           const updatedBody = `${(experience?.body || '').trim()}\n\n${nextText}`;
           supabase
@@ -619,12 +714,6 @@ export default function ExperienceReader({ params }: { params: any }) {
   const cleanPartnerA = (partnerA || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerB = (partnerB || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
 
-  const isInterruptedStory = (cleanContent || '').includes("Stream interrupted") || 
-                             (cleanContent || '').includes("Click Continue Story to resume") || 
-                             (cleanContent || '').includes("Click continue story to expand") ||
-                             experience?.status === 'interrupted' ||
-                             experience?.is_interrupted === true;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8 lg:p-12 pb-32 font-sans selection:bg-red-900/50">
       
@@ -636,7 +725,18 @@ export default function ExperienceReader({ params }: { params: any }) {
             &larr; Back to Dashboard
           </Link>
 
-          <div className="flex items-center gap-3 self-start sm:self-auto">
+          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+            {isRoleplay && (
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-sm font-semibold transition-all cursor-pointer shadow-sm active:scale-95 bg-gradient-to-r from-red-950 to-rose-950 hover:from-red-900 hover:to-rose-900 text-rose-200 border-red-800/60 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+                title="Share Roleplay with Partner (Lens B)"
+              >
+                <span>📤</span>
+                <span>Share Roleplay</span>
+              </button>
+            )}
+
             <button
               onClick={handleToggleFavorite}
               disabled={isFavoriting}
@@ -663,27 +763,41 @@ export default function ExperienceReader({ params }: { params: any }) {
         
         {/* Header */}
         <header className="space-y-4 text-center mt-8">
-          <span className="text-xs font-bold uppercase tracking-widest text-red-500 bg-red-950/30 px-4 py-1.5 rounded-full border border-red-900/30">
-            {isRoleplay ? 'Weekend Roleplay' : 'Serialized Literature'}
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-red-500 bg-red-950/30 px-4 py-1.5 rounded-full border border-red-900/30">
+              {isRoleplay ? 'Weekend Roleplay' : 'Serialized Literature'}
+            </span>
+
+            {/* Recipient View Badge: Displayed strictly when accessing via Lens B */}
+            {isRecipientLensB && (
+              <span className="text-xs font-bold uppercase tracking-widest text-purple-300 bg-purple-950/70 px-4 py-1.5 rounded-full border border-purple-800/60 flex items-center gap-1.5 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                Your Role: Partner B
+              </span>
+            )}
+          </div>
+
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-zinc-100 leading-tight tracking-tight mt-6">
             {contentObj.title || experience.title}
           </h1>
         </header>
 
-        {/* The Toggles */}
+        {/* The Toggles: Dynamic Perspective Gating */}
         {isRoleplay && (
           <div className="flex flex-col sm:flex-row bg-zinc-900/80 p-1.5 rounded-xl border border-zinc-800/80 max-w-2xl mx-auto shadow-inner gap-1">
-            <button
-              onClick={() => setActiveMode("partner-a")}
-              className={`flex-1 py-3 text-sm md:text-base font-semibold rounded-lg transition-all duration-300 ${
-                activeMode === "partner-a"
-                  ? "bg-zinc-800 text-white shadow-md border border-zinc-700"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
-              }`}
-            >
-              {partnerANickname ? `${partnerANickname}'s Lens` : "Partner A Lens"}
-            </button>
+            {/* Restrict or hide Partner A Lens toggle entirely when in Recipient View (lens=b) to prevent spoilers */}
+            {!isRecipientLensB && (
+              <button
+                onClick={() => setActiveMode("partner-a")}
+                className={`flex-1 py-3 text-sm md:text-base font-semibold rounded-lg transition-all duration-300 ${
+                  activeMode === "partner-a"
+                    ? "bg-zinc-800 text-white shadow-md border border-zinc-700"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
+                }`}
+              >
+                {partnerANickname ? `${partnerANickname}'s Lens` : "Partner A Lens"}
+              </button>
+            )}
             <button
               onClick={() => setActiveMode("partner-b")}
               className={`flex-1 py-3 text-sm md:text-base font-semibold rounded-lg transition-all duration-300 ${
@@ -714,17 +828,19 @@ export default function ExperienceReader({ params }: { params: any }) {
           className={`select-none prose prose-invert prose-zinc max-w-none ${textSize} leading-loose space-y-12 transition-all duration-300`}
         >
           
-          {/* Partner Lenses */}
-          {activeMode === "partner-a" && isRoleplay && (
+          {/* Partner A Lens: Only accessible in Generator View (Default / lens=a), hidden in Recipient View (lens=b) */}
+          {!isRecipientLensB && activeMode === "partner-a" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
                <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">
                  Psychological Profile: {partnerANickname || "Partner A"}
                </h2>
                {cleanPartnerA ? (
                  <ErrorBoundary fallbackContent={cleanPartnerA}>
-                   <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
-                     {safeMarkdownString(cleanPartnerA)}
-                   </ReactMarkdown>
+                   <div className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
+                     <ReactMarkdown>
+                       {safeMarkdownString(cleanPartnerA)}
+                     </ReactMarkdown>
+                   </div>
                  </ErrorBoundary>
                ) : (
                  <div className="py-8 text-center text-zinc-400 font-serif italic bg-zinc-950/40 rounded-xl border border-zinc-800">
@@ -734,11 +850,19 @@ export default function ExperienceReader({ params }: { params: any }) {
              </div>
           )}
 
+          {/* Partner B Lens */}
           {activeMode === "partner-b" && isRoleplay && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-zinc-900/40 border border-zinc-800 p-8 rounded-2xl shadow-xl">
-               <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 mb-6 font-sans">
-                 Psychological Profile: {partnerBNickname || "Partner B"}
-               </h2>
+               <div className="flex items-center justify-between mb-6">
+                 <h2 className="text-xl font-bold uppercase tracking-widest text-zinc-500 font-sans">
+                   Psychological Profile: {partnerBNickname || "Partner B"}
+                 </h2>
+                 {isRecipientLensB && (
+                   <span className="text-xs font-semibold uppercase tracking-wider text-purple-400 bg-purple-950/70 border border-purple-800/60 px-3 py-1 rounded-full">
+                     Assigned Perspective
+                   </span>
+                 )}
+               </div>
                {cleanPartnerB ? (
                  <ErrorBoundary fallbackContent={cleanPartnerB}>
                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap font-serif text-zinc-300">
@@ -753,8 +877,11 @@ export default function ExperienceReader({ params }: { params: any }) {
              </div>
           )}
 
-          {/* Script / Body Mode */}
-          {(!isRoleplay || activeMode === "script") && (
+          {/* Shared Storyline Sections:
+              - Rendered in Script mode for both Generator and Recipient
+              - Rendered in Partner B mode when in Recipient View (lens=b) so recipient has full context paired strictly with Lens B
+          */}
+          {(!isRoleplay || activeMode === "script" || (isRecipientLensB && activeMode === "partner-b")) && (
             <div className="animate-in fade-in duration-700 space-y-16">
               
               {isRoleplay && preTasks && preTasks.length > 0 && (
@@ -788,7 +915,7 @@ export default function ExperienceReader({ params }: { params: any }) {
               <section className="space-y-6 pt-4 font-serif text-zinc-200" style={{ overflowAnchor: 'none' }}>
                 {isRoleplay && <h3 className="text-sm font-bold font-sans uppercase tracking-widest text-zinc-500 mb-8 border-b border-zinc-800 pb-4">The Script</h3>}
 
-                {/* Fixed-Height Reading Container to simulate actual book pages */}
+                {/* Fixed-Height Reading Container */}
                 <div
                   ref={pageContainerRef}
                   style={{ overflowAnchor: 'none' }}
@@ -889,10 +1016,10 @@ export default function ExperienceReader({ params }: { params: any }) {
             </button>
             <button
               onClick={handleShareClick}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-red-950/40 hover:bg-red-900/60 text-red-200 hover:text-white border border-red-900/60 hover:border-red-700 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 group cursor-pointer select-none pointer-events-auto"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-red-950/60 to-rose-950/60 hover:from-red-900/80 hover:to-rose-900/80 text-rose-200 hover:text-white border border-red-800/60 hover:border-red-700 rounded-xl font-medium transition-all shadow-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 group cursor-pointer select-none pointer-events-auto"
             >
               <span className="text-lg group-hover:scale-110 transition-transform">📤</span>
-              Share
+              {isRoleplay ? 'Share Roleplay' : 'Share'}
             </button>
             <button
               onClick={handleToggleFavorite}
@@ -915,14 +1042,24 @@ export default function ExperienceReader({ params }: { params: any }) {
           </span>
         </div>
 
-        {/* Share Modal */}
+        {/* Share Dialog Modal */}
         {isShareModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-lg w-full space-y-6 shadow-2xl relative">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">🔥</span>
-                  <h3 className="text-xl font-serif font-bold text-zinc-100">Share Experience</h3>
+                  <div>
+                    <h3 className="text-xl font-serif font-bold text-zinc-100">
+                      {isRoleplay ? 'Share Roleplay Scenario' : 'Share Experience'}
+                    </h3>
+                    {isRoleplay && (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-purple-300 bg-purple-950/60 border border-purple-800/60 px-2.5 py-0.5 rounded-full mt-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                        Recipient View: Partner B Lens (Lens A Hidden)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsShareModalOpen(false)}
@@ -933,100 +1070,159 @@ export default function ExperienceReader({ params }: { params: any }) {
               </div>
 
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Send a secure direct link for <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> via email or SMS text message.
+                {isRoleplay ? (
+                  <>
+                    Share <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> with your partner. They will receive their dedicated <strong className="text-purple-300">Partner B Lens</strong> and the Weekend Script, keeping your Partner A secrets hidden.
+                  </>
+                ) : (
+                  <>
+                    Send a secure direct link for <span className="text-zinc-200 font-semibold">"{contentObj.title || experience.title}"</span> via email or SMS text message.
+                  </>
+                )}
               </p>
 
-              {/* Delivery Method Selector */}
-              <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => { setShareMethod('email'); setShareError(null); }}
-                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
-                    shareMethod === 'email' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShareMethod('sms'); setShareError(null); }}
-                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
-                    shareMethod === 'sms' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  Mobile Number (SMS)
-                </button>
-              </div>
-
-              <form onSubmit={handleShareStory} className="space-y-4">
-                {shareMethod === 'email' ? (
-                  <div>
-                    <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
-                      Recipient Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={shareRecipient}
-                      onChange={(e) => setShareRecipient(e.target.value)}
-                      placeholder="partner@example.com"
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
-                      autoFocus
-                      required
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-2">
-                      Recipient Mobile Number (SMS)
-                    </label>
-                    <input
-                      type="tel"
-                      value={shareRecipient}
-                      onChange={(e) => setShareRecipient(e.target.value)}
-                      placeholder="+1 (555) 000-0000"
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
-                      autoFocus
-                      required
-                    />
-                    <p className="mt-1.5 text-xs text-zinc-500">
-                      Dispatched directly via our active Twilio SMS integration.
-                    </p>
-                  </div>
-                )}
-
-                {shareError && (
-                  <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
-                    {shareError}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2">
+              {/* 1. Dedicated Recipient Link with ?lens=b */}
+              <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
+                    <span>🔗</span> Recipient Link (Partner B)
+                  </label>
+                  <span className="text-[10px] text-purple-400 font-mono bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/40">
+                    ?lens=b
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`https://betweenusapp.io/dashboard/experience/${storyId}?lens=b`}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 font-mono focus:outline-none select-all"
+                  />
                   <button
                     type="button"
                     onClick={handleCopyDirectLink}
-                    className="text-xs text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
+                    className="shrink-0 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white rounded-lg text-xs font-semibold transition-all border border-zinc-700 flex items-center gap-1.5 cursor-pointer active:scale-95"
                   >
-                    {copiedLink ? '✓ Copied Link' : 'Copy link instead'}
+                    {copiedLink ? '✓ Copied!' : 'Copy Recipient Link'}
                   </button>
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-3">
+              {/* 2. One-Click Partner Dispatch */}
+              <div className="bg-gradient-to-r from-red-950/30 to-purple-950/30 p-4 rounded-xl border border-red-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                    <span>✨</span> Send to Linked Partner
+                  </span>
+                  <p className="text-xs text-zinc-400">
+                    Dispatches directly to your Between Us Pass connected partner.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePartnerDispatch}
+                  disabled={isPartnerDispatching}
+                  className="shrink-0 px-4 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  {isPartnerDispatching ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                      Sending...
+                    </>
+                  ) : partnerDispatchSuccess ? (
+                    '✓ Sent to Partner!'
+                  ) : (
+                    'Dispatch to Partner >'
+                  )}
+                </button>
+              </div>
+
+              {partnerDispatchSuccess && (
+                <div className="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-lg text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+                  <span>✓</span> {partnerDispatchSuccess}
+                </div>
+              )}
+
+              {/* 3. Email & SMS Direct Dispatch */}
+              <div className="space-y-3 pt-2 border-t border-zinc-800">
+                <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold block">
+                  Or Dispatch via Email / SMS
+                </span>
+
+                {/* Delivery Method Selector */}
+                <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => { setShareMethod('email'); setShareError(null); }}
+                    className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                      shareMethod === 'email' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShareMethod('sms'); setShareError(null); }}
+                    className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                      shareMethod === 'sms' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Mobile Number (SMS)
+                  </button>
+                </div>
+
+                <form onSubmit={handleShareStory} className="space-y-4">
+                  {shareMethod === 'email' ? (
+                    <div>
+                      <input
+                        type="email"
+                        value={shareRecipient}
+                        onChange={(e) => setShareRecipient(e.target.value)}
+                        placeholder="partner@example.com"
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="tel"
+                        value={shareRecipient}
+                        onChange={(e) => setShareRecipient(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                        required
+                      />
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        Dispatched via Twilio SMS text message with Lens B link attached.
+                      </p>
+                    </div>
+                  )}
+
+                  {shareError && (
+                    <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
+                      {shareError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3 pt-1">
                     <button
                       type="button"
                       onClick={() => setIsShareModalOpen(false)}
-                      className="px-4 py-2.5 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors cursor-pointer"
+                      className="px-4 py-2 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
                     >
-                      Cancel
+                      Close
                     </button>
                     <button
                       type="submit"
                       disabled={isSharing || !shareRecipient.trim()}
-                      className="px-6 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors shadow-md cursor-pointer"
+                      className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer"
                     >
-                      {isSharing ? 'Sending Link...' : 'Send Link'}
+                      {isSharing ? 'Sending Link...' : 'Send Recipient Link'}
                     </button>
                   </div>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
           </div>
         )}
@@ -1080,5 +1276,17 @@ export default function ExperienceReader({ params }: { params: any }) {
 
       </div>
     </div>
+  )
+}
+
+export default function ExperienceReader({ params }: { params: any }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 text-white p-8 flex items-center justify-center">
+        <p className="text-zinc-500 animate-pulse font-serif italic text-lg">Preparing the scene...</p>
+      </div>
+    }>
+      <ExperienceReaderInner params={params} />
+    </Suspense>
   )
 }

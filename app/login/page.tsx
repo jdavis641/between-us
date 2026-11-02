@@ -17,6 +17,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resendMessage, setResendMessage] = useState('')
   const [shareId, setShareId] = useState<string | null>(null)
+  const [shareLens, setShareLens] = useState<string | null>(null)
   const [inviteToken, setInviteToken] = useState<string | null>(() => {
     return initialInviteToken || 
            searchParams.get('invite_token') || 
@@ -55,6 +56,27 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
       } catch (e) {
         console.warn('Could not read stored share_id in login:', e)
       }
+    }
+
+    const urlLens = searchParams.get('lens')
+    if (urlLens) {
+      setShareLens(urlLens)
+      try {
+        sessionStorage.setItem('share_lens', urlLens)
+        document.cookie = `share_lens=${encodeURIComponent(urlLens)}; path=/; max-age=86400; SameSite=Lax`
+      } catch (e) {}
+    } else {
+      try {
+        const storedLens = sessionStorage.getItem('share_lens')
+        if (storedLens) {
+          setShareLens(storedLens)
+        } else {
+          const matchLens = document.cookie.match(/(?:^|;\s*)share_lens=([^;]+)/)
+          if (matchLens && matchLens[1]) {
+            setShareLens(decodeURIComponent(matchLens[1]))
+          }
+        }
+      } catch (e) {}
     }
 
     const urlInviteToken = searchParams.get('invite_token') || 
@@ -112,6 +134,10 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
         try { return sessionStorage.getItem('share_id') } catch(e) { return null }
       })()
 
+      const effectiveLens = shareLens || searchParams.get('lens') || (() => {
+        try { return sessionStorage.getItem('share_lens') } catch(e) { return null }
+      })()
+
       const effectiveInviteToken = inviteToken || 
                                    searchParams.get('invite_token') || 
                                    searchParams.get('token') || 
@@ -128,6 +154,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
           email, 
           code: otp,
           share_id: effectiveShareId,
+          lens: effectiveLens,
           invite_token: effectiveInviteToken,
           pass_token: effectiveInviteToken,
           pass: effectiveInviteToken
@@ -178,7 +205,9 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
         if (target.includes('/dashboard/experience/')) {
           try {
             sessionStorage.removeItem('share_id');
+            sessionStorage.removeItem('share_lens');
             document.cookie = 'share_id=; path=/; max-age=0';
+            document.cookie = 'share_lens=; path=/; max-age=0';
           } catch(e) {}
         }
 

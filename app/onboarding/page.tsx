@@ -31,6 +31,7 @@ function OnboardingContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareId, setShareId] = useState<string | null>(null);
+  const [shareLens, setShareLens] = useState<string | null>(null);
 
   // Track and persist share_id parameter
   useEffect(() => {
@@ -52,6 +53,27 @@ function OnboardingContent() {
           const match = document.cookie.match(/(?:^|;\s*)share_id=([^;]+)/);
           if (match && match[1]) {
             setShareId(decodeURIComponent(match[1]));
+          }
+        }
+      } catch (e) {}
+    }
+
+    const paramLens = searchParams.get('lens');
+    if (paramLens) {
+      setShareLens(paramLens);
+      try {
+        sessionStorage.setItem('share_lens', paramLens);
+        document.cookie = `share_lens=${encodeURIComponent(paramLens)}; path=/; max-age=86400; SameSite=Lax`;
+      } catch (e) {}
+    } else {
+      try {
+        const stored = sessionStorage.getItem('share_lens');
+        if (stored) {
+          setShareLens(stored);
+        } else {
+          const match = document.cookie.match(/(?:^|;\s*)share_lens=([^;]+)/);
+          if (match && match[1]) {
+            setShareLens(decodeURIComponent(match[1]));
           }
         }
       } catch (e) {}
@@ -239,6 +261,25 @@ function OnboardingContent() {
         return;
       }
 
+      if (shareId) {
+        try {
+          sessionStorage.removeItem('share_id');
+          sessionStorage.removeItem('share_lens');
+          document.cookie = 'share_id=; path=/; max-age=0';
+          document.cookie = 'share_lens=; path=/; max-age=0';
+        } catch (e) {}
+        const effectiveLens = shareLens || searchParams.get('lens');
+        let dest = shareId;
+        if (!dest.startsWith('/')) {
+          dest = `/dashboard/experience/${dest}`;
+        }
+        if (!dest.includes('?') && effectiveLens) {
+          dest += `?lens=${encodeURIComponent(effectiveLens)}`;
+        }
+        router.push(dest);
+        return;
+      }
+
       // Directly route to dashboard
       router.push('/dashboard');
     } catch (err: any) {
@@ -272,7 +313,7 @@ function OnboardingContent() {
             Complete your subscription to access personalized games, literature, roleplay scenarios, and your Between Us Pass.
           </p>
           <a
-            href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}&prefilled_email=${encodeURIComponent(session?.user?.email || '')}${shareId ? `&share_id=${encodeURIComponent(shareId)}` : ''}`}
+            href={`https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session?.user?.id}&prefilled_email=${encodeURIComponent(session?.user?.email || '')}${shareId ? `&share_id=${encodeURIComponent(shareId)}` : ''}${shareLens ? `&lens=${encodeURIComponent(shareLens)}` : ''}`}
             className="block w-full bg-red-900 text-white p-4 rounded-xl font-medium hover:bg-red-800 transition-colors mt-6 shadow-lg shadow-red-900/20"
           >
             Pay with Stripe

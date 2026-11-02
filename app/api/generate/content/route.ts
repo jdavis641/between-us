@@ -724,6 +724,7 @@ export async function POST(req: Request) {
 
     const contentType = body.contentType || 'literature';
     const category = body.category;
+    const effectiveStoryId = (body.storyId && typeof body.storyId === 'string' && body.storyId.length > 5) ? body.storyId : crypto.randomUUID();
 
     // Dedicated AI Movie Drinking Game Generation intercept
     if (category === 'movie_drinking' || body.movie_title || ((category === 'movie' || category === 'drinking') && (body.movie_title || body.searchTerm))) {
@@ -792,7 +793,7 @@ export async function POST(req: Request) {
 
     // Fetch User Profile for off_limits
     let userProfileOffLimits: string[] = [];
-    if (!user.is_guest) {
+    if (!(user as any).is_guest) {
       try {
         const { data: userProfile } = await supabase
           .from('profiles')
@@ -1510,7 +1511,7 @@ Seamlessly continue the roleplay scenario. DO NOT repeat previous dialogue or sc
             generatedContent.tropes = detailedMeta.tropes;
             generatedContent.word_count = detailedMeta.word_count;
 
-            storyId = crypto.randomUUID();
+            storyId = effectiveStoryId;
 
             if (isLiterature) {
               generatedContent.chapter = isContinuation ? endChapter : 3;
@@ -1595,7 +1596,12 @@ Seamlessly continue the roleplay scenario. DO NOT repeat previous dialogue or sc
       }
     });
 
-    return new StreamingTextResponse(customStream);
+    return new StreamingTextResponse(customStream, {
+      headers: {
+        'x-content-id': effectiveStoryId,
+        'Access-Control-Expose-Headers': 'x-content-id'
+      }
+    });
   } catch (error: any) {
     console.error("AI Generation Route Error:", error?.message, error?.stack, error);
     return NextResponse.json({ error: error?.message || 'Unknown server error', details: error?.stack || null }, { status: 500 });
