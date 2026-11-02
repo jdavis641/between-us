@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import LogoutButton from "../components/LogoutButton";
 import TourModal from "./components/TourModal";
+import MetaPurchaseTracker from "@/components/MetaPurchaseTracker";
 
 function DashboardSidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -329,6 +330,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 overflow-x-hidden flex flex-col relative w-full">
         {children}
       </div>
+      <Suspense fallback={null}>
+        <MetaPurchaseTracker />
+      </Suspense>
       <Suspense fallback={null}>
         <TourModal />
       </Suspense>
