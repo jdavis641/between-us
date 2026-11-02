@@ -1,40 +1,40 @@
 # CFO Weekly Financial & Subscriber Summary
 
-**Execution Timestamp:** 2026-10-30T21:17:28.240Z  
-**Reporting Period:** Week ending 2026-10-30  
-**Data Source:** mock/fallback  
+**Execution Timestamp:** 2026-11-02T18:04:50.531Z  
+**Reporting Period:** Week ending 2026-11-02  
+**Data Source:** Supabase profiles live database  
 **Target Operating Threshold:** >= 80.00% Gross Margin  
 
 ---
 
 ## 1. Executive Summary & Subscriber Metrics
-- **Active Paid Subscribers (`is_active = true`):** 0
+- **Active Paid Subscribers (`is_active = true`):** 3
 - **Net Recovered Revenue per User:** $2.60 / month
-- **Live Monthly Recurring Revenue (MRR):** $0.00
-- **Annualized Run Rate (ARR):** $0.00
+- **Live Monthly Recurring Revenue (MRR):** $7.80
+- **Annualized Run Rate (ARR):** $93.60
 
 ## 2. Unit Economics & Blended COGS Breakdown
 | Cost Category | Per User / Month | Total Monthly Cost |
 | :--- | :--- | :--- |
-| **AI Inference API (OpenRouter / Gemini Pro)** | $0.18 | $0.00 |
-| **Telephony & Dispatch (Twilio SMS / Invites)** | $0.05 | $0.00 |
-| **Cloud Hosting & DB (Vercel + Supabase)** | $0.09 | $0.00 |
-| **Total Blended COGS** | **$0.32** | **$0.00** |
+| **AI Inference API (OpenRouter / Gemini Pro)** | $0.18 | $0.54 |
+| **Telephony & Dispatch (Twilio SMS / Invites)** | $0.05 | $0.15 |
+| **Cloud Hosting & DB (Vercel + Supabase)** | $0.09 | $0.27 |
+| **Total Blended COGS** | **$0.32** | **$0.96** |
 
 ## 3. Profitability & Operational Margin
-- **Gross Profit:** $0.00
+- **Gross Profit:** $6.84
 - **Blended Gross Margin:** **87.69%**
 - **Margin Compliance Status:** ✅ **STATUS GREEN:** Active gross margin satisfies the 80%+ mandate defined in the "Side Hustle - Retirement" financial blueprint.
 
 ## 4. Corporate Compliance & Quarterly Tax Planning
-- **Estimated Quarterly Tax Reserves (30% Net Profit):** $0.00
+- **Estimated Quarterly Tax Reserves (30% Net Profit):** $2.05
 - **Section 179 & R&D Expense Qualification:** Cloud compute and AI token costs logged as deductible software engineering R&D expenditures.
 - **Reporting Schedule:** Weekly automated execution scheduled every Friday at 5:00 PM.
 
 ## 5. Infrastructure Health & Scaling Timeline
-- **Current Active User Count:** 0
+- **Current Active User Count:** 3
 - **Next Infrastructure Bottleneck:** **Database Pooling/Cache** (10,000 active users)
-- **Current Milestone Utilization:** **0%** of limit (Warning Threshold: 85.00% / 8,500 users)
+- **Current Milestone Utilization:** **0.03%** of limit (Warning Threshold: 85.00% / 8,500 users)
 - **Bottleneck Threat Assessment:** 🟢 **NORMAL OPERATING CAPACITY**
 
 > 🟢 **STATUS OPTIMAL:** Current live subscriber count is operating safely within nominal infrastructure limits. No immediate tier intervention required.

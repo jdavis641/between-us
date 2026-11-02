@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 import "./globals.css";
 import PwaRegistration from "./PwaRegistration";
 import Footer from "@/components/Footer";
+import UtmTracker from "@/components/UtmTracker";
 import { getActiveHolidayTheme } from "@/utils/holidayTheme";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -119,6 +121,9 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
+        <Suspense fallback={null}>
+          <UtmTracker />
+        </Suspense>
         {children}
         <Footer />
         <PwaRegistration />

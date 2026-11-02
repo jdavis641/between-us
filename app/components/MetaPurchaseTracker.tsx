@@ -18,11 +18,15 @@ export default function MetaPurchaseTracker() {
 
     const storageKey = `meta_purchase_tracked_${sessionId}`;
     if (typeof window !== 'undefined' && !sessionStorage.getItem(storageKey)) {
+      const utmCampaign = searchParams.get('utm_campaign') || sessionStorage.getItem('betweenus_utm_campaign') || undefined;
+
       const triggerPurchase = () => {
         if (window.fbq) {
           window.fbq('track', 'Purchase', {
             value: 0.99,
             currency: 'USD',
+            ...(utmCampaign ? { content_name: utmCampaign } : {}),
+            content_type: 'product',
           });
           sessionStorage.setItem(storageKey, 'true');
           return true;
@@ -43,7 +47,7 @@ export default function MetaPurchaseTracker() {
         };
       }
     }
-  }, [sessionId]);
+  }, [sessionId, searchParams]);
 
   return null;
 }

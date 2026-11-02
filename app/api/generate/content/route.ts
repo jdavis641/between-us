@@ -460,6 +460,7 @@ Make the game prompts highly specific to the selected intimacy category. NEVER b
   return sys;
 }
 
+// Degraded state fallback circuit source: seeded-library-fallback
 async function fetchCuratedSupabaseFallback({
   supabase,
   contentType,
@@ -1412,8 +1413,8 @@ Seamlessly continue the roleplay scenario. DO NOT repeat previous dialogue or sc
 
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
-      abortController.abort(new Error("OpenRouter request timed out after 55s"));
-    }, 55000);
+      abortController.abort(new Error("OpenRouter request timed out after 45s"));
+    }, 45000);
 
     // Validate OpenRouter SDK Initialization
     if (!process.env.OPENROUTER_API_KEY || !process.env.OPENROUTER_API_KEY.trim()) {

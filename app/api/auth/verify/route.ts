@@ -46,6 +46,7 @@ export async function POST(req: Request) {
     const cookiesToSetBuffer: { name: string; value: string; options: any }[] = [];
     const persistedShareId = share_id || cookieStore.get('share_id')?.value || null;
     const persistedLens = lens || cookieStore.get('share_lens')?.value || null;
+    const persistedUtmCampaign = cookieStore.get('utm_campaign')?.value || null;
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -271,6 +272,14 @@ export async function POST(req: Request) {
         stripeDest += `&share_id=${encodeURIComponent(persistedShareId)}`;
         if (persistedLens) {
           stripeDest += `&lens=${encodeURIComponent(persistedLens)}`;
+        }
+      }
+      if (persistedUtmCampaign) {
+        stripeDest += `&utm_campaign=${encodeURIComponent(persistedUtmCampaign)}`;
+        try {
+          await supabaseAdmin.from('profiles').update({ utm_campaign: persistedUtmCampaign }).eq('id', data.user.id);
+        } catch {
+          // Non-blocking if utm_campaign column not yet migrated
         }
       }
       const destination = stripeDest;

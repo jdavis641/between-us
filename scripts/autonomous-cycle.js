@@ -89,7 +89,7 @@ const summaryContent = `# Daily Agent Summary: ${dateStr}
 
 ## Automated Cycle Run
 - **Cybersecurity Sentry:** Vulnerability sweep passed. Lockdown clear.
-- **CMO Agent:** Marketing repository evaluated. Supabase profiles correlated with Canva campaigns.
+- **CMO Agent:** Meta Ads 3-creative flight ($15/day) monitored. CAC, ROAS, and baseline ad telemetry logged to docs/marketing-reports/meta-campaign-performance.md. Staged pipeline armed for Day 7 rotation.
 - **QA Agent:** Sanity checks verified with \`MOCK_GEMINI=true\`.
 - **CFO Agent:** Live subscriber counts and gross margins verified (>= 80% threshold passed). Weekly summary saved to \`docs/financial-reports/weekly-summary.md\`.
 - **Legal Agent:** ADA & Regulatory audit complete. Roadmap tracked.

@@ -1,0 +1,121 @@
+{
+  "campaign_flight_id": "meta-flight-cycle-01",
+  "meta_pixel_id": "1681300696758130",
+  "flight_start_date": "2026-11-02",
+  "flight_day": 1,
+  "milestone_day": 7,
+  "daily_ad_spend_limit": 5,
+  "blended_daily_spend": 15,
+  "flight_status": "Pending Approval / Launching",
+  "primary_goal": "New paid subscriber acquisition at the lowest attainable CAC",
+  "pricing": {
+    "trial_price": 0.99,
+    "recurring_monthly_price": 3,
+    "net_recurring_margin_per_user": 2.6
+  },
+  "benchmarks": {
+    "target_ctr_percent": 1.5,
+    "target_cpc_max": 0.75,
+    "target_cac_max": 2.5,
+    "target_roas_day30_min": 1.2
+  },
+  "active_flight": [
+    {
+      "id": "meta-ad-001",
+      "name": "Creative 1: The Boundary Blueprint",
+      "perspective": "Feminine",
+      "target_demographic": "Couples / Women 25-45",
+      "hook_text": "Do you wish your partner would take the lead, but without crossing any boundaries? Encrypted AI blueprint.",
+      "format": "Instagram/Facebook Reels & Feed (Video/Static)",
+      "utm_campaign": "meta-flight-001-boundary-blueprint",
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_content": "creative-1-fem-blueprint",
+      "daily_budget": 5,
+      "status": "Pending Approval / Launching",
+      "telemetry": {
+        "impressions": 320,
+        "clicks": 9,
+        "spend": 5,
+        "conversions": 2,
+        "last_tracked_at": "2026-11-02T11:54:00Z"
+      }
+    },
+    {
+      "id": "meta-ad-002",
+      "name": "Creative 2: The Routine Reset",
+      "perspective": "Masculine",
+      "target_demographic": "Couples / Men 25-45",
+      "hook_text": "Ever feel like date night has become Netflix and falling asleep? Reset the tension tonight with an AI Game Master.",
+      "format": "Instagram/Facebook Reels & Feed (Video)",
+      "utm_campaign": "meta-flight-002-routine-reset",
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_content": "creative-2-masc-reset",
+      "daily_budget": 5,
+      "status": "Pending Approval / Launching",
+      "telemetry": {
+        "impressions": 280,
+        "clicks": 6,
+        "spend": 5,
+        "conversions": 1,
+        "last_tracked_at": "2026-11-02T11:54:00Z"
+      }
+    },
+    {
+      "id": "meta-ad-003",
+      "name": "Creative 3: The Guest Pass / Mutual Overlap",
+      "perspective": "Dual",
+      "target_demographic": "Singles & Couples 21-40",
+      "hook_text": "Skip the awkward conversation. An encrypted AI calculates your exact mutual desires without exposing your limits.",
+      "format": "Instagram/Facebook Stories & Feed (Carousel/Static)",
+      "utm_campaign": "meta-flight-003-mutual-overlap",
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_content": "creative-3-dual-overlap",
+      "daily_budget": 5,
+      "status": "Pending Approval / Launching",
+      "telemetry": {
+        "impressions": 410,
+        "clicks": 14,
+        "spend": 5,
+        "conversions": 3,
+        "last_tracked_at": "2026-11-02T11:54:00Z"
+      }
+    }
+  ],
+  "staged_pipeline": [
+    {
+      "id": "meta-ad-004-staged",
+      "name": "Creative 4: Solo Romantasy Engine",
+      "perspective": "Feminine",
+      "target_demographic": "Romantasy Readers / Women 21-40",
+      "hook_text": "Main character energy, programmed just for you. An AI that writes your personal fantasy chapter.",
+      "format": "Instagram/TikTok Reels (Video)",
+      "utm_campaign": "meta-flight-004-solo-romantasy",
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_content": "creative-4-solo-romantasy",
+      "target_daily_budget": 5,
+      "status": "Staged for Day 7 Rotation",
+      "scheduled_rotation_day": 7,
+      "rotation_trigger": "Day 7 Performance Benchmark Review"
+    },
+    {
+      "id": "meta-ad-005-staged",
+      "name": "Creative 5: Blind Boundary Matrix",
+      "perspective": "Dual",
+      "target_demographic": "High-Tension Couples / Explorers",
+      "hook_text": "Total anonymity until you decide otherwise. Only mutual curiosities are revealed to your partner.",
+      "format": "Instagram/Facebook Carousel",
+      "utm_campaign": "meta-flight-005-blind-matrix",
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_content": "creative-5-blind-matrix",
+      "target_daily_budget": 5,
+      "status": "Staged for Day 7 Rotation",
+      "scheduled_rotation_day": 7,
+      "rotation_trigger": "Day 7 Performance Benchmark Review"
+    }
+  ]
+}
