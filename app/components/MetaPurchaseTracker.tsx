@@ -19,6 +19,7 @@ export default function MetaPurchaseTracker() {
     const storageKey = `meta_purchase_tracked_${sessionId}`;
     if (typeof window !== 'undefined' && !sessionStorage.getItem(storageKey)) {
       const utmCampaign = searchParams.get('utm_campaign') || sessionStorage.getItem('betweenus_utm_campaign') || undefined;
+      const utmContent = searchParams.get('utm_content') || sessionStorage.getItem('betweenus_utm_content') || undefined;
 
       const triggerPurchase = () => {
         if (window.fbq) {
@@ -26,6 +27,7 @@ export default function MetaPurchaseTracker() {
             value: 0.99,
             currency: 'USD',
             ...(utmCampaign ? { content_name: utmCampaign } : {}),
+            ...(utmContent ? { content_category: utmContent } : {}),
             content_type: 'product',
           });
           sessionStorage.setItem(storageKey, 'true');

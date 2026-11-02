@@ -48,12 +48,18 @@ export async function POST(req: Request) {
 
       if (targetUserId) {
         const utmCampaign = session.metadata?.utm_campaign || (session as any).client_reference_id_metadata?.utm_campaign;
+        const utmContent = session.metadata?.utm_content || (session as any).client_reference_id_metadata?.utm_content;
 
         // a) Upsert profiles table to activate the user and guarantee the row exists
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
           .upsert(
-            { id: targetUserId, is_active: true, ...(utmCampaign ? { utm_campaign: utmCampaign } : {}) },
+            {
+              id: targetUserId,
+              is_active: true,
+              ...(utmCampaign ? { utm_campaign: utmCampaign } : {}),
+              ...(utmContent ? { utm_content: utmContent } : {})
+            },
             { onConflict: 'id' }
           );
           

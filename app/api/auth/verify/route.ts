@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     const persistedShareId = share_id || cookieStore.get('share_id')?.value || null;
     const persistedLens = lens || cookieStore.get('share_lens')?.value || null;
     const persistedUtmCampaign = cookieStore.get('utm_campaign')?.value || null;
+    const persistedUtmContent = cookieStore.get('utm_content')?.value || null;
+    const persistedUtmSource = cookieStore.get('utm_source')?.value || null;
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -276,10 +278,19 @@ export async function POST(req: Request) {
       }
       if (persistedUtmCampaign) {
         stripeDest += `&utm_campaign=${encodeURIComponent(persistedUtmCampaign)}`;
+      }
+      if (persistedUtmContent) {
+        stripeDest += `&utm_content=${encodeURIComponent(persistedUtmContent)}`;
+      }
+      if (persistedUtmCampaign || persistedUtmContent || persistedUtmSource) {
         try {
-          await supabaseAdmin.from('profiles').update({ utm_campaign: persistedUtmCampaign }).eq('id', data.user.id);
+          await supabaseAdmin.from('profiles').update({
+            ...(persistedUtmCampaign ? { utm_campaign: persistedUtmCampaign } : {}),
+            ...(persistedUtmContent ? { utm_content: persistedUtmContent } : {}),
+            ...(persistedUtmSource ? { utm_source: persistedUtmSource } : {})
+          }).eq('id', data.user.id);
         } catch {
-          // Non-blocking if utm_campaign column not yet migrated
+          // Non-blocking if utm columns not yet migrated
         }
       }
       const destination = stripeDest;
