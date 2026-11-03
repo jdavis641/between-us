@@ -1387,9 +1387,16 @@ export default function RolePlayClient({ initialTolerance, initialKinks }: RoleP
                   <button
                     type="submit"
                     disabled={isSharing || !shareRecipient.trim()}
-                    className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer"
+                    className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {isSharing ? 'Sending Link...' : 'Send Recipient Link'}
+                    {isSharing ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                        Sending Link...
+                      </>
+                    ) : (
+                      'Send Recipient Link'
+                    )}
                   </button>
                 </div>
               </form>

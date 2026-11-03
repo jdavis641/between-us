@@ -59,13 +59,35 @@ function ExperienceReaderInner({ params }: { params: any }) {
     .replace(/Click continue story to expand\.?/gi, '')
     .trim();
 
-  const pages = useMemo(() => paginateContent(displayContent, 600), [displayContent]);
+  // Content extraction and derived paginated content / chapters
+  const chapters = useMemo(() => {
+    if (!displayContent || !displayContent.trim()) return [];
+    const splitChapters = displayContent
+      .split(/(?=##?\s*Chapter\s*\d+|Chapter\s*\d+)/i)
+      .map((ch: string) => ch.trim())
+      .filter((ch: string) => ch.length > 50);
+
+    if (splitChapters.length > 0) {
+      return splitChapters;
+    }
+    return paginateContent(displayContent, 600);
+  }, [displayContent]);
+
+  const pages = chapters;
 
   // Paginated Reader State & Smart Scroll
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const clampedPage = Math.min(Math.max(1, currentPage), Math.max(1, chapters.length));
   const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const hasPrefetchedPages4to6 = useRef<boolean>(false);
+
+  // Keep currentPage strictly clamped within [1, chapters.length]
+  useEffect(() => {
+    if (chapters.length > 0 && currentPage > chapters.length) {
+      setCurrentPage(chapters.length);
+    }
+  }, [chapters.length, currentPage]);
 
   useEffect(() => {
     async function fetchContent() {
@@ -74,9 +96,72 @@ function ExperienceReaderInner({ params }: { params: any }) {
       if (!id) return;
       setStoryId(id);
 
-      // Verify user session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // Check user session
+      let session: any = null;
+      try {
+        const authRes = await supabase.auth.getSession();
+        session = authRes?.data?.session || null;
+      } catch (authErr) {
+        console.warn("Could not retrieve session:", authErr);
+      }
+
+      let data: any = null;
+
+      // 1. If user is authenticated, attempt direct query via supabase client
+      if (session) {
+        try {
+          const { data: rowData, error: fetchErr } = await supabase
+            .from('generated_content')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+          if (fetchErr) {
+            console.warn("Defensive fetch of generated_content encountered error:", fetchErr);
+          }
+          data = rowData;
+        } catch (e) {
+          console.warn("Exception fetching generated_content:", e);
+        }
+      }
+
+      // 2. Fallback to /api/experience/[id] with service-role authority
+      // This grants read access for shared experiences without RLS or session dead-ends
+      if (!data) {
+        try {
+          const expRes = await fetch(`/api/experience/${encodeURIComponent(id)}${lensParam ? `?lens=${encodeURIComponent(lensParam)}` : ''}`, {
+            headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+          });
+          if (expRes.ok) {
+            const json = await expRes.json();
+            if (json.experience || json.story) {
+              data = json.experience || json.story;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Fallback fetch from /api/experience/[id] failed:", apiErr);
+        }
+      }
+
+      // 3. Fallback to /api/share if needed
+      if (!data) {
+        try {
+          const shareRes = await fetch(`/api/share?id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`, {
+            headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+          });
+          if (shareRes.ok) {
+            const json = await shareRes.json();
+            if (json.experience || json.story) {
+              data = json.experience || json.story;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Fallback fetch from /api/share failed:", apiErr);
+        }
+      }
+
+      // 4. If story not found anywhere AND user is not authenticated, redirect to login
+      if (!data && !session) {
         try {
           const fullShareParam = lensParam ? `${id}?lens=${encodeURIComponent(lensParam)}` : id;
           sessionStorage.setItem('share_id', fullShareParam);
@@ -88,57 +173,24 @@ function ExperienceReaderInner({ params }: { params: any }) {
         return;
       }
 
-      // Check if user is active
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_active')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profile && profile.is_active === false) {
-        try {
-          const fullShareParam = lensParam ? `${id}?lens=${encodeURIComponent(lensParam)}` : id;
-          sessionStorage.setItem('share_id', fullShareParam);
-          if (lensParam) sessionStorage.setItem('share_lens', lensParam);
-          document.cookie = `share_id=${encodeURIComponent(fullShareParam)}; path=/; max-age=86400; SameSite=Lax`;
-          if (lensParam) document.cookie = `share_lens=${encodeURIComponent(lensParam)}; path=/; max-age=86400; SameSite=Lax`;
-        } catch (e) {}
-        window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}&prefilled_email=${encodeURIComponent(session.user.email || '')}&share_id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`;
-        return;
-      }
-
-      let data: any = null;
-      try {
-        const { data: rowData, error: fetchErr } = await supabase
-          .from('generated_content')
-          .select('*')
-          .eq('id', id)
+      // 5. If user is authenticated and is the OWNER of the content, check paid subscription status
+      if (session && data && data.user_id === session.user.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', session.user.id)
           .maybeSingle();
 
-        if (fetchErr) {
-          console.warn("Defensive fetch of generated_content encountered error:", fetchErr);
-        }
-        data = rowData;
-      } catch (e) {
-        console.warn("Exception fetching generated_content:", e);
-      }
-
-      // Permissions & Read Access Fallback:
-      // If direct client query returns null (e.g. recipient reading shared experience via RLS),
-      // fetch via our dedicated read-access endpoint with service-role authority
-      if (!data) {
-        try {
-          const res = await fetch(`/api/share?id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`, {
-            headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
-          });
-          if (res.ok) {
-            const json = await res.json();
-            if (json.experience) {
-              data = json.experience;
-            }
-          }
-        } catch (apiErr) {
-          console.warn("Fallback fetch from /api/share failed:", apiErr);
+        if (profile && profile.is_active === false) {
+          try {
+            const fullShareParam = lensParam ? `${id}?lens=${encodeURIComponent(lensParam)}` : id;
+            sessionStorage.setItem('share_id', fullShareParam);
+            if (lensParam) sessionStorage.setItem('share_lens', lensParam);
+            document.cookie = `share_id=${encodeURIComponent(fullShareParam)}; path=/; max-age=86400; SameSite=Lax`;
+            if (lensParam) document.cookie = `share_lens=${encodeURIComponent(lensParam)}; path=/; max-age=86400; SameSite=Lax`;
+          } catch (e) {}
+          window.location.href = `https://buy.stripe.com/28EcN5goV16l9JBgFNbbG00?client_reference_id=${session.user.id}&prefilled_email=${encodeURIComponent(session.user.email || '')}&share_id=${encodeURIComponent(id)}${lensParam ? `&lens=${encodeURIComponent(lensParam)}` : ''}`;
+          return;
         }
       }
 
@@ -547,8 +599,8 @@ function ExperienceReaderInner({ params }: { params: any }) {
   const regenerateStory = handleRegenerate;
 
   const handleNextPage = () => {
-    if (currentPage < pages.length) {
-      const nextIndex = currentPage + 1;
+    if (clampedPage < pages.length) {
+      const nextIndex = clampedPage + 1;
       setCurrentPage(nextIndex);
       try {
         localStorage.setItem(`story_page_${storyId}`, nextIndex.toString());
@@ -562,8 +614,8 @@ function ExperienceReaderInner({ params }: { params: any }) {
   };
 
   const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      const prevIndex = currentPage - 1;
+    if (clampedPage > 1) {
+      const prevIndex = clampedPage - 1;
       setCurrentPage(prevIndex);
       try {
         localStorage.setItem(`story_page_${storyId}`, prevIndex.toString());
@@ -933,10 +985,30 @@ function ExperienceReaderInner({ params }: { params: any }) {
                   style={{ overflowAnchor: 'none' }}
                   className="min-h-[550px] max-h-[750px] md:h-[720px] overflow-y-auto rounded-2xl bg-zinc-900/30 border border-zinc-800/80 p-6 sm:p-10 md:p-12 shadow-2xl relative scroll-smooth focus:outline-none"
                 >
-                  <ErrorBoundary fallbackContent={pages[currentPage - 1] || displayContent}>
-                    <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                      {safeMarkdownString(pages[currentPage - 1] || displayContent)}
-                    </ReactMarkdown>
+                  <ErrorBoundary fallbackContent={pages[clampedPage - 1] || displayContent}>
+                    {pages[clampedPage - 1] && pages[clampedPage - 1].trim().length > 0 ? (
+                      <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                        {safeMarkdownString(pages[clampedPage - 1])}
+                      </ReactMarkdown>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                        <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-zinc-400 font-sans text-sm">
+                          Loading {isRoleplay ? `Page ${clampedPage}` : `Chapter ${clampedPage}`}...
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hasPrefetchedPages4to6.current = false;
+                            prefetchPages4to6();
+                          }}
+                          disabled={isPrefetching}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-900 hover:bg-rose-800 text-rose-100 transition-colors cursor-pointer"
+                        >
+                          {isPrefetching ? "Generating Content..." : `Generate ${isRoleplay ? `Page ${clampedPage}` : `Chapter ${clampedPage}`}`}
+                        </button>
+                      </div>
+                    )}
                   </ErrorBoundary>
                 </div>
 
@@ -948,16 +1020,16 @@ function ExperienceReaderInner({ params }: { params: any }) {
                   <button
                     type="button"
                     onClick={handlePreviousPage}
-                    disabled={currentPage === 1}
+                    disabled={clampedPage <= 1}
                     className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60"
-                    title="Previous Page"
+                    title={isRoleplay ? "Previous Page" : "Previous Chapter"}
                   >
-                    <span>&larr;</span> Previous Page
+                    <span>&larr;</span> {isRoleplay ? "Previous Page" : "Previous Chapter"}
                   </button>
 
                   <div className="flex flex-col items-center">
                     <span className="text-sm font-medium text-zinc-300 font-serif">
-                      Page {currentPage} of {Math.max(pages.length, 1)}
+                      {isRoleplay ? `Page ${clampedPage} of ${Math.max(pages.length, 1)}` : `Chapter ${clampedPage} of ${Math.max(pages.length, 1)}`}
                     </span>
                     {isPrefetching && (
                       <span className="text-xs text-rose-400 animate-pulse flex items-center gap-1.5 mt-0.5">
@@ -967,14 +1039,14 @@ function ExperienceReaderInner({ params }: { params: any }) {
                     )}
                   </div>
 
-                  {currentPage < pages.length ? (
+                  {clampedPage < pages.length ? (
                     <button
                       type="button"
                       onClick={handleNextPage}
                       className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
-                      title="Next Page"
+                      title={isRoleplay ? "Next Page" : "Next Chapter"}
                     >
-                      Next Page <span>&rarr;</span>
+                      {isRoleplay ? "Next Page" : "Next Chapter"} <span>&rarr;</span>
                     </button>
                   ) : (
                     <button
@@ -1228,9 +1300,16 @@ function ExperienceReaderInner({ params }: { params: any }) {
                     <button
                       type="submit"
                       disabled={isSharing || !shareRecipient.trim()}
-                      className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer"
+                      className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {isSharing ? 'Sending Link...' : 'Send Recipient Link'}
+                      {isSharing ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                          Sending Link...
+                        </>
+                      ) : (
+                        'Send Recipient Link'
+                      )}
                     </button>
                   </div>
                 </form>

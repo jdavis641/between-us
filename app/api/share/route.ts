@@ -224,8 +224,8 @@ export async function POST(req: Request) {
             subject: `Shared ${isRoleplay ? 'Roleplay' : 'Story'}: "${title}" on Between Us`,
             html: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 32px; border-radius: 16px; max-width: 580px; margin: 0 auto; border: 1px solid #27272a;">
-                <div style="margin-bottom: 24px;">
-                  <span style="font-size: 28px;">🔥</span>
+                <div style="margin-bottom: 24px; text-align: center;">
+                  <img src="https://betweenusapp.io/brand-logo.webp" alt="Between Us" width="48" height="48" style="display:block; margin: 0 auto 16px auto; border-radius: 8px;" />
                   <h1 style="color: #ffffff; font-size: 22px; margin: 12px 0 4px 0; font-weight: 600;">Between Us</h1>
                   <p style="color: #a1a1aa; font-size: 14px; margin: 0;">Private Shared ${isRoleplay ? 'Roleplay Scenario' : 'Story'}</p>
                 </div>

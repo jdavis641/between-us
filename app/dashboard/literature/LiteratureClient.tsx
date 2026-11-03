@@ -291,20 +291,16 @@ export default function LiteratureClient({
 
   const chapters = useMemo(() => {
     if (!storyContent || !storyContent.trim()) return [];
-    const rawChapters = storyContent
-      .split(/(?=Chapter \d+|## Chapter \d+)/i)
-      .map(c => c.trim())
-      .filter(Boolean);
+    const sanitizedChapters = storyContent
+      .split(/(?=##?\s*Chapter\s*\d+|Chapter\s*\d+)/i)
+      .map((ch: string) => ch.trim())
+      .filter((ch: string) => ch.length > 50);
 
-    if (rawChapters.length === 0) return [storyContent.trim()];
-
-    // If first chunk is a title/introductory prelude before Chapter 1, prepend to Chapter 1
-    if (rawChapters.length > 1 && !/^(?:##\s*)?Chapter\s*\d+/i.test(rawChapters[0])) {
-      rawChapters[1] = `${rawChapters[0]}\n\n${rawChapters[1]}`;
-      rawChapters.shift();
+    if (sanitizedChapters.length > 0) {
+      return sanitizedChapters;
     }
 
-    return rawChapters;
+    return [storyContent.trim()];
   }, [storyContent]);
 
   // Keep pages for backwards compatibility/PDF export
@@ -322,6 +318,13 @@ export default function LiteratureClient({
   const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
   const hasPrefetchedPages = useRef<boolean>(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Boundary clamping: ensure currentPage is kept in bounds [1, chapters.length]
+  useEffect(() => {
+    if (chapters.length > 0 && currentPage > chapters.length) {
+      setCurrentPage(chapters.length);
+    }
+  }, [chapters.length, currentPage, setCurrentPage]);
 
   // Restore active story and chapter state from localStorage
   useEffect(() => {
@@ -1902,9 +1905,24 @@ export default function LiteratureClient({
             className="min-h-[480px] max-h-[720px] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-6 sm:p-10 md:p-12 mb-6 shadow-2xl font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif focus:outline-none scroll-smooth"
           >
             <ErrorBoundary fallbackContent={chapters[activeChapter - 1] || cleanContent}>
-              <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                {safeMarkdownString(chapters[activeChapter - 1] || cleanContent)}
-              </ReactMarkdown>
+              {chapters[activeChapter - 1] && chapters[activeChapter - 1].trim().length > 0 ? (
+                <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
+                  {safeMarkdownString(chapters[activeChapter - 1])}
+                </ReactMarkdown>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                  <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-zinc-400 font-sans text-sm">Generating Chapter {activeChapter}...</p>
+                  <button
+                    type="button"
+                    onClick={() => handleContinueStory()}
+                    disabled={isContinuing}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-900 hover:bg-rose-800 text-rose-100 transition-colors cursor-pointer"
+                  >
+                    {isContinuing ? "Writing Chapter..." : `Generate Chapter ${activeChapter}`}
+                  </button>
+                </div>
+              )}
             </ErrorBoundary>
           </div>
 
@@ -2192,9 +2210,16 @@ export default function LiteratureClient({
                   <button
                     type="submit"
                     disabled={isSharing || !shareRecipient.trim()}
-                    className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer"
+                    className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {isSharing ? 'Sending Link...' : 'Send Link'}
+                    {isSharing ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                        Sending Link...
+                      </>
+                    ) : (
+                      'Send Link'
+                    )}
                   </button>
                 </div>
               </form>

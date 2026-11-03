@@ -273,7 +273,7 @@ CRITICAL DIRECTIVE: Ground the characters, atmospheric tension, ambient sounds, 
 
   if (previousContent) {
     sys += `NOVELLA CONTINUATION DIRECTIVE:
-You are continuing a high-quality, immersive romantasy novel. The entire previous story state has been provided. You MUST continue seamlessly from the exact end of the previous chapters. Generate the requested sequential chapters (e.g. Chapters 4, 5, and 6) in full, immersive narrative prose. DO NOT output table of contents, outlines, or just chapter titles. DO NOT restart, summarize, or repeat any events, dialogue, or settings from previous chapters. Advance the plot and erotic tension with fresh progression.\n\n`;
+You are continuing a high-quality, immersive romantasy novel. The entire previous story state has been provided. You MUST continue seamlessly from the exact end of the previous chapters. Generate the requested sequential chapters (e.g. Chapters 4, 5, and 6) in full, immersive narrative prose. Each chapter must be clearly delineated with markdown headers ('## Chapter X: [Title]') and must contain at least 500-600 words of complete narrative prose. DO NOT output table of contents, outlines, or just chapter titles. DO NOT restart, summarize, or repeat any events, dialogue, or settings from previous chapters. Advance the plot and erotic tension with fresh progression.\n\n`;
   }
 
   // Literotica RAG Style Reference Injection (Few-Shot Prose Grounding)
@@ -297,7 +297,7 @@ ${styleReference.excerpt.trim()}
 
   if (contentType === 'literature') {
     if (previousContent) {
-      sys += `You are continuing a high-quality, immersive romantasy novel. The entire previous story state is provided in context. You MUST respond ONLY with the next sequential chapters of narrative prose. DO NOT output table of contents, outlines, or just chapter titles. DO NOT repeat earlier scenes or dialogue. Advance the narrative.\n\n`;
+      sys += `You are continuing a high-quality, immersive romantasy novel. The entire previous story state is provided in context. You MUST respond ONLY with the next sequential chapters of narrative prose. Each chapter must be clearly delineated with markdown headers ('## Chapter X: [Title]') and must contain at least 500-600 words of complete narrative prose. DO NOT output table of contents, outlines, or just chapter titles. DO NOT repeat earlier scenes or dialogue. Advance the narrative.\n\n`;
     } else {
       sys += `You are a master, best-selling author of adult romantasy and erotic fiction. Your prose must be visceral, evocative, and hyper-descriptive. You MUST master the slow build of tension, emotional friction, and psychological anticipation before physical escalation. Avoid generic, clinical, or rushed storytelling. Your descriptions of physical touch must be granular, poetic, and highly immersive. The initial story payload must contain Chapters 1, 2, and 3 fully written (minimum 1,800-2,500 words total across all three chapters).\n\n`;
     }
@@ -1391,13 +1391,13 @@ ${previousContent.trim()}
 """
 
 CONTINUATION DIRECTIVE FOR CHAPTERS ${startChapter} TO ${endChapter}:
-You are continuing the ongoing story seamlessly from the previous excerpt. Generate approximately 1,200 words of narrative prose advancing the scene. DO NOT summarize, outline, or repeat previous text. Begin writing prose immediately.
+You are continuing the ongoing story seamlessly from the previous excerpt. Generate approximately 1,200-1,800 words of narrative prose advancing the scene (at least 500-600 words per chapter). DO NOT summarize, outline, or repeat previous text. Begin writing prose immediately.
 The entire previous story state has been provided above.
 CRITICAL REPETITION PREVENTION DIRECTIVES:
 1. DO NOT restart the story from the beginning or re-introduce the initial opening premise.
 2. DO NOT repeat any scenes, conversations, sensory descriptions, or paragraphs already present in the previous context above.
 3. Advance the plot sequentially. Immediately begin writing Chapter ${startChapter}, seamlessly progressing from the exact point where Chapter ${startChapter - 1} ended.
-4. Generate complete, uninterrupted narrative prose for Chapters ${startChapter} through ${endChapter} (each clearly labeled with '## Chapter X: [Title]').
+4. Generate complete, uninterrupted narrative prose for Chapters ${startChapter} through ${endChapter} (each clearly labeled with '## Chapter X: [Title]'). Each chapter must contain at least 500-600 words of complete narrative prose.
 5. Return valid JSON containing the newly generated chapters in 'body' and 'text'. Pacing: ${currentPacing} (${pacingRule}).`;
       }
     } else if (contentType === 'roleplay') {
