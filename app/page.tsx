@@ -29,8 +29,8 @@ const faqs: FaqItem[] = [
     answer: "Absolutely. We firmly believe that mind-blowing intimate encounters are a right for everyone. We work diligently to ensure that our system is universally inclusive, intuitively capturing diverse pronouns, genders, and sexual orientations to generate something for everyone. If you do not see your preference, suggest a theme, trope, or category, and our team will include it in the system for everyone to enjoy."
   },
   {
-    question: "Who created this app?",
-    answer: "This app was created by a married couple in the American midwest. After years of marriage, kids and responsibilities we found ourselves in a bit of a rut. Eventually becoming more roommates than lovers. Intimacy games that we bought online became repetitive and expensive. We designed an app to increase our communication and connection. It worked, and we hope you enjoy it too!"
+    question: "Does my partner need an account?",
+    answer: "Yes, your subscription is valid for one user only. We worked hard to make this app a tremendous value at only $3/month (locked in for the life of your account). Buying one intimacy game online costs more than a full year of access at Between Us."
   }
 ];
 
