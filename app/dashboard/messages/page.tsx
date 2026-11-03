@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 export default function UserMessages() {
@@ -17,7 +18,7 @@ export default function UserMessages() {
       const { data } = await supabase
         .from('in_app_messages')
         .select('*')
-        .eq('user_id', session.user.id)
+        .or(`user_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`)
         .order('created_at', { ascending: false });
       if (data) setMessages(data);
     }
@@ -36,7 +37,7 @@ export default function UserMessages() {
       <div className="max-w-3xl mx-auto space-y-8">
         <header className="border-b border-zinc-800 pb-8">
           <h1 className="text-3xl font-serif font-medium text-zinc-100 mb-2">Inbox</h1>
-          <p className="text-zinc-400">Direct messages from the administration and support team.</p>
+          <p className="text-zinc-400">Direct messages, shared experiences, and notifications.</p>
         </header>
 
         {messages.length === 0 ? (
@@ -45,22 +46,39 @@ export default function UserMessages() {
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map(msg => (
-              <div key={msg.id} className={`p-6 rounded-xl border transition-colors ${msg.is_read ? 'bg-zinc-900/30 border-zinc-800' : 'bg-zinc-900 border-red-900/50 relative shadow-lg'}`}>
-                {!msg.is_read && <span className="absolute top-6 right-6 h-2 w-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>}
-                <div className="pr-8">
-                  <h3 className={`font-medium mb-1 ${msg.is_read ? 'text-zinc-300' : 'text-zinc-100'}`}>{msg.subject}</h3>
-                  <p className="text-xs text-zinc-500 mb-4 font-mono tracking-wider">{new Date(msg.created_at).toLocaleString()}</p>
-                  <p className={`text-sm whitespace-pre-wrap leading-relaxed ${msg.is_read ? 'text-zinc-400' : 'text-zinc-300'}`}>{msg.message}</p>
-                  
-                  {!msg.is_read && (
-                    <button onClick={() => markAsRead(msg.id)} className="mt-6 text-xs font-semibold text-zinc-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2">
-                      <span className="w-4 h-px bg-zinc-600"></span> Mark as Read
-                    </button>
-                  )}
+            {messages.map(msg => {
+              const displayTitle = msg.title || msg.subject || 'New Message';
+              const displayBody = msg.body || msg.message || '';
+              const experienceUrl = msg.payload?.url || (msg.payload?.contentId ? `/dashboard/experience/${msg.payload.contentId}` : null);
+
+              return (
+                <div key={msg.id} className={`p-6 rounded-xl border transition-colors ${msg.is_read ? 'bg-zinc-900/30 border-zinc-800' : 'bg-zinc-900 border-red-900/50 relative shadow-lg'}`}>
+                  {!msg.is_read && <span className="absolute top-6 right-6 h-2 w-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>}
+                  <div className="pr-8">
+                    <h3 className={`font-medium mb-1 ${msg.is_read ? 'text-zinc-300' : 'text-zinc-100'}`}>{displayTitle}</h3>
+                    <p className="text-xs text-zinc-500 mb-4 font-mono tracking-wider">{new Date(msg.created_at).toLocaleString()}</p>
+                    <p className={`text-sm whitespace-pre-wrap leading-relaxed ${msg.is_read ? 'text-zinc-400' : 'text-zinc-300'}`}>{displayBody}</p>
+
+                    {experienceUrl && (
+                      <div className="mt-4">
+                        <Link
+                          href={experienceUrl}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-rose-950/50 hover:bg-rose-900/80 border border-rose-800 text-rose-200 hover:text-white rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-95"
+                        >
+                          <span>✨</span> Experience Content &rarr;
+                        </Link>
+                      </div>
+                    )}
+
+                    {!msg.is_read && (
+                      <button onClick={() => markAsRead(msg.id)} className="mt-5 text-xs font-semibold text-zinc-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2 cursor-pointer">
+                        <span className="w-4 h-px bg-zinc-600"></span> Mark as Read
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

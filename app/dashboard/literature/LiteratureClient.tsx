@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import RatingWidget from "@/components/RatingWidget";
+import InteractionBar from "@/components/InteractionBar";
 import FlameLoader from "@/components/FlameLoader";
 import ReactMarkdown from "react-markdown";
 import ErrorBoundary, { safeMarkdownString } from "@/components/ErrorBoundary";
@@ -262,6 +263,17 @@ export default function LiteratureClient({
   const [storyContentId, setStoryContentId] = useState<string | null>(null);
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
 
+  // Literature Share State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareMethod, setShareMethod] = useState<'email' | 'username' | 'sms'>('email');
+  const [shareRecipient, setShareRecipient] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [isPartnerDispatching, setIsPartnerDispatching] = useState(false);
+  const [partnerDispatchSuccess, setPartnerDispatchSuccess] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   // Derived Paginated Chapter Content (split by Chapter [0-9]+ or ## Chapter)
   const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
@@ -492,6 +504,171 @@ export default function LiteratureClient({
     setFavoriteToast(null);
     setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Resolve or persist story ID to ensure valid UUID for sharing & RLS permissions
+  const resolveStoryId = async (): Promise<string | null> => {
+    let id = storyContentId || (scenario as any)?.id;
+    if (id) return id;
+
+    if (scenario?.title) {
+      try {
+        const { data: row } = await supabase
+          .from('generated_content')
+          .select('id')
+          .eq('title', scenario.title)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (row?.id) {
+          setStoryContentId(row.id);
+          return row.id;
+        }
+      } catch (e) {
+        console.warn("Could not find story by title:", e);
+      }
+    }
+
+    if (scenario) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const fallbackId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `story-${Date.now()}`;
+        const bodyContent = cleanContent || scenario.body || scenario.overview || '';
+        await supabase.from('generated_content').insert({
+          id: fallbackId,
+          user_id: user?.id || null,
+          content_type: 'literature',
+          title: scenario.title || 'Romantic Literature Story',
+          body: bodyContent,
+          content: bodyContent,
+          status: 'active',
+          shared_with: []
+        });
+        setStoryContentId(fallbackId);
+        return fallbackId;
+      } catch (insertErr) {
+        console.warn("Defensive creation of generated_content for sharing failed:", insertErr);
+      }
+    }
+
+    return null;
+  };
+
+  const handleOpenShareModal = async () => {
+    setShareError(null);
+    setPartnerDispatchSuccess(null);
+    await resolveStoryId();
+    setIsShareModalOpen(true);
+  };
+
+  const handleCopyRecipientLink = async () => {
+    const id = await resolveStoryId();
+    const url = `https://betweenusapp.io/dashboard/experience/${id || ''}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+      }
+      setCopiedLink(true);
+      setShareToast('Direct story link copied to clipboard');
+      setTimeout(() => {
+        setCopiedLink(false);
+        setShareToast(null);
+      }, 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  const handlePartnerDispatch = async () => {
+    setIsPartnerDispatching(true);
+    setShareError(null);
+    setPartnerDispatchSuccess(null);
+
+    try {
+      const id = await resolveStoryId();
+      if (!id) throw new Error("Could not find or save story to share.");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          storyId: id,
+          contentId: id,
+          storyTitle: scenario?.title || 'Romantic Literature Story',
+          title: scenario?.title || 'Romantic Literature Story',
+          contentType: 'literature',
+          isPartnerDispatch: true
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch to partner');
+      }
+
+      setPartnerDispatchSuccess('Story sent directly to your partner!');
+      setShareToast('Story dispatched to partner!');
+      setTimeout(() => {
+        setIsShareModalOpen(false);
+        setShareToast(null);
+      }, 3000);
+    } catch (err: any) {
+      console.error("Partner dispatch error:", err);
+      setShareError(err.message || 'Failed to dispatch to partner. Please use direct link or email.');
+    } finally {
+      setIsPartnerDispatching(false);
+    }
+  };
+
+  const handleShareStory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!shareRecipient.trim() || isSharing || !scenario) return;
+
+    setIsSharing(true);
+    setShareError(null);
+
+    try {
+      const id = await resolveStoryId();
+      if (!id) throw new Error("Could not find or save story to share.");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          storyId: id,
+          contentId: id,
+          storyTitle: scenario.title,
+          title: scenario.title,
+          contentType: 'literature',
+          recipient: shareRecipient.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch share');
+      }
+
+      const methodLabel = shareMethod === 'email' ? 'Email' : (shareMethod === 'username' ? 'Username' : 'SMS');
+      setShareRecipient('');
+      setIsShareModalOpen(false);
+      setShareToast(`Story shared successfully via ${methodLabel}!`);
+      setTimeout(() => setShareToast(null), 4000);
+    } catch (err: any) {
+      console.error("Share error:", err);
+      setShareError(err.message || 'Failed to share story. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   // Progressive Chapter Assembly Poller:
@@ -1649,6 +1826,16 @@ export default function LiteratureClient({
                 <span>📄</span>
                 PDF
               </button>
+
+              {/* Share Story Button */}
+              <button
+                onClick={handleOpenShareModal}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-900 to-rose-900 hover:from-red-800 hover:to-rose-800 text-white rounded-lg text-sm font-semibold transition-all w-fit cursor-pointer shadow-md active:scale-95 border border-red-700/60"
+                title="Share this story"
+              >
+                <span>📤</span>
+                Share
+              </button>
             </div>
           </div>
           
@@ -1747,7 +1934,7 @@ export default function LiteratureClient({
             </div>
           )}
 
-          {/* Story Actions: Configure New Story & Regenerate */}
+          {/* Story Actions: Configure New Story, Regenerate, and Share Story */}
           <div className="flex flex-wrap items-center gap-4 mb-8" style={{ overflowAnchor: 'none' }}>
             <button
               onClick={handleConfigureNewStory}
@@ -1764,11 +1951,214 @@ export default function LiteratureClient({
               <span>🔄</span>
               Regenerate
             </button>
+            <button
+              onClick={handleOpenShareModal}
+              disabled={isContinuing || loading}
+              className="px-6 py-2.5 bg-gradient-to-r from-red-900 to-rose-900 hover:from-red-800 hover:to-rose-800 text-white border border-red-700/60 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <span>📤</span>
+              Share Story
+            </button>
           </div>
           
           <div className="pt-8 border-t border-zinc-800">
-            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate this Story</h3>
-            <RatingWidget contentId={scenario.title} contentType="literature" />
+            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Rate & Save this Story</h3>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <InteractionBar
+                contentId={storyContentId || (scenario as any)?.id || ''}
+                contentType="literature"
+                contentTitle={scenario.title}
+              />
+              <RatingWidget contentId={scenario.title} contentType="literature" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Dialog Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-lg w-full space-y-6 shadow-2xl relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🔥</span>
+                <h3 className="text-xl font-serif font-bold text-zinc-100">
+                  Share Story
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="text-zinc-500 hover:text-zinc-300 text-xl font-bold p-1 leading-none cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Share <span className="text-zinc-200 font-semibold">"{scenario?.title}"</span> with your partner or another reader. They will be granted read access, and a notification will appear in their dashboard inbox.
+            </p>
+
+            {/* 1. Direct Recipient Link */}
+            <div className="space-y-1.5 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+              <label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold block">
+                Direct Recipient Link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`https://betweenusapp.io/dashboard/experience/${storyContentId || (scenario as any)?.id || ''}`}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 font-mono focus:outline-none select-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyRecipientLink}
+                  className="shrink-0 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white rounded-lg text-xs font-semibold transition-all border border-zinc-700 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  {copiedLink ? '✓ Copied!' : 'Copy Link'}
+                </button>
+              </div>
+            </div>
+
+            {/* 2. One-Click Partner Dispatch */}
+            <div className="bg-gradient-to-r from-red-950/30 to-purple-950/30 p-4 rounded-xl border border-red-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                  <span>✨</span> Send to Linked Partner
+                </span>
+                <p className="text-xs text-zinc-400">
+                  Dispatches directly to your Between Us Pass connected partner.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handlePartnerDispatch}
+                disabled={isPartnerDispatching}
+                className="shrink-0 px-4 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                {isPartnerDispatching ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                    Sending...
+                  </>
+                ) : partnerDispatchSuccess ? (
+                  '✓ Sent to Partner!'
+                ) : (
+                  'Dispatch to Partner >'
+                )}
+              </button>
+            </div>
+
+            {partnerDispatchSuccess && (
+              <div className="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-lg text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+                <span>✓</span> {partnerDispatchSuccess}
+              </div>
+            )}
+
+            {/* 3. Direct Email, Username, or SMS Dispatch */}
+            <div className="space-y-3 pt-2 border-t border-zinc-800">
+              <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold block">
+                Or Dispatch via Email / Username / SMS
+              </span>
+
+              {/* Delivery Method Selector */}
+              <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800 gap-1">
+                <button
+                  type="button"
+                  onClick={() => { setShareMethod('email'); setShareError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                    shareMethod === 'email' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShareMethod('username'); setShareError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                    shareMethod === 'username' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Username
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShareMethod('sms'); setShareError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${
+                    shareMethod === 'sms' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  SMS
+                </button>
+              </div>
+
+              <form onSubmit={handleShareStory} className="space-y-4">
+                {shareMethod === 'email' && (
+                  <div>
+                    <input
+                      type="email"
+                      value={shareRecipient}
+                      onChange={(e) => setShareRecipient(e.target.value)}
+                      placeholder="partner@example.com"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                      required
+                    />
+                  </div>
+                )}
+
+                {shareMethod === 'username' && (
+                  <div>
+                    <input
+                      type="text"
+                      value={shareRecipient}
+                      onChange={(e) => setShareRecipient(e.target.value)}
+                      placeholder="@username or alias"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                      required
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Recipients receive read access and an in-app inbox notification.
+                    </p>
+                  </div>
+                )}
+
+                {shareMethod === 'sms' && (
+                  <div>
+                    <input
+                      type="tel"
+                      value={shareRecipient}
+                      onChange={(e) => setShareRecipient(e.target.value)}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 focus:outline-none focus:border-red-500 text-sm transition-colors"
+                      required
+                    />
+                  </div>
+                )}
+
+                {shareError && (
+                  <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
+                    {shareError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsShareModalOpen(false)}
+                    className="px-4 py-2 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSharing || !shareRecipient.trim()}
+                    className="px-5 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-md cursor-pointer"
+                  >
+                    {isSharing ? 'Sending Link...' : 'Send Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -1778,6 +2168,14 @@ export default function LiteratureClient({
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-2 duration-300">
           <span className="text-base">❤️</span>
           <span className="text-sm font-medium text-zinc-200">{favoriteToast}</span>
+        </div>
+      )}
+
+      {/* Visual Success Toast */}
+      {shareToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 border border-green-800/80 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+          <span className="text-green-400 text-lg">✓</span>
+          <span className="text-sm font-medium text-zinc-200">{shareToast}</span>
         </div>
       )}
     </div>
