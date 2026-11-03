@@ -196,15 +196,14 @@ export async function POST(req: Request) {
       
       await admin.from('in_app_messages').insert({
         recipient_id: partnerUser.id,
+        user_id: partnerUser.id,
         sender_id: user.id,
         type: 'between_us_pass',
         title: subjectTitle,
-        body: msgBody,
-        payload: { pass_token: inviteToken, url: `/dashboard/partnerinvite` },
-        user_id: partnerUser.id,
         subject: subjectTitle,
-        message: `${msgBody}\n\nReview & connect here: ${joinLink}`,
-        is_read: false
+        body: msgBody,
+        message: msgBody,
+        payload: { pass_token: inviteToken, url: joinLink }
       });
     }
 

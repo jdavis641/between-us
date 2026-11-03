@@ -282,17 +282,18 @@ export async function POST(req: Request) {
           `Direct Pass Link: ${guestPassUrl}\n\n` +
           `Please review the boundaries and explore your personalized experiences together!`;
 
+        const passTitle = `Guest Pass from ${senderName}: Instructions & Desires`;
+
         const { error: msgErr } = await supabase.from('in_app_messages').insert({
-          user_id: recipientUserId,
           recipient_id: recipientUserId,
+          user_id: recipientUserId,
           sender_id: user?.id || null,
           type: 'guest_pass',
-          title: `Guest Pass from ${senderName}: Instructions & Desires`,
+          title: passTitle,
+          subject: passTitle,
           body: inboxMessage,
-          payload: passPayload,
-          subject: `Guest Pass from ${senderName}: Instructions & Desires`,
           message: inboxMessage,
-          is_read: false
+          payload: passPayload
         });
 
         if (!msgErr) {

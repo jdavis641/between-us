@@ -80,9 +80,15 @@ export async function GET(req: Request) {
       if (profiles && profiles.length > 0) {
         // Construct message payloads
         const payloads = profiles.map(profile => ({
+          recipient_id: profile.id,
           user_id: profile.id,
+          sender_id: null,
+          type: 'retention',
+          title: schedule.subject,
           subject: schedule.subject,
-          message: schedule.message
+          body: schedule.message,
+          message: schedule.message,
+          payload: {}
         }));
 
         // Batch insert messages

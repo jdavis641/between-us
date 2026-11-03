@@ -167,12 +167,20 @@ export async function GET(request: Request) {
 
       // Record in-app message
       try {
+        const surveySubject = "48-Hour Experience Check-In";
+        const surveyBody = "We'd love to hear how your first 48 hours have been! Please share your thoughts in our quick onboarding survey at /dashboard/survey.";
         await supabase
           .from('in_app_messages')
           .insert({
+            recipient_id: profile.id,
             user_id: profile.id,
-            subject: "48-Hour Experience Check-In",
-            message: "We'd love to hear how your first 48 hours have been! Please share your thoughts in our quick onboarding survey at /dashboard/survey."
+            sender_id: null,
+            type: 'survey',
+            title: surveySubject,
+            subject: surveySubject,
+            body: surveyBody,
+            message: surveyBody,
+            payload: { url: '/dashboard/survey' }
           });
       } catch (msgErr) {
         console.warn(`[Survey Dispatch Cron] Failed to record in-app message for ${profile.id}:`, msgErr);

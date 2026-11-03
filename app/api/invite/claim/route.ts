@@ -181,17 +181,19 @@ export async function POST(req: Request) {
         });
 
     // 6. Insert an entry into public.in_app_messages for the authenticated recipient
+    const title = 'Between Us Guest Pass Received';
+    const bodyText = 'Your partner has shared private instructions and boundaries for your upcoming encounter.';
+
     await supabaseAdmin.from('in_app_messages').insert({
       recipient_id: user.id,
+      user_id: user.id,
       sender_id: invitation.sender_id || (invitation as any).creator_id || null,
       type: 'guest_pass',
-      title: 'Between Us Guest Pass Received',
-      body: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
-      payload: effectivePayload,
-      user_id: user.id,
-      subject: 'Between Us Guest Pass Received',
-      message: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
-      is_read: false
+      title: title,
+      subject: title,
+      body: bodyText,
+      message: bodyText,
+      payload: effectivePayload
     });
 
     return NextResponse.json({

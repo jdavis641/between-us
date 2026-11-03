@@ -807,14 +807,7 @@ export default function LiteratureClient({
             const updatedFullBody = existingBody ? `${existingBody}\n\n${nextText}` : nextText;
             supabase
               .from('generated_content')
-              .update({
-                body: JSON.stringify({
-                  ...(scenario || {}),
-                  body: updatedFullBody,
-                  text: updatedFullBody,
-                  title: scenario?.title
-                })
-              })
+              .update({ content: updatedFullBody, body: updatedFullBody, updated_at: new Date() })
               .eq('id', storyContentId)
               .then(() => {})
               .catch((err: any) => {
@@ -1137,22 +1130,7 @@ export default function LiteratureClient({
 
         if (storyId) {
           try {
-            const { error: updateErr } = await supabase
-              .from('generated_content')
-              .update({
-                content: updatedContent,
-                body: updatedContent,
-                updated_at: new Date()
-              })
-              .eq('id', storyId);
-
-            if (updateErr) {
-              console.warn("Retrying Supabase update with body only:", updateErr.message);
-              await supabase
-                .from('generated_content')
-                .update({ body: updatedContent })
-                .eq('id', storyId);
-            }
+            await supabase.from('generated_content').update({ content: updatedContent, body: updatedContent, updated_at: new Date() }).eq('id', storyId);
           } catch (dbErr) {
             console.error("Failed to persist continuation to Supabase:", dbErr);
           }

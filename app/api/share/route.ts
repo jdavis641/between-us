@@ -185,20 +185,23 @@ export async function POST(req: Request) {
     };
 
     // Helper: Insert message into in_app_messages for recipient inbox
-    const deliverInAppMessage = async (recipientUserId: string) => {
-      if (!recipientUserId) return;
+    const deliverInAppMessage = async (targetUserId: string) => {
+      if (!targetUserId) return;
       try {
+        const msgTitle = `Shared ${contentType}: ${title}`;
+        const msgBody = `${senderName} has invited you to view "${title}".\n\nTap below to experience it:\n${storyLink}`;
+        const msgPayload = { contentId: contentId, url: directExperienceUrl };
+
         await admin.from('in_app_messages').insert({
-          recipient_id: recipientUserId,
-          sender_id: user?.id || null,
+          recipient_id: targetUserId,
+          user_id: targetUserId,
+          sender_id: user.id,
           type: 'share',
-          title: `Shared ${contentType}: ${title}`,
-          body: `You were invited to view "${title}". Tap below to experience it.`,
-          payload: { contentId: contentId, url: directExperienceUrl },
-          user_id: recipientUserId,
-          subject: `Shared ${contentType}: "${title}"`,
-          message: `${senderName} has invited you to view "${title}".\n\nTap below to experience it:\n${storyLink}`,
-          is_read: false
+          title: msgTitle,
+          subject: msgTitle,
+          body: msgBody,
+          message: msgBody,
+          payload: msgPayload
         });
       } catch (err) {
         console.warn("Failed to insert into in_app_messages:", err);

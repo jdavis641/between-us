@@ -24,9 +24,15 @@ export async function POST(req: Request) {
     const { error: insertError } = await supabase
       .from('in_app_messages')
       .insert({
+        recipient_id: user_id,
         user_id,
+        sender_id: user.id,
+        type: 'admin',
+        title: subject,
         subject,
-        message
+        body: message,
+        message,
+        payload: {}
       });
 
     if (insertError) throw insertError;

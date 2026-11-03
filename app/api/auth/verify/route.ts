@@ -227,22 +227,24 @@ export async function POST(req: Request) {
               `GUEST INSTRUCTIONS & CHEAT CODES:\n"${instructionsText}"\n\n` +
               `This pass gives you access to explore curated experiences together. Head to the dashboard to begin!`;
 
+            const passTitle = 'Between Us Guest Pass Received';
+            const passBody = 'Your partner has shared private instructions and boundaries for your upcoming encounter.';
+
             await supabaseAdmin.from('in_app_messages').insert({
               recipient_id: data.user.id,
+              user_id: data.user.id,
               sender_id: senderId,
               type: 'guest_pass',
-              title: 'Between Us Guest Pass Received',
-              body: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
+              title: passTitle,
+              subject: passTitle,
+              body: passBody,
+              message: passBody,
               payload: rawPayload || {
                 boundaries: boundariesText,
                 kinks: kinksText,
                 instructions: instructionsText,
                 token: effectivePassToken
-              },
-              user_id: data.user.id,
-              subject: subjectTitle,
-              message: formattedMessage,
-              is_read: false
+              }
             });
           }
 
