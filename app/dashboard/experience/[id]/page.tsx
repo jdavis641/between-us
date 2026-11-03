@@ -534,6 +534,18 @@ function ExperienceReaderInner({ params }: { params: any }) {
   };
 
   // Page Navigation Handlers with Smart Scroll strictly to the top of the container
+  const handleRegenerate = () => {
+    setCurrentPage(1);
+    try {
+      localStorage.setItem(`story_page_${storyId}`, "1");
+    } catch {}
+    if (pageContainerRef.current) {
+      pageContainerRef.current.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  };
+  const regenerateStory = handleRegenerate;
+
   const handleNextPage = () => {
     if (currentPage < pages.length) {
       const nextIndex = currentPage + 1;

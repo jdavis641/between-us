@@ -184,6 +184,11 @@ export function LiteratureMarkdown({ content, isGenerating = false }: { content:
 }
 
 interface LiteratureClientProps {
+  currentPage?: number;
+  setCurrentPage?: (page: number | ((prev: number) => number)) => void;
+  pageError?: string | null;
+  setPageError?: (error: string | null) => void;
+  onPageError?: (error: string | null) => void;
   initialTolerance?: string;
   initialKinks?: string[];
   initialMode?: string;
@@ -198,6 +203,11 @@ interface LiteratureClientProps {
 }
 
 export default function LiteratureClient({
+  currentPage: externalCurrentPage,
+  setCurrentPage: externalSetCurrentPage,
+  pageError: externalPageError,
+  setPageError: externalSetPageError,
+  onPageError,
   initialTolerance,
   initialKinks,
   initialMode,
@@ -301,9 +311,14 @@ export default function LiteratureClient({
   const pages = useMemo(() => paginateContent(storyContent, 600), [storyContent]);
 
   // Multi-Chapter Book State & Scroll Isolation
+  const [internalCurrentPage, setInternalCurrentPage] = useState<number>(1);
+  const currentPage = externalCurrentPage !== undefined ? externalCurrentPage : internalCurrentPage;
+  const setCurrentPage = externalSetCurrentPage || setInternalCurrentPage;
+
+  const setPageError = externalSetPageError || onPageError;
+
   const [currentChapter, setCurrentChapter] = useState<number>(1);
-  const activeChapter = Math.min(Math.max(1, currentChapter), Math.max(1, chapters.length));
-  const currentPage = activeChapter; // Alias for backward compatibility
+  const activeChapter = Math.min(Math.max(1, currentPage), Math.max(1, chapters.length));
   const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
   const hasPrefetchedPages = useRef<boolean>(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
@@ -454,6 +469,7 @@ export default function LiteratureClient({
     if (activeChapter < chapters.length) {
       const nextCh = activeChapter + 1;
       setCurrentChapter(nextCh);
+      setCurrentPage(nextCh);
       try {
         localStorage.setItem('literature_active_chapter', String(nextCh));
       } catch {}
@@ -468,6 +484,7 @@ export default function LiteratureClient({
     if (activeChapter > 1) {
       const prevCh = activeChapter - 1;
       setCurrentChapter(prevCh);
+      setCurrentPage(prevCh);
       try {
         localStorage.setItem('literature_active_chapter', String(prevCh));
       } catch {}
@@ -491,6 +508,8 @@ export default function LiteratureClient({
     setIsContinuing(false);
     setScenario(null);
     setCurrentChapter(1);
+    setCurrentPage(1);
+    if (setPageError) setPageError(null);
     hasPrefetchedPages.current = false;
     setIsPrefetching(false);
     setPreviews(null);
@@ -1421,11 +1440,24 @@ export default function LiteratureClient({
       }
 
       if (data) {
-        if (!data.body) {
-          data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
+        const incomingBody = data.body || (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
+        data.body = incomingBody;
+
+        if (!data.body || data.body.trim().length < 100) {
+          console.warn("[GENERATION RETRY] Story body was empty or truncated in frontend response.");
+          const emptyMsg = "We couldn't generate the full chapter text. Please click regenerate.";
+          setError(emptyMsg);
+          if (setPageError) {
+            setPageError(emptyMsg);
+          }
+          // Ensure the UI does not clear existing story text if incoming regeneration payload is empty
+          setLoading(false);
+          return;
         }
+
         setScenario(data);
         setCurrentChapter(1);
+        setCurrentPage(1);
         hasPrefetchedPages.current = false;
         if (currentRegen >= 2) {
           setRegenerationCount(0);
@@ -1453,6 +1485,14 @@ export default function LiteratureClient({
             localStorage.setItem('literature_active_chapter', '1');
           } catch {}
         }
+      } else {
+        const emptyMsg = "We couldn't generate the full chapter text. Please click regenerate.";
+        setError(emptyMsg);
+        if (setPageError) {
+          setPageError(emptyMsg);
+        }
+        setLoading(false);
+        return;
       }
 
       if (isStreamInterrupted) {
@@ -1464,20 +1504,33 @@ export default function LiteratureClient({
                             err?.message?.includes("Stream interrupted") || 
                             err?.message?.includes("continue story") ||
                             err?.message?.includes(STREAM_INTERRUPTED_MESSAGE) ||
-                            err?.name === "AbortError" || 
-                            streamProgress.length > 0;
+                            err?.name === "AbortError";
 
-      setError(isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue shaping your literature. Please try again."));
+      const isBodyEmpty = err?.message?.includes("Generated content was empty") ||
+                          err?.message?.includes("couldn't generate the full chapter");
 
-      if (streamProgress && streamProgress.trim().length > 0) {
+      const errorMsg = isBodyEmpty 
+        ? "We couldn't generate the full chapter text. Please click regenerate."
+        : (isInterrupted ? STREAM_INTERRUPTED_MESSAGE : (err?.message || "Our AI engine encountered an issue shaping your literature. Please try again."));
+
+      setError(errorMsg);
+      if (setPageError) {
+        setPageError(errorMsg);
+      }
+
+      // Ensure the UI does not clear existing story text if incoming regeneration payload is empty or invalid
+      if (streamProgress && streamProgress.trim().length > 100) {
         const partial = extractStreamingMarkdown(streamProgress);
-        const partialData = {
-          title: partial.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
-          body: partial.body || streamProgress.trim()
-        };
-        setScenario(partialData);
-        setCurrentPage(1);
-        hasPrefetchedPages.current = false;
+        if (partial.body && partial.body.trim().length > 100) {
+          const partialData = {
+            title: partial.title || (activeTrope && activeTrope.title) || theme || "Romantic Literature",
+            body: partial.body.trim()
+          };
+          setScenario(partialData);
+          setCurrentPage(1);
+          setCurrentChapter(1);
+          hasPrefetchedPages.current = false;
+        }
       }
     } finally {
       setLoading(false);
@@ -1492,8 +1545,16 @@ export default function LiteratureClient({
     } else {
       setLoadingText("Reviewing your preferences... Creating your content... Enjoy!");
     }
+    setCurrentPage(1);
+    setCurrentChapter(1);
+    setError(null);
+    if (setPageError) {
+      setPageError(null);
+    }
     await handleGenerate(nextCount);
   };
+
+  const regenerateStory = handleRegenerate;
 
   const cleanOverview = (scenario?.overview || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const cleanPartnerA = (scenario?.partnerAPerspective || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
@@ -1925,9 +1986,10 @@ export default function LiteratureClient({
               onClick={handleRegenerate}
               disabled={isContinuing || loading}
               className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
+              title="Regenerate Story"
             >
               <span>🔄</span>
-              Regenerate
+              Regenerate Story
             </button>
             <button
               onClick={handleOpenShareModal}

@@ -352,6 +352,8 @@ You must strictly uphold anatomical and biological reality in all descriptions:
 
   sys += `Critical Narrative Rule: Regardless of the selected pacing (Quick Burn, Medium Burn, or Slow Burn), ALL stories MUST culminate in an explicit, highly detailed erotic climax. The pacing only dictates how much time is spent building anticipation before the physical escalation occurs.\n\n`;
 
+  sys += `Critical Rule: The 'body' field must never be empty. You must generate the complete narrative prose for the chapter (minimum 600 words) inside the 'body' property before closing the JSON object.\n\n`;
+
   sys += `Critical Dialogue Rule: You must write the actual spoken words inside all quotation marks. NEVER output empty quotes with isolated punctuation (e.g., never output " : " or " , "). Ensure all spoken dialogue is properly constructed and escaped for JSON (e.g., "Look at me," he whispered.).\n\n`;
 
   sys += `BOUNDARY ENFORCEMENT & INTENSITY:
@@ -403,6 +405,7 @@ Theme Prioritization: If theme suggestions are provided, they are explicitly tag
   }
 
   if (contentType === "literature") {
+    sys += `Critical Rule: The 'body' field must never be empty. You must generate the complete narrative prose for the chapter (minimum 600 words) inside the 'body' property before closing the JSON object.\n\n`;
     if (previousContent) {
       const continuationTargetEnd = nextChapterNumber >= 4 ? Math.min(nextChapterNumber + 2, 20) : 6;
       sys += `JSON SCHEMA REQUIREMENT:
@@ -1484,6 +1487,16 @@ Seamlessly continue the roleplay scenario. DO NOT repeat previous dialogue or sc
               .trim();
             cleaned = enforceAnatomicalReality(cleaned);
             generatedContent = JSON.parse(cleaned);
+
+            const rawContent = generatedContent;
+            const parsed = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
+            const storyBody = parsed.body || parsed.text || parsed.content || "";
+
+            if (!storyBody || storyBody.trim().length < 100) {
+              console.warn("[GENERATION RETRY] Story body was empty or truncated. Retrying generation...");
+              // Trigger an automatic single retry or append explicit prompt instructions
+              throw new Error("Generated content was empty. Please regenerate.");
+            }
 
             if (generatedContent.body) {
               generatedContent.body = enforceAnatomicalReality(generatedContent.body);

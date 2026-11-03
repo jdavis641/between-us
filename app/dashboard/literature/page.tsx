@@ -101,6 +101,7 @@ function RomantasyContent() {
   const [mode, setMode] = useState<string>(() => searchParams?.get('mode') ?? 'solo');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Keep mode synchronized with searchParams safely
   useEffect(() => {
@@ -288,22 +289,24 @@ function RomantasyContent() {
           </div>
         </header>
 
-        {/* Inline Warning Banner with Retry Button for Supabase or Network Failures */}
+        {/* Inline Warning Banner for Generation, Profile, or Network Failures */}
         {pageError && (
           <div className="mb-6 p-4 rounded-xl border border-rose-500/50 bg-rose-950/30 flex items-center justify-between text-sm text-rose-200 animate-in fade-in duration-200">
             <div className="flex items-center gap-3">
               <span className="text-xl">⚠️</span>
               <div>
-                <p className="font-medium">Notice Loading Profile Preferences</p>
-                <p className="text-xs text-rose-300/80 mt-0.5">{pageError}</p>
+                <p className="font-medium text-rose-200">{pageError}</p>
               </div>
             </div>
             <button
               type="button"
-              onClick={() => fetchUserData()}
+              onClick={() => {
+                setPageError(null);
+                fetchUserData();
+              }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer shrink-0 ml-4"
             >
-              Retry
+              Dismiss
             </button>
           </div>
         )}
@@ -312,6 +315,10 @@ function RomantasyContent() {
         <RomantasyErrorBoundary onRetry={fetchUserData}>
           <Suspense fallback={<SafeFlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... Enjoy!" />}>
             <LiteratureClient
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              pageError={pageError}
+              setPageError={setPageError}
               activeTolerance={tolerance}
               onToleranceChange={setTolerance}
               activeMode={mode}
