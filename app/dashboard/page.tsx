@@ -14,13 +14,17 @@ export default function DashboardHome() {
   const [activeStory, setActiveStory] = useState<any>(null)
   const [baseTolerance, setBaseTolerance] = useState<string | null>(null)
   const [isOnboardingIncomplete, setIsOnboardingIncomplete] = useState(false)
-  const [isBannerDismissed, setIsBannerDismissed] = useState(true)
+  const [showBanner, setShowBanner] = useState(false)
+  const [doNotShowAgain, setDoNotShowAgain] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
     async function fetchActiveContent() {
+      // 1. Fast optimistic check: evaluate localStorage immediately
+      const dismissedLocally = typeof window !== 'undefined' && localStorage.getItem('welcome_banner_dismissed') === 'true';
+
       let activeUserId: string | null = null
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (user && !userError) {
@@ -32,10 +36,10 @@ export default function DashboardHome() {
       setCurrentUserId(activeUserId)
 
       if (activeUserId) {
-        // Query user profile to verify boundary calibration and onboarding completion
+        // Query user profile to verify boundary calibration, onboarding completion, and persistent welcome_dismissed state
         const { data: profile } = await supabase
           .from('profiles')
-          .select('base_tolerance, onboarding_completed, nickname, welcome_dismissed_at')
+          .select('base_tolerance, onboarding_completed, nickname, welcome_dismissed, welcome_dismissed_at')
           .eq('id', activeUserId)
           .maybeSingle()
 
@@ -43,9 +47,16 @@ export default function DashboardHome() {
         const isIncomplete = !profile?.base_tolerance || profile?.onboarding_completed !== true || !profile?.nickname;
         setIsOnboardingIncomplete(isIncomplete);
 
-        const dismissedLocally = typeof window !== 'undefined' && localStorage.getItem('welcome_banner_dismissed') === 'true';
-        const dismissedInDb = Boolean(profile?.welcome_dismissed_at);
-        setIsBannerDismissed(dismissedLocally || dismissedInDb);
+        // Banner Visibility Evaluation:
+        // If either welcome_dismissed in Supabase or localStorage is true, do not render the banner
+        const isDismissedInDb = Boolean(profile?.welcome_dismissed || profile?.welcome_dismissed_at);
+        if (dismissedLocally || isDismissedInDb) {
+          setShowBanner(false);
+        } else if (isIncomplete) {
+          setShowBanner(true);
+        } else {
+          setShowBanner(false);
+        }
 
         // Fetch the most recent active generated story or roleplay
         const { data } = await supabase
@@ -77,19 +88,37 @@ export default function DashboardHome() {
     fetchActiveContent()
   }, [])
 
-  const handleDismissBanner = async () => {
-    setIsBannerDismissed(true)
-    try {
-      localStorage.setItem('welcome_banner_dismissed', 'true')
-    } catch {}
-    if (currentUserId) {
+  const handleDismissBanner = async (permanent: boolean = true) => {
+    // a. Immediately unmount the banner via React state
+    setShowBanner(false)
+
+    if (permanent) {
+      // b. Write localStorage for instant client-side caching
       try {
-        await supabase
-          .from('profiles')
-          .update({ welcome_dismissed_at: new Date().toISOString() })
-          .eq('id', currentUserId)
+        localStorage.setItem('welcome_banner_dismissed', 'true')
       } catch (err) {
-        console.warn("Could not record welcome_dismissed_at:", err)
+        console.warn("Could not write to localStorage:", err)
+      }
+
+      // c. Execute an asynchronous update to Supabase
+      if (currentUserId) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ welcome_dismissed: true, welcome_dismissed_at: new Date().toISOString() })
+            .eq('id', currentUserId)
+        } catch (err) {
+          console.warn("Could not record welcome_dismissed in Supabase:", err)
+        }
+
+        // Service-role fallback update via /api/profile
+        try {
+          await fetch('/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ welcome_dismissed: true })
+          })
+        } catch {}
       }
     }
   }
@@ -97,7 +126,7 @@ export default function DashboardHome() {
   return (
     <div className="min-h-screen bg-gray-900 text-white selection:bg-red-500/30">
       {/* Prominent Dashboard Onboarding Completion Banner */}
-      {!loading && isOnboardingIncomplete && !isBannerDismissed && (
+      {!loading && showBanner && (
         <div 
           data-admin-urgent-slot="true"
           className="w-full bg-gradient-to-r from-rose-950 via-zinc-900 to-rose-950 border-b border-rose-500/40 py-4 px-6 shadow-2xl relative z-20"
@@ -113,9 +142,12 @@ export default function DashboardHome() {
               <label className="flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      handleDismissBanner();
+                  checked={doNotShowAgain}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setDoNotShowAgain(checked);
+                    if (checked) {
+                      await handleDismissBanner(true);
                     }
                   }}
                   className="w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-800 text-rose-600 focus:ring-rose-500"
@@ -128,6 +160,15 @@ export default function DashboardHome() {
               >
                 Settings &rarr;
               </Link>
+              <button
+                type="button"
+                onClick={() => handleDismissBanner(doNotShowAgain)}
+                className="text-zinc-400 hover:text-white p-1 rounded-md transition-colors text-sm font-semibold leading-none cursor-pointer"
+                title="Dismiss banner"
+                aria-label="Dismiss banner"
+              >
+                ✕
+              </button>
             </div>
           </div>
         </div>

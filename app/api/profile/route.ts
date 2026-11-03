@@ -130,6 +130,9 @@ export async function POST(req: Request) {
     if ('literature_prompt_status' in body) {
       updatePayload.literature_prompt_status = body.literature_prompt_status;
     }
+    if ('welcome_dismissed' in body) {
+      updatePayload.welcome_dismissed = Boolean(body.welcome_dismissed);
+    }
     if ('off_limits' in body) {
       updatePayload.off_limits = Array.isArray(body.off_limits)
         ? body.off_limits
