@@ -195,6 +195,23 @@ function RomantasyContent() {
     fetchUserData();
   }, [fetchUserData]);
 
+  const TOLERANCE_LEVELS = ["Sensory", "Playful", "Intense", "Extreme"];
+  const MODES = ["Solo", "Couple"];
+
+  const handleToleranceChange = (level: string) => {
+    setTolerance(level);
+  };
+
+  const handleModeChange = (newMode: string) => {
+    const formattedMode = newMode.toLowerCase();
+    setMode(formattedMode);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('mode', formattedMode);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-rose-500/30">
       <div className="max-w-4xl mx-auto p-6 md:p-12">
@@ -205,19 +222,68 @@ function RomantasyContent() {
             Generate immersive, highly descriptive romantic fiction centered strictly around your preferences and kinks.
           </p>
 
-          {/* Defensive UI Badges */}
-          <div className="flex flex-wrap items-center gap-3 mt-6">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-              Tolerance: <span className="text-rose-400 capitalize">{tolerance ?? 'Playful'}</span>
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full flex items-center gap-1.5">
-              Mode: <span className="text-zinc-200 capitalize">{mode ?? 'solo'}</span>
-            </span>
+          {/* Interactive Tolerance & Mode Segmented Controls */}
+          <div className="flex flex-wrap items-end gap-5 mt-6">
+            {/* Tolerance Level Segmented Control */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                Tolerance Level
+              </label>
+              <div className="inline-flex items-center p-1 bg-zinc-900 border border-zinc-800 rounded-xl gap-1">
+                {TOLERANCE_LEVELS.map((level) => {
+                  const isSelected = tolerance.toLowerCase() === level.toLowerCase();
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => handleToleranceChange(level)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-rose-950/70 text-rose-200 border border-rose-800/80 shadow-sm shadow-rose-950/50"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mode Segmented Control */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Mode
+              </label>
+              <div className="inline-flex items-center p-1 bg-zinc-900 border border-zinc-800 rounded-xl gap-1">
+                {MODES.map((m) => {
+                  const isSelected = mode.toLowerCase() === m.toLowerCase();
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => handleModeChange(m)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active Kinks Badge */}
             {Array.isArray(kinks) && kinks.length > 0 && (
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full flex items-center gap-1.5">
-                ✨ {kinks.length} Custom Kink{kinks.length > 1 ? 's' : ''} Active
-              </span>
+              <div className="flex flex-col gap-1.5 pb-0.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-900 border border-zinc-800 px-3.5 py-2 rounded-xl flex items-center gap-1.5 h-[38px]">
+                  ✨ {kinks.length} Custom Kink{kinks.length > 1 ? 's' : ''} Active
+                </span>
+              </div>
             )}
           </div>
         </header>
@@ -246,6 +312,10 @@ function RomantasyContent() {
         <RomantasyErrorBoundary onRetry={fetchUserData}>
           <Suspense fallback={<SafeFlameLoader isGenerating={true} progressText="Reviewing your preferences... Creating your content... Enjoy!" />}>
             <LiteratureClient
+              activeTolerance={tolerance}
+              onToleranceChange={setTolerance}
+              activeMode={mode}
+              onModeChange={setMode}
               initialTolerance={tolerance}
               initialKinks={Array.isArray(kinks) ? kinks : []}
               initialMode={mode}

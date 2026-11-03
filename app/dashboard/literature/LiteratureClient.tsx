@@ -186,6 +186,10 @@ interface LiteratureClientProps {
   initialTolerance?: string;
   initialKinks?: string[];
   initialMode?: string;
+  activeTolerance?: string;
+  onToleranceChange?: (val: string) => void;
+  activeMode?: string;
+  onModeChange?: (val: string) => void;
   story?: string;
   setStory?: (story: string) => void;
   isGenerating?: boolean;
@@ -196,6 +200,10 @@ export default function LiteratureClient({
   initialTolerance,
   initialKinks,
   initialMode,
+  activeTolerance,
+  onToleranceChange,
+  activeMode: activeModeProp,
+  onModeChange,
   story,
   setStory,
   isGenerating,
@@ -212,16 +220,19 @@ export default function LiteratureClient({
     return t || '';
   });
 
-  const [userProfileTolerance, setUserProfileTolerance] = useState<string>(initialTolerance || 'Playful');
+  const [userProfileTolerance, setUserProfileTolerance] = useState<string>(activeTolerance || initialTolerance || 'Playful');
   const [userKinksOverride, setUserKinksOverride] = useState<string[]>(initialKinks || []);
-  const [targetBoundary, setTargetBoundary] = useState(initialTolerance || "");
+  const [targetBoundary, setTargetBoundary] = useState(activeTolerance || initialTolerance || "");
   const [pacing, setPacing] = useState("Medium Burn");
   const [previews, setPreviews] = useState<StoryPreview[] | null>(null);
   const [activeTrope, setActiveTrope] = useState<StoryPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const [activeMode, setActiveMode] = useState<ReaderMode>(initialMode === 'partner-b' ? 'partner-b' : 'partner-a');
+  const [activeMode, setActiveMode] = useState<ReaderMode>(() => {
+    const effective = activeModeProp || initialMode;
+    return effective?.toLowerCase() === 'couple' || effective === 'partner-b' ? 'partner-b' : 'partner-a';
+  });
   const [scenario, setScenario] = useState<LiteraturePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
@@ -230,23 +241,106 @@ export default function LiteratureClient({
   const [regenerationCount, setRegenerationCount] = useState(0);
   const [loadingText, setLoadingText] = useState("Reviewing your preferences... Creating your content... Enjoy!");
 
+  // Synchronize incoming activeTolerance prop in real-time
+  useEffect(() => {
+    if (activeTolerance) {
+      setTargetBoundary(activeTolerance);
+      setUserProfileTolerance(activeTolerance);
+    }
+  }, [activeTolerance]);
+
+  // Synchronize incoming activeMode prop in real-time
+  useEffect(() => {
+    if (activeModeProp) {
+      setActiveMode(activeModeProp.toLowerCase() === 'couple' ? 'partner-b' : 'partner-a');
+    }
+  }, [activeModeProp]);
+
   // Literature Favorites State
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [storyContentId, setStoryContentId] = useState<string | null>(null);
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
 
-  // Derived Paginated Content (~600 words per page)
+  // Derived Paginated Chapter Content (split by Chapter [0-9]+ or ## Chapter)
   const content = scenario?.body || (scenario as any)?.text || (scenario as any)?.content || (scenario as any)?.story || scenario?.overview || '';
   const cleanContent = (content || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   const storyContent = cleanContent || story || '';
+
+  const chapters = useMemo(() => {
+    if (!storyContent || !storyContent.trim()) return [];
+    const rawChapters = storyContent
+      .split(/(?=Chapter \d+|## Chapter \d+)/i)
+      .map(c => c.trim())
+      .filter(Boolean);
+
+    if (rawChapters.length === 0) return [storyContent.trim()];
+
+    // If first chunk is a title/introductory prelude before Chapter 1, prepend to Chapter 1
+    if (rawChapters.length > 1 && !/^(?:##\s*)?Chapter\s*\d+/i.test(rawChapters[0])) {
+      rawChapters[1] = `${rawChapters[0]}\n\n${rawChapters[1]}`;
+      rawChapters.shift();
+    }
+
+    return rawChapters;
+  }, [storyContent]);
+
+  // Keep pages for backwards compatibility/PDF export
   const pages = useMemo(() => paginateContent(storyContent, 600), [storyContent]);
 
-  // Multi-Page Book State & Scroll Isolation
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  // Multi-Chapter Book State & Scroll Isolation
+  const [currentChapter, setCurrentChapter] = useState<number>(1);
+  const activeChapter = Math.min(Math.max(1, currentChapter), Math.max(1, chapters.length));
+  const currentPage = activeChapter; // Alias for backward compatibility
   const [isPrefetching, setIsPrefetching] = useState<boolean>(false);
   const hasPrefetchedPages = useRef<boolean>(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Restore active story and chapter state from localStorage
+  useEffect(() => {
+    async function restoreActiveStoryFromStorage() {
+      try {
+        const storedStoryId = localStorage.getItem('literature_active_story_id');
+        const storedChapter = localStorage.getItem('literature_active_chapter');
+        if (!storedStoryId || scenario) return;
+
+        const { data: savedRow, error: fetchErr } = await supabase
+          .from('generated_content')
+          .select('*')
+          .eq('id', storedStoryId)
+          .maybeSingle();
+
+        if (savedRow && !fetchErr) {
+          const rawContent = savedRow.content || savedRow.body || '';
+          let storyText = rawContent;
+          try {
+            const parsed = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
+            storyText = parsed.body || parsed.text || parsed.content || rawContent;
+          } catch {}
+
+          if (storyText && storyText.trim().length > 0) {
+            setStoryContentId(savedRow.id);
+            setScenario({
+              id: savedRow.id,
+              title: savedRow.title || "Romantic Literature",
+              body: storyText
+            });
+
+            if (storedChapter) {
+              const chNum = parseInt(storedChapter, 10);
+              if (!isNaN(chNum) && chNum > 0) {
+                setCurrentChapter(chNum);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not restore active story from localStorage:", err);
+      }
+    }
+
+    restoreActiveStoryFromStorage();
+  }, [supabase, scenario]);
 
   useEffect(() => {
     const p = searchParams?.get('prompt');
@@ -344,9 +438,13 @@ export default function LiteratureClient({
     }
   }, [story, scenario, theme]);
 
-  const handleNextPage = () => {
-    if (currentPage < pages.length) {
-      setCurrentPage(prev => Math.min(pages.length, prev + 1));
+  const handleNextChapter = () => {
+    if (activeChapter < chapters.length) {
+      const nextCh = activeChapter + 1;
+      setCurrentChapter(nextCh);
+      try {
+        localStorage.setItem('literature_active_chapter', String(nextCh));
+      } catch {}
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
@@ -354,21 +452,33 @@ export default function LiteratureClient({
     }
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => Math.max(1, prev - 1));
+  const handlePreviousChapter = () => {
+    if (activeChapter > 1) {
+      const prevCh = activeChapter - 1;
+      setCurrentChapter(prevCh);
+      try {
+        localStorage.setItem('literature_active_chapter', String(prevCh));
+      } catch {}
       if (pageContainerRef.current) {
         pageContainerRef.current.scrollTop = 0;
       }
       window.scrollTo(0, 0);
     }
   };
+
+  // Page aliases for backward compatibility
+  const handleNextPage = handleNextChapter;
+  const handlePreviousPage = handlePreviousChapter;
 
   const handleConfigureNewStory = () => {
+    try {
+      localStorage.removeItem('literature_active_story_id');
+      localStorage.removeItem('literature_active_chapter');
+    } catch {}
     setLoading(false);
     setIsContinuing(false);
     setScenario(null);
-    setCurrentPage(1);
+    setCurrentChapter(1);
     hasPrefetchedPages.current = false;
     setIsPrefetching(false);
     setPreviews(null);
@@ -586,6 +696,11 @@ export default function LiteratureClient({
         if (row?.id) {
           setStoryContentId(row.id);
           setIsFavorite(isFav);
+          try {
+            if (!localStorage.getItem('literature_active_story_id')) {
+              localStorage.setItem('literature_active_story_id', row.id);
+            }
+          } catch {}
         } else {
           setIsFavorite(false);
         }
@@ -600,7 +715,7 @@ export default function LiteratureClient({
   const handleDownloadStory = () => {
     if (!scenario) return;
     const title = scenario.title || "Romantic Literature";
-    const fullStoryText = pages.length > 0 ? pages.join('\n\n') : (cleanContent || scenario.body || scenario.overview || "");
+    const fullStoryText = chapters.length > 0 ? chapters.join('\n\n') : (cleanContent || scenario.body || scenario.overview || "");
     const fileContent = `${title}\n\n${fullStoryText}\n`;
     const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -691,9 +806,12 @@ export default function LiteratureClient({
           kinks: userKinksOverride,
           tolerance: targetBoundary || userProfileTolerance || 'Playful',
           targetBoundary: targetBoundary || userProfileTolerance || 'Playful',
+          playMode: (activeModeProp?.toLowerCase() === 'couple' || activeMode === 'partner-b') ? 'group' : 'solo',
+          mode: activeModeProp || (activeMode === 'partner-b' ? 'couple' : 'solo'),
           previousContent: currentStoryText,
           existingStory: currentStoryText,
-          pacing: pacing
+          pacing: pacing,
+          storyId: storyContentId || (scenario as any)?.id
         })
       }).catch((fetchErr) => {
         console.error("Continuation fetch error:", fetchErr);
@@ -820,20 +938,68 @@ export default function LiteratureClient({
           };
         });
 
-        if (storyContentId) {
+        let storyId = storyContentId || (scenario as any)?.id;
+        if (!storyId && scenario?.title) {
           try {
-            const existingBody = cleanContent || scenario?.body || "";
-            const updatedBody = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
-            supabase.from('generated_content').update({
-              body: JSON.stringify({
-                ...scenario,
-                body: updatedBody,
-                text: updatedBody,
-                chapter: nextChapter,
-                totalChapters: 20,
-                status: `chapter_${nextChapter}_ready`
+            const { data: foundRow } = await supabase
+              .from('generated_content')
+              .select('id')
+              .eq('title', scenario.title)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (foundRow?.id) {
+              storyId = foundRow.id;
+              setStoryContentId(foundRow.id);
+            }
+          } catch {}
+        }
+
+        const existingBody = cleanContent || scenario?.body || "";
+        const updatedContent = existingBody ? `${existingBody}\n\n${newText.trim()}` : newText.trim();
+
+        if (storyId) {
+          try {
+            const { error: updateErr } = await supabase
+              .from('generated_content')
+              .update({
+                content: updatedContent,
+                body: updatedContent,
+                updated_at: new Date()
               })
-            }).eq('id', storyContentId);
+              .eq('id', storyId);
+
+            if (updateErr) {
+              console.warn("Retrying Supabase update with body only:", updateErr.message);
+              await supabase
+                .from('generated_content')
+                .update({ body: updatedContent })
+                .eq('id', storyId);
+            }
+          } catch (dbErr) {
+            console.error("Failed to persist continuation to Supabase:", dbErr);
+          }
+
+          try {
+            const updatedChapters = updatedContent
+              .split(/(?=Chapter \d+|## Chapter \d+)/i)
+              .map((c: string) => c.trim())
+              .filter(Boolean);
+            const targetChapter = Math.max(activeChapter + 1, updatedChapters.length || 1);
+            localStorage.setItem('literature_active_story_id', storyId);
+            localStorage.setItem('literature_active_chapter', String(targetChapter));
+            setCurrentChapter(targetChapter);
+          } catch (lsErr) {
+            console.warn("localStorage persistence error:", lsErr);
+          }
+        } else {
+          try {
+            const updatedChapters = updatedContent
+              .split(/(?=Chapter \d+|## Chapter \d+)/i)
+              .map((c: string) => c.trim())
+              .filter(Boolean);
+            const targetChapter = Math.max(activeChapter + 1, updatedChapters.length || 1);
+            setCurrentChapter(targetChapter);
           } catch {}
         }
       }
@@ -998,6 +1164,8 @@ export default function LiteratureClient({
           tolerance: targetBoundary || userProfileTolerance || 'Playful',
           targetBoundary: targetBoundary || userProfileTolerance || 'Playful',
           pacing: pacing,
+          playMode: (activeModeProp?.toLowerCase() === 'couple' || activeMode === 'partner-b') ? 'group' : 'solo',
+          mode: activeModeProp || (activeMode === 'partner-b' ? 'couple' : 'solo'),
           regenerationCount: currentRegen
         })
       }).catch((fetchErr) => {
@@ -1102,10 +1270,33 @@ export default function LiteratureClient({
           data.body = (data as any).overview || (data as any).content || (data as any).text || (data as any).story || rawText.trim() || streamProgress.trim();
         }
         setScenario(data);
-        setCurrentPage(1);
+        setCurrentChapter(1);
         hasPrefetchedPages.current = false;
         if (currentRegen >= 2) {
           setRegenerationCount(0);
+        }
+
+        // Resolve generated story ID and persist to localStorage
+        const headerStoryId = res.headers.get('x-content-id');
+        let storyId = headerStoryId;
+        if (!storyId && data.title) {
+          try {
+            const { data: row } = await supabase
+              .from('generated_content')
+              .select('id')
+              .eq('title', data.title)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (row?.id) storyId = row.id;
+          } catch {}
+        }
+        if (storyId) {
+          setStoryContentId(storyId);
+          try {
+            localStorage.setItem('literature_active_story_id', storyId);
+            localStorage.setItem('literature_active_chapter', '1');
+          } catch {}
         }
       }
 
@@ -1449,7 +1640,7 @@ export default function LiteratureClient({
               <button
                 onClick={() => {
                   const title = scenario.title || "Romantic Literature";
-                  const bodyText = pages.length > 0 ? pages.join('\n\n') : (cleanContent || scenario.body || scenario.overview || "");
+                  const bodyText = chapters.length > 0 ? chapters.join('\n\n') : (cleanContent || scenario.body || scenario.overview || "");
                   exportStoryToPdf(title, bodyText, "LITERATURE");
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm transition-colors w-fit cursor-pointer shadow-sm active:scale-95"
@@ -1472,21 +1663,21 @@ export default function LiteratureClient({
               </div>
             )}
             <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
-              <span>📖</span> Page {currentPage} of {Math.max(pages.length, 1)}
+              <span>📖</span> Chapter {activeChapter} of {Math.max(chapters.length, 1)}
             </span>
           </div>
 
           <h2 className="text-3xl font-serif mb-6 text-zinc-100">{scenario.title}</h2>
           
-          {/* Multi-Page Book Reading Container with Scroll-Lock & Viewport Anchoring */}
+          {/* Multi-Chapter Book Reading Container with Scroll-Lock & Viewport Anchoring */}
           <div
             ref={pageContainerRef}
             style={{ overflowAnchor: 'none' }}
             className="min-h-[480px] max-h-[720px] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-6 sm:p-10 md:p-12 mb-6 shadow-2xl font-serif text-lg text-zinc-300 leading-loose prose-headings:font-serif focus:outline-none scroll-smooth"
           >
-            <ErrorBoundary fallbackContent={pages[currentPage - 1] || cleanContent}>
+            <ErrorBoundary fallbackContent={chapters[activeChapter - 1] || cleanContent}>
               <ReactMarkdown className="prose prose-invert max-w-none whitespace-pre-wrap">
-                {safeMarkdownString(pages[currentPage - 1] || cleanContent)}
+                {safeMarkdownString(chapters[activeChapter - 1] || cleanContent)}
               </ReactMarkdown>
             </ErrorBoundary>
           </div>
@@ -1498,34 +1689,34 @@ export default function LiteratureClient({
           >
             <button
               type="button"
-              onClick={handlePreviousPage}
-              disabled={currentPage === 1}
+              onClick={handlePreviousChapter}
+              disabled={activeChapter === 1}
               className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 shadow-sm"
-              title="Previous Page"
+              title="Previous Chapter"
             >
-              <span>&larr;</span> Previous Page
+              <span>&larr;</span> Previous Chapter
             </button>
 
             <div className="flex flex-col items-center">
               <span className="text-sm font-medium text-zinc-200 font-serif">
-                Page {currentPage} of {Math.max(pages.length, 1)}
+                Chapter {activeChapter} of {Math.max(chapters.length, 1)}
               </span>
-              {isPrefetching && (
+              {isContinuing && (
                 <span className="text-xs text-rose-400 animate-pulse flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                  Pre-loading next chapters...
+                  Generating next chapter...
                 </span>
               )}
             </div>
 
-            {currentPage < pages.length ? (
+            {activeChapter < chapters.length ? (
               <button
                 type="button"
-                onClick={handleNextPage}
+                onClick={handleNextChapter}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer bg-red-950/70 hover:bg-red-900/90 text-red-200 hover:text-white border border-red-900/60 shadow-md"
-                title="Next Page"
+                title="Next Chapter"
               >
-                Next Page <span>&rarr;</span>
+                Next Chapter <span>&rarr;</span>
               </button>
             ) : (
               <button
@@ -1533,16 +1724,16 @@ export default function LiteratureClient({
                 onClick={() => handleContinueStory()}
                 disabled={isContinuing}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-800 hover:bg-emerald-700 text-white shadow-md border border-emerald-700"
-                title="Continue Story (Add 2 Pages)"
+                title="Continue Story"
               >
                 {isContinuing ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
-                    Adding 2 Pages...
+                    Generating Next Chapter...
                   </>
                 ) : (
                   <>
-                    <span>✨</span> Continue Story (Add 2 Pages) <span>&rarr;</span>
+                    <span>✨</span> Continue Story <span>&rarr;</span>
                   </>
                 )}
               </button>
