@@ -21,6 +21,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
   const [inviteToken, setInviteToken] = useState<string | null>(() => {
     return initialInviteToken || 
            searchParams.get('invite_token') || 
+           searchParams.get('pass_id') || 
            searchParams.get('token') || 
            searchParams.get('pass') || 
            searchParams.get('pass_token') || 
@@ -80,6 +81,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
     }
 
     const urlInviteToken = searchParams.get('invite_token') || 
+                           searchParams.get('pass_id') || 
                            searchParams.get('token') || 
                            searchParams.get('pass') || 
                            searchParams.get('pass_token') || 
@@ -87,6 +89,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
     if (urlInviteToken) {
       setInviteToken(urlInviteToken)
       try {
+        sessionStorage.setItem('pending_invite_token', urlInviteToken)
         sessionStorage.setItem('invite_token', urlInviteToken)
         sessionStorage.setItem('pass_token', urlInviteToken)
         document.cookie = `invite_token=${encodeURIComponent(urlInviteToken)}; path=/; max-age=86400; SameSite=Lax`
@@ -94,7 +97,9 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
       } catch (e) {}
     } else {
       try {
-        const storedInvite = sessionStorage.getItem('invite_token') || sessionStorage.getItem('pass_token')
+        const storedInvite = sessionStorage.getItem('pending_invite_token') || 
+                             sessionStorage.getItem('invite_token') || 
+                             sessionStorage.getItem('pass_token')
         if (storedInvite) {
           setInviteToken(storedInvite)
         } else {
@@ -140,11 +145,12 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
 
       const effectiveInviteToken = inviteToken || 
                                    searchParams.get('invite_token') || 
+                                   searchParams.get('pass_id') || 
                                    searchParams.get('token') || 
                                    searchParams.get('pass') || 
                                    searchParams.get('pass_token') || 
                                    (() => {
-                                     try { return sessionStorage.getItem('invite_token') || sessionStorage.getItem('pass_token') } catch(e) { return null }
+                                     try { return sessionStorage.getItem('pending_invite_token') || sessionStorage.getItem('invite_token') || sessionStorage.getItem('pass_token') } catch(e) { return null }
                                    })()
 
       const res = await fetch('/api/auth/verify', {
@@ -167,40 +173,51 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
         setAuthMessage(data.error || 'Verification failed');
         setLoading(false);
       } else {
-        // Immediately after the OTP succeeds and session cookie is planted,
-        // evaluate if an invite_token exists in state
-        const tokenToClaim = inviteToken || effectiveInviteToken;
-        if (tokenToClaim) {
+        // When OTP verification succeeds in the client action:
+        // 1. Check sessionStorage.getItem('pending_invite_token')
+        let pendingToken: string | null = null;
+        try {
+          pendingToken = sessionStorage.getItem('pending_invite_token');
+        } catch (e) {}
+
+        if (!pendingToken) {
+          pendingToken = effectiveInviteToken;
+        }
+
+        // 2. If found, execute POST /api/invite/claim with { token } before navigating to /dashboard
+        if (pendingToken) {
           try {
-            await fetch('/api/invite/claim', {
+            const claimRes = await fetch('/api/invite/claim', {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
                 ...(data.session?.access_token ? { 'Authorization': `Bearer ${data.session.access_token}` } : {})
               },
               body: JSON.stringify({ 
-                invite_token: tokenToClaim,
-                token: tokenToClaim,
-                pass: tokenToClaim,
+                token: pendingToken,
+                invite_token: pendingToken,
                 userId: data.user?.id,
                 userEmail: data.user?.email || email
               })
             });
+
+            // 3. Clear token from sessionStorage upon 200 response
+            if (claimRes.ok || claimRes.status === 200) {
+              try {
+                sessionStorage.removeItem('pending_invite_token');
+                sessionStorage.removeItem('invite_token');
+                sessionStorage.removeItem('pass_token');
+                document.cookie = 'invite_token=; path=/; max-age=0';
+                document.cookie = 'pass_token=; path=/; max-age=0';
+                document.cookie = 'pass=; path=/; max-age=0';
+              } catch (e) {}
+            }
           } catch (claimErr) {
             console.error('Error claiming guest pass post-OTP:', claimErr);
           }
         }
 
-        const target = (inviteToken || effectiveInviteToken) ? '/dashboard' : (data.destination || '/dashboard');
-
-        // Clear persisted state
-        try {
-          sessionStorage.removeItem('invite_token');
-          sessionStorage.removeItem('pass_token');
-          document.cookie = 'invite_token=; path=/; max-age=0';
-          document.cookie = 'pass_token=; path=/; max-age=0';
-          document.cookie = 'pass=; path=/; max-age=0';
-        } catch(e) {}
+        const target = pendingToken ? '/dashboard' : (data.destination || '/dashboard');
 
         if (target.includes('/dashboard/experience/')) {
           try {
@@ -211,7 +228,7 @@ function SignInContent({ initialInviteToken }: { initialInviteToken?: string | n
           } catch(e) {}
         }
 
-        // Direct navigation to server-determined destination (drops active users straight to dashboard or Stripe)
+        // Direct navigation to server-determined destination
         window.location.href = target;
       }
     } catch (err: any) {
@@ -331,4 +348,3 @@ export default function SignInFlow({ initialInviteToken }: { initialInviteToken?
     </Suspense>
   )
 }
-

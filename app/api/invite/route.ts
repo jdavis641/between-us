@@ -129,11 +129,18 @@ export async function POST(req: Request) {
     }
 
     // Cleanly matches database schema for public.invitations
+    const passPayload = {
+      boundaries: selectedBoundaries || [],
+      kinks: Array.isArray(kinkSummary) ? kinkSummary : (kinkSummary ? kinkSummary.split('\n\n').filter((k: string) => k.trim()) : []),
+      instructions: instructions || ''
+    };
+
     const insertPayload: Record<string, any> = {
       recipient_identifier: recipientIdentifier,
       invite_token: inviteToken,
       status: 'pending',
-      expires_at: expiresAt.toISOString()
+      expires_at: expiresAt.toISOString(),
+      payload: passPayload
     };
     if (user?.id) {
       insertPayload.sender_id = user.id;
@@ -141,8 +148,13 @@ export async function POST(req: Request) {
 
     const { error: insertError } = await supabase.from("invitations").insert(insertPayload);
     if (insertError) {
-      console.error("Database insert error in invitations:", insertError);
-      throw insertError;
+      console.warn("Retrying invitation insert without payload column:", insertError.message);
+      delete insertPayload.payload;
+      const { error: retryError } = await supabase.from("invitations").insert(insertPayload);
+      if (retryError) {
+        console.error("Database insert error in invitations:", retryError);
+        throw retryError;
+      }
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://betweenusapp.io';
@@ -179,6 +191,7 @@ export async function POST(req: Request) {
     // DISPATCH 1: EMAIL (Resend)
     // ==========================================
     if (recipientEmail) {
+      const sanitizedEmail = recipientEmail.toLowerCase().trim();
       if (process.env.RESEND_API_KEY) {
         try {
           const resend = new Resend(process.env.RESEND_API_KEY);
@@ -199,8 +212,8 @@ export async function POST(req: Request) {
           const emailText = `${alertMessage}\n\nInvite link: ${guestPassUrl}`;
 
           const { error: resendError } = await resend.emails.send({
-            from: 'Between Us Alerts <alerts@betweenusapp.io>',
-            to: recipientEmail,
+            from: 'Between Us <invites@betweenusapp.io>',
+            to: sanitizedEmail,
             subject: emailSubject,
             text: emailText,
             html: emailHtml
@@ -210,9 +223,11 @@ export async function POST(req: Request) {
             dispatchResults.email = true;
           } else {
             console.error("Resend invite email dispatch error:", resendError);
+            return NextResponse.json({ error: resendError.message }, { status: 500 });
           }
-        } catch (resendErr) {
+        } catch (resendErr: any) {
           console.error("Failed to send invite email via Resend:", resendErr);
+          return NextResponse.json({ error: resendErr?.message || "Failed to send email" }, { status: 500 });
         }
       } else {
         console.warn("RESEND_API_KEY not configured. Email dispatch skipped.");
@@ -225,7 +240,6 @@ export async function POST(req: Request) {
     if (targetPhone) {
       if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         try {
-          // Strip any spaces, dashes, or formatting characters and dispatch the exact E.164 string assembled by the frontend UI
           const formattedPhone = cleanTwilioPhone(targetPhone);
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -270,6 +284,12 @@ export async function POST(req: Request) {
 
         const { error: msgErr } = await supabase.from('in_app_messages').insert({
           user_id: recipientUserId,
+          recipient_id: recipientUserId,
+          sender_id: user?.id || null,
+          type: 'guest_pass',
+          title: `Guest Pass from ${senderName}: Instructions & Desires`,
+          body: inboxMessage,
+          payload: passPayload,
           subject: `Guest Pass from ${senderName}: Instructions & Desires`,
           message: inboxMessage,
           is_read: false

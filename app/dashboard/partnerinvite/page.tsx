@@ -10,8 +10,10 @@ export default function InvitePartnerPage() {
   const [searchValue, setSearchValue] = useState('')
   const [foundUser, setFoundUser] = useState<any>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [isSending, setIsSending] = useState(false)
   const [liabilityChecked, setLiabilityChecked] = useState(false)
   const [inviteSent, setInviteSent] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [boundaries, setBoundaries] = useState<string[]>([])
   const [customKinks, setCustomKinks] = useState<any[]>([])
@@ -58,9 +60,9 @@ export default function InvitePartnerPage() {
     const searchTerm = searchValue.trim()
     if (!searchTerm) return
     setIsSearching(true)
+    setErrorMessage(null)
 
     const cleanTerm = searchTerm.trim()
-    // Sanitize phone number input so digits can match whether the user types +1, parentheses, or hyphens
     const digitsOnly = cleanTerm.replace(/\D/g, '')
 
     let partner: any = null
@@ -99,7 +101,7 @@ export default function InvitePartnerPage() {
 
     if (partner) {
       const displayName = partner.anonymous_alias || partner.nickname || partner.email || partner.mobile_number || searchTerm
-      setFoundUser({ id: partner.id, username: displayName })
+      setFoundUser({ id: partner.id, username: displayName, email: partner.email })
     } else {
       setFoundUser(null)
       alert("Partner not found. Please verify the username, email, or phone number.")
@@ -108,53 +110,41 @@ export default function InvitePartnerPage() {
   }
 
   const handleSendInvite = async () => {
-    if (!foundUser) return
+    if (!foundUser || isSending) return
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    // Create persistent connection group
-    const { data: group } = await supabase.from('connection_groups').insert({
-      group_type: 'couple'
-    }).select().maybeSingle()
+    setIsSending(true)
+    setErrorMessage(null)
 
-    if (group) {
-      // Add current user
-      await supabase.from('group_members').insert({
-        group_id: group.id,
-        user_id: session.user.id,
-        role: 'member',
-        preferences_shared: JSON.stringify({ boundaries: selectedTags, kinks: selectedKinks })
-      })
-
-      // Add target user
-      await supabase.from('group_members').insert({
-        group_id: group.id,
-        user_id: foundUser.id,
-        role: 'member',
-        preferences_shared: JSON.stringify({})
-      })
-
-      // Deliver internal app inbox message to partner
-      try {
-        const { data: myProfile } = await supabase
-          .from('profiles')
-          .select('nickname, anonymous_alias')
-          .eq('id', session.user.id)
-          .maybeSingle()
-        const myName = myProfile?.nickname || myProfile?.anonymous_alias || 'Your Partner'
-
-        await supabase.from('in_app_messages').insert({
-          user_id: foundUser.id,
-          subject: `Partner Connection Request from ${myName}`,
-          message: `${myName} has linked their account with you and shared intimacy boundaries and desires. Visit your dashboard to review and connect!`,
-          is_read: false
+    try {
+      const res = await fetch('/api/invite/partner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          partnerId: foundUser.id,
+          partnerEmail: foundUser.email || (searchMethod === 'email' ? searchValue.trim() : undefined),
+          searchTerm: searchValue.trim(),
+          selectedBoundaries: selectedTags,
+          selectedKinks: selectedKinks
         })
-      } catch (inboxErr) {
-        console.warn("Could not deliver partner invite inbox message:", inboxErr)
-      }
-    }
+      });
 
-    setInviteSent(true)
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to dispatch Between Us Pass email.");
+      }
+
+      setInviteSent(true);
+    } catch (err: any) {
+      console.error("Partner invite dispatch error:", err);
+      setErrorMessage(err.message || "Failed to send Between Us Pass. Please verify the partner email address and try again.");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   const toggleTag = (tag: string) => {
@@ -200,7 +190,7 @@ export default function InvitePartnerPage() {
                 <button 
                   onClick={handleSearch}
                   disabled={isSearching || !searchValue}
-                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isSearching ? 'Searching...' : 'Search'}
                 </button>
@@ -253,19 +243,32 @@ export default function InvitePartnerPage() {
                     id="liability-consent"
                     checked={liabilityChecked}
                     onChange={(e) => setLiabilityChecked(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-950"
+                    className="mt-1 w-4 h-4 rounded border-zinc-700 text-red-600 focus:ring-red-500 bg-zinc-950 cursor-pointer"
                   />
-                  <label htmlFor="liability-consent" className="text-sm text-zinc-400">
-                    I understand that I am securely linking my profile to <strong>{foundUser.username}</strong> to compute our shared boundaries.
+                  <label htmlFor="liability-consent" className="text-sm text-zinc-400 cursor-pointer">
+                    I understand that I am securely linking my profile to <strong>{foundUser.username}</strong> and dispatching an email notification with my Between Us Pass.
                   </label>
                 </div>
 
+                {errorMessage && (
+                  <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 text-xs">
+                    {errorMessage}
+                  </div>
+                )}
+
                 <button 
                   onClick={handleSendInvite}
-                  disabled={!liabilityChecked}
-                  className="w-full py-3 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                  disabled={!liabilityChecked || isSending}
+                  className="w-full py-3 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Link Accounts
+                  {isSending ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping mr-1" />
+                      Sending Between Us Pass...
+                    </>
+                  ) : (
+                    'Send Between Us Pass & Link Accounts'
+                  )}
                 </button>
               </div>
             )}
@@ -275,11 +278,11 @@ export default function InvitePartnerPage() {
             <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Link Request Sent!</h2>
-            <p className="text-zinc-400 mb-6">Your partner has been notified. Once they accept, your boundaries will be securely computed.</p>
+            <h2 className="text-2xl font-bold mb-2">Between Us Pass Sent!</h2>
+            <p className="text-zinc-400 mb-6">An invitation email has been delivered to your partner. Once they accept, your boundaries will be securely computed.</p>
             <button 
-              onClick={() => { setInviteSent(false); setFoundUser(null); setSearchValue(''); setLiabilityChecked(false); }}
-              className="text-zinc-400 hover:text-white underline text-sm transition-colors"
+              onClick={() => { setInviteSent(false); setFoundUser(null); setSearchValue(''); setLiabilityChecked(false); setErrorMessage(null); }}
+              className="text-zinc-400 hover:text-white underline text-sm transition-colors cursor-pointer"
             >
               Link another account
             </button>

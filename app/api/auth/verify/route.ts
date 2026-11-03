@@ -228,6 +228,17 @@ export async function POST(req: Request) {
               `This pass gives you access to explore curated experiences together. Head to the dashboard to begin!`;
 
             await supabaseAdmin.from('in_app_messages').insert({
+              recipient_id: data.user.id,
+              sender_id: senderId,
+              type: 'guest_pass',
+              title: 'Between Us Guest Pass Received',
+              body: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
+              payload: rawPayload || {
+                boundaries: boundariesText,
+                kinks: kinksText,
+                instructions: instructionsText,
+                token: effectivePassToken
+              },
               user_id: data.user.id,
               subject: subjectTitle,
               message: formattedMessage,

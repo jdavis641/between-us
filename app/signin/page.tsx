@@ -8,6 +8,7 @@ function SignInPageContent() {
   const searchParams = useSearchParams();
   const [inviteToken, setInviteToken] = useState<string | null>(() => {
     return searchParams.get('invite_token') || 
+           searchParams.get('pass_id') || 
            searchParams.get('token') || 
            searchParams.get('pass') || 
            searchParams.get('pass_token');
@@ -15,12 +16,14 @@ function SignInPageContent() {
 
   useEffect(() => {
     const token = searchParams.get('invite_token') || 
+                  searchParams.get('pass_id') || 
                   searchParams.get('token') || 
                   searchParams.get('pass') || 
                   searchParams.get('pass_token');
     if (token) {
       setInviteToken(token);
       try {
+        sessionStorage.setItem('pending_invite_token', token);
         sessionStorage.setItem('invite_token', token);
         sessionStorage.setItem('pass_token', token);
         document.cookie = `invite_token=${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax`;

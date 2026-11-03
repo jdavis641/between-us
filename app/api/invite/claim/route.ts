@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const token = body.invite_token || body.token || body.pass || body.pass_token;
+    const token = body.token || body.invite_token || body.pass || body.pass_token;
 
     if (!token) {
       return NextResponse.json({ error: "Missing invitation token" }, { status: 400 });
@@ -18,17 +18,22 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const authSupabase = await createServerClient();
-    let { data: { user } } = await authSupabase.auth.getUser();
+    let user: any = null;
+    try {
+      const authSupabase = await createServerClient();
+      user = (await authSupabase.auth.getUser()).data?.user || null;
+    } catch {}
 
     const authHeader = req.headers.get('Authorization');
     const explicitToken = authHeader?.replace('Bearer ', '')?.trim();
     if (!user && explicitToken && explicitToken !== 'undefined' && explicitToken !== 'null') {
-      const tokenRes = await authSupabase.auth.getUser(explicitToken);
-      user = tokenRes.data?.user || null;
+      try {
+        const tokenRes = await supabaseAdmin.auth.getUser(explicitToken);
+        user = tokenRes.data?.user || null;
+      } catch {}
     }
 
-    // Fallback user resolution from body if cookies are still hydrating
+    // Fallback user resolution from body if cookies/tokens are still hydrating
     if (!user && (body.userId || body.user_id)) {
       const targetId = body.userId || body.user_id;
       const { data: adminUser } = await supabaseAdmin.auth.admin.getUserById(targetId);
@@ -72,8 +77,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "This guest pass has expired." }, { status: 410 });
     }
 
-    // 2. Resolve sender information and extract the secure JSON payload
-    const senderId = invitation.sender_id || invitation.creator_id;
+    // 2. Resolve sender information and extract boundaries, kinks, and instructions
+    const senderId = invitation.sender_id || (invitation as any).creator_id;
     let senderName = "Your Partner";
     let boundariesText = "Standard intimate boundaries";
     let kinksText = "None specified";
@@ -86,6 +91,8 @@ export async function POST(req: Request) {
         const parsed = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
         if (Array.isArray(parsed.boundaries) && parsed.boundaries.length > 0) {
           boundariesText = parsed.boundaries.join(', ');
+        } else if (typeof parsed.boundaries === 'string' && parsed.boundaries.trim()) {
+          boundariesText = parsed.boundaries.trim();
         }
         if (Array.isArray(parsed.kinks) && parsed.kinks.length > 0) {
           kinksText = parsed.kinks.join(', ');
@@ -109,7 +116,7 @@ export async function POST(req: Request) {
         senderName = senderProfile.nickname || senderProfile.anonymous_alias;
       }
 
-      // Extract secure JSON payload from sender's Guest Pass Config in intimacy_preferences
+      // Extract secure JSON payload from sender's Guest Pass Config in intimacy_preferences if not already present
       if (boundariesText === "Standard intimate boundaries" && instructionsText === "No special instructions provided.") {
         const { data: prefRow } = await supabaseAdmin
           .from('intimacy_preferences')
@@ -141,7 +148,15 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Update invitation status column to 'claimed'
+    if (invitation.status === 'claimed') {
+      return NextResponse.json({
+        success: true,
+        message: "Guest pass already claimed.",
+        sender: senderName
+      }, { status: 200 });
+    }
+
+    // 3. Mark the invitation status as 'claimed'
     await supabaseAdmin
       .from('invitations')
       .update({ status: 'claimed' })
@@ -154,35 +169,36 @@ export async function POST(req: Request) {
       is_active: true
     }, { onConflict: 'id' });
 
-    // 5. Execute INSERT INTO public.in_app_messages to physically deliver payload into recipient's inbox
-    const subjectTitle = `Guest Pass from ${senderName}: Instructions & Desires`;
-    const formattedMessage = `You have accepted a Guest Pass from ${senderName}!\n\n` +
-      `SHARED BOUNDARIES:\n${boundariesText}\n\n` +
-      `SHARED DESIRES & KINKS:\n${kinksText}\n\n` +
-      `GUEST INSTRUCTIONS & CHEAT CODES:\n"${instructionsText}"\n\n` +
-      `This pass gives you access to explore curated experiences together. Head to the dashboard to begin!`;
+    // 5. Construct payload
+    const effectivePayload = invitation.payload && typeof invitation.payload === 'object' && Object.keys(invitation.payload).length > 0
+      ? invitation.payload
+      : (rawPayload || {
+          boundaries: boundariesText,
+          kinks: kinksText,
+          instructions: instructionsText,
+          token: token,
+          claimed_at: new Date().toISOString()
+        });
 
-    const { data: existingMsg } = await supabaseAdmin
-      .from('in_app_messages')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('subject', subjectTitle)
-      .maybeSingle();
-
-    if (!existingMsg) {
-      await supabaseAdmin.from('in_app_messages').insert({
-        user_id: user.id,
-        subject: subjectTitle,
-        message: formattedMessage,
-        is_read: false
-      });
-    }
+    // 6. Insert an entry into public.in_app_messages for the authenticated recipient
+    await supabaseAdmin.from('in_app_messages').insert({
+      recipient_id: user.id,
+      sender_id: invitation.sender_id || (invitation as any).creator_id || null,
+      type: 'guest_pass',
+      title: 'Between Us Guest Pass Received',
+      body: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
+      payload: effectivePayload,
+      user_id: user.id,
+      subject: 'Between Us Guest Pass Received',
+      message: 'Your partner has shared private instructions and boundaries for your upcoming encounter.',
+      is_read: false
+    });
 
     return NextResponse.json({
       success: true,
       message: "Guest pass claimed successfully. Instructions delivered to your inbox.",
       sender: senderName
-    });
+    }, { status: 200 });
   } catch (error: any) {
     console.error("Error claiming guest pass:", error);
     return NextResponse.json({ error: error.message || "Failed to claim guest pass" }, { status: 500 });
@@ -196,7 +212,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing invitation token" }, { status: 400 });
   }
 
-  // Create simulated POST request
   const dummyReq = new Request(req.url, {
     method: 'POST',
     headers: req.headers,

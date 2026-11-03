@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
     const { email, inviteType, token } = await req.json();
 
+    if (!email || !token) {
+      return NextResponse.json({ error: "Missing email or token." }, { status: 400 });
+    }
+
+    const sanitizedEmail = String(email).toLowerCase().trim();
     const joinLink = `https://betweenusapp.io/join?token=${token}`;
     let emailBody = "";
 
@@ -13,22 +21,29 @@ export async function POST(req: Request) {
       emailBody = `Hey! Let's connect on Between Us to share our boundaries and curiosities in a private, judgement-free setting. This app allows us to securely communicate our preferences to ensure everyone is on the same page and comfortable. This single-use link will expire as soon as you click it so it cannot be shared with anyone else.\n\nJoin here: ${joinLink}`;
     }
 
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const { Resend } = await import('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: 'Between Us Alerts <alerts@betweenusapp.io>',
-          to: email,
-          subject: "Between Us: New Notification",
-          text: emailBody,
-          html: `<div><p>${emailBody.replace(/\n\n/g, '</p><p>')}</p><p><a href="${joinLink}">Join here: ${joinLink}</a></p></div>`
-        });
-      } catch (err) {
-        console.error("Failed to send invite via Resend:", err);
-      }
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is not configured.");
+      return NextResponse.json(
+        { error: "Email delivery service not configured on server (missing RESEND_API_KEY)." },
+        { status: 500 }
+      );
     }
-    console.log(`[Email Dispatcher] Sent to: ${email}`);
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error: resendError } = await resend.emails.send({
+      from: 'Between Us <invites@betweenusapp.io>',
+      to: sanitizedEmail,
+      subject: "Between Us: New Notification",
+      text: emailBody,
+      html: `<div><p>${emailBody.replace(/\n\n/g, '</p><p>')}</p><p><a href="${joinLink}">Join here: ${joinLink}</a></p></div>`
+    });
+
+    if (resendError) {
+      console.error("Resend invite send error:", resendError);
+      return NextResponse.json({ error: resendError.message }, { status: 500 });
+    }
+
+    console.log(`[Email Dispatcher] Sent to: ${sanitizedEmail}`);
 
     return NextResponse.json({ success: true, message: "Invite sent successfully" });
   } catch (error: any) {
